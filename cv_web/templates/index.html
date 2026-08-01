@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CV Wrapper</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="title-wrap">
+        <h1>CV Wrapper</h1>
+        <p>Edit sources, run generation or formatting, and preview PDF output.</p>
+      </div>
+      <div class="actions">
+        <button id="refreshDiskBtn" class="btn btn-secondary">Reload from Disk</button>
+        <button id="saveBtn" class="btn btn-secondary">Save Files</button>
+        <button id="runFormatBtn" class="btn btn-primary">Run Formatting Only</button>
+        <button id="runFullBtn" class="btn btn-primary">Run Full Pipeline</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="editor-pane">
+        <div class="status-row">
+          <span id="statusText">Loading...</span>
+          <button id="toggleLogsBtn" class="btn btn-ghost">Show Logs</button>
+        </div>
+
+        <div class="editors">
+          <label for="cvEditor">CV.md</label>
+          <textarea id="cvEditor" spellcheck="false"></textarea>
+
+          <label for="promptEditor">prompt.md</label>
+          <textarea id="promptEditor" spellcheck="false"></textarea>
+
+          <label for="jobspecEditor">jobspec.txt</label>
+          <textarea id="jobspecEditor" spellcheck="false"></textarea>
+        </div>
+
+        <section id="logsPanel" class="logs hidden">
+          <div class="logs-header">
+            <strong>Logs</strong>
+            <div class="logs-controls">
+              <button id="refreshLogsBtn" class="btn btn-secondary">Refresh Logs</button>
+              <select id="logSelect">
+                <option value="">Select debug log...</option>
+              </select>
+            </div>
+          </div>
+          <pre id="runLogOutput">No logs yet.</pre>
+          <pre id="debugLogOutput">Select a debug log to view its content.</pre>
+        </section>
+      </section>
+
+      <aside class="preview-pane">
+        <div class="preview-header">
+          <strong>PDF Preview</strong>
+          <a href="/output/tailored_dev.pdf" target="_blank" rel="noopener">Open in New Tab</a>
+        </div>
+        <iframe id="pdfPreview" title="PDF Preview" src="/output/tailored_dev.pdf"></iframe>
+      </aside>
+    </main>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
