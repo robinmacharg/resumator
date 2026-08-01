@@ -33,6 +33,8 @@ The semantic_tags map MUST include these keys exactly:
 - project_item
 - education_item
 - summary_paragraph
+- role_requirements_heading
+- role_requirements_item
 
 Part B: Tagged markdown body.
 
@@ -50,6 +52,8 @@ Use the following inline tag prefixes exactly where appropriate:
 - [project_item]
 - [education_item]
 - [summary_paragraph]
+- [role_requirements_heading]
+- [role_requirements_item]
 
 Formatting and structure requirements:
 
@@ -77,5 +81,13 @@ Formatting and structure requirements:
 13. Keep each summary paragraph to 1-2 lines where possible; longer is acceptable if needed.
 14. Summary paragraphs are intended to render as fully italicized in final output, with the front-loaded focus phrase bolded.
 15. Do NOT add additional italic markdown inside [summary_paragraph] content; only the front-loaded bold phrase should use markdown emphasis.
+16. Immediately after the Professional Summary, add a role-targeted highlights subsection with one [role_requirements_heading] line and 4-6 [role_requirements_item] lines. This section is mandatory.
+17. The [role_requirements_heading] value MUST be dynamic and directly reflect the job specification priorities (example for this role: AI / Leadership Highlights).
+18. Each [role_requirements_item] must be a markdown bullet point beginning with a bold front-loaded phrase, for example: [role_requirements_item] - **Academic AI Foundation:** ...
+19. Role-targeted highlight bullets must be grounded in CV evidence and explicitly aligned to role requirements.
+20. Do NOT hardcode the example heading or bullet content unless it is genuinely supported by the input CV and job specification.
+21. Required placement order in body: all [summary_paragraph] lines first, then [role_requirements_heading], then [role_requirements_item] lines.
+22. If job requirements emphasize AI and leadership, prefer a heading in the form "AI / Leadership Highlights".
+23. Do not emit this subsection as plain markdown without semantic tags; you must use [role_requirements_heading] and [role_requirements_item].
 
 Do not output explanations or analysis. Return only the final markdown document.

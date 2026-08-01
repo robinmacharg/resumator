@@ -52,6 +52,15 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
     def typst_escape(text: str) -> str:
         return text.replace("\\", "\\\\").replace('"', '\\"')
 
+    def typst_content_escape(text: str) -> str:
+        """Escape content that will be inserted into Typst content blocks."""
+        return (
+            text.replace("\\", "\\\\")
+            .replace("[", "\\[")
+            .replace("]", "\\]")
+            .replace("#", "\\#")
+        )
+
     def normalize_summary_markdown(text: str) -> str:
         """Keep bold markers while removing single-asterisk emphasis.
 
@@ -90,6 +99,16 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
             return match.group(0)
 
         return pattern.sub(repl, text)
+
+    def extract_tag_payload(line_text: str, tag: str) -> str | None:
+        """Extract payload for semantic tags, allowing optional list markers."""
+        match = re.match(rf"^(?:[-*+]\s+)?\[{re.escape(tag)}\]\s*(.*)$", line_text)
+        if not match:
+            return None
+
+        payload = match.group(1).strip()
+        payload = re.sub(r"^[-*+]\s+", "", payload).strip()
+        return payload
 
     def emit_pdf_centered_with_links(tag: str, text: str) -> list[str]:
         style = pdf_tag_styles[tag]
@@ -181,6 +200,67 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
             "",
         ]
 
+    def emit_pdf_role_requirements_heading(text: str) -> list[str]:
+        escaped_text = typst_escape(text)
+        return [
+            "```{=typst}",
+            f"#text(9pt, weight: \"bold\")[{escaped_text}]",
+            "#parbreak()",
+            "```",
+            "",
+        ]
+
+    def split_frontloaded_bold(text: str) -> tuple[str | None, str]:
+        match = re.match(r"^\*\*(.+?)\*\*\s*(.*)$", text)
+        if not match:
+            return None, text
+        return match.group(1).strip(), match.group(2).strip()
+
+    def emit_pdf_summary_paragraph(text: str) -> list[str]:
+        lead, rest = split_frontloaded_bold(text)
+        rest_content = typst_content_escape(rest)
+        if lead:
+            lead_content = typst_content_escape(lead)
+            summary_content = (
+                f"#strong[{lead_content}]"
+                + (f" {rest_content}" if rest_content else "")
+            )
+        else:
+            summary_content = typst_content_escape(text)
+
+        return [
+            "```{=typst}",
+            f"#text(10pt)[#emph[{summary_content}]]",
+            "#parbreak()",
+            "```",
+            "",
+        ]
+
+    def emit_pdf_role_requirements_item(text: str) -> list[str]:
+        item_text = text[1:].strip() if text.startswith("-") else text
+        lead, rest = split_frontloaded_bold(item_text)
+        if lead:
+            lead_content = typst_content_escape(lead)
+            rest_content = typst_content_escape(rest)
+            item_content = f"#strong[{lead_content}]" + (f" {rest_content}" if rest_content else "")
+        else:
+            item_content = typst_content_escape(item_text)
+
+        return [
+            "```{=typst}",
+            "#set text(9pt)",
+            "#table(",
+            "  columns: (auto, 1fr),",
+            "  inset: 0pt,",
+            "  stroke: none,",
+            "  column-gutter: 0.45em,",
+            "  [•],",
+            f"  [{item_content}],",
+            ")",
+            "#parbreak()",
+            "```",
+        ]
+
     for line in markdown_text.splitlines():
         stripped = line.strip()
 
@@ -212,6 +292,32 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
                     transformed_lines.append(contact_text)
                 continue
 
+        keywords_text = extract_tag_payload(stripped, "keywords")
+        if keywords_text is not None:
+            transformed_lines.append(keywords_text)
+            transformed_lines.append("")
+            continue
+
+        bullet_primary_text = extract_tag_payload(stripped, "bullet_primary")
+        if bullet_primary_text is not None:
+            transformed_lines.append(f"- {bullet_primary_text}")
+            continue
+
+        bullet_secondary_text = extract_tag_payload(stripped, "bullet_secondary")
+        if bullet_secondary_text is not None:
+            transformed_lines.append(f"- {bullet_secondary_text}")
+            continue
+
+        project_item_text = extract_tag_payload(stripped, "project_item")
+        if project_item_text is not None:
+            transformed_lines.append(f"- {project_item_text}")
+            continue
+
+        education_item_text = extract_tag_payload(stripped, "education_item")
+        if education_item_text is not None:
+            transformed_lines.append(f"- {education_item_text}")
+            continue
+
         section_match = re.match(r"^#+\s+\[section_heading\]\s*(.+)$", stripped)
         if section_match:
             heading_text = section_match.group(1).strip()
@@ -242,8 +348,32 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         summary_match = re.match(r"^\[summary_paragraph\]\s*(.+)$", stripped)
         if summary_match:
             summary_text = normalize_summary_markdown(summary_match.group(1).strip())
-            transformed_lines.append(f"*{summary_text}*")
-            transformed_lines.append("")
+            if target == "pdf":
+                transformed_lines.extend(emit_pdf_summary_paragraph(summary_text))
+            else:
+                transformed_lines.append(f"*{summary_text}*")
+                transformed_lines.append("")
+            continue
+
+        requirements_heading_match = re.match(r"^\[role_requirements_heading\]\s*(.+)$", stripped)
+        if requirements_heading_match:
+            heading_text = re.sub(r"^#+\s*", "", requirements_heading_match.group(1).strip())
+            if target == "pdf":
+                transformed_lines.extend(emit_pdf_role_requirements_heading(heading_text))
+            else:
+                transformed_lines.append(f"**{heading_text}**")
+                transformed_lines.append("")
+            continue
+
+        requirements_item_match = re.match(r"^\[role_requirements_item\]\s*(.+)$", stripped)
+        if requirements_item_match:
+            item_text = requirements_item_match.group(1).strip()
+            if target == "pdf":
+                transformed_lines.extend(emit_pdf_role_requirements_item(item_text))
+            elif item_text.startswith("-"):
+                transformed_lines.append(item_text)
+            else:
+                transformed_lines.append(f"- {item_text}")
             continue
 
         transformed_lines.append(line)
@@ -338,6 +468,8 @@ def compile_docx(markdown_file: Path, output_docx: Path, font_name: str) -> bool
     if not shutil.which("pandoc"):
         return False
 
+    page_margin = "1.5cm"
+
     try:
         subprocess.run(
             [
@@ -349,6 +481,16 @@ def compile_docx(markdown_file: Path, output_docx: Path, font_name: str) -> bool
                 f"mainfont={font_name}",
                 "-V",
                 f"sansfont={font_name}",
+                "-V",
+                f"margin={page_margin}",
+                "-V",
+                f"margin-left={page_margin}",
+                "-V",
+                f"margin-right={page_margin}",
+                "-V",
+                f"margin-top={page_margin}",
+                "-V",
+                f"margin-bottom={page_margin}",
             ],
             check=True,
             text=True,
@@ -384,6 +526,9 @@ def convert_markdown_outputs(
 
     pdf_markdown_text = apply_semantic_tag_formatting(markdown_text, target="pdf")
     pdf_export_text, pdf_stripped_frontmatter = strip_yaml_frontmatter(pdf_markdown_text)
+    # Force uniform page margins for Typst-generated PDFs.
+    pdf_margin_header = "```{=typst}\n#set page(margin: 1.5cm)\n```\n\n"
+    pdf_export_text = pdf_margin_header + pdf_export_text
     pdf_export_path = sanitized_markdown_path or markdown_path.with_suffix(".export.md")
     pdf_export_path.write_text(pdf_export_text + "\n", encoding="utf-8")
 
