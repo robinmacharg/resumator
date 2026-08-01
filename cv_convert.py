@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -51,6 +52,91 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
     def typst_escape(text: str) -> str:
         return text.replace("\\", "\\\\").replace('"', '\\"')
 
+    def normalize_summary_markdown(text: str) -> str:
+        """Keep bold markers while removing single-asterisk emphasis.
+
+        Summary paragraphs are rendered with whole-line italics by the
+        converter, so any incidental inline italics from generation should be
+        stripped to avoid malformed emphasis like "****...***".
+        """
+        protected = text.replace("**", "__BOLD_MARKER__")
+        deitalicized = protected.replace("*", "")
+        return deitalicized.replace("__BOLD_MARKER__", "**").strip()
+
+    def normalize_tel_url(url: str) -> str:
+        phone = url[4:]
+        phone = phone.replace("%2B", "+").replace("%2b", "+")
+        return phone
+
+    def normalize_candidate_contact_text(text: str) -> str:
+        """Ensure phone values are explicit text, not tel links."""
+        pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+
+        def repl(match: re.Match[str]) -> str:
+            label = match.group(1).strip()
+            url = match.group(2).strip()
+            if url.lower().startswith("mailto:"):
+                email_value = url.split(":", 1)[1].strip()
+                if "@" in email_value:
+                    if label.lower() == "email" or "@" not in label:
+                        return f"[{email_value}](mailto:{email_value})"
+                return match.group(0)
+
+            if url.lower().startswith("tel:"):
+                phone = normalize_tel_url(url)
+                if any(ch.isdigit() for ch in label):
+                    return label
+                return phone
+            return match.group(0)
+
+        return pattern.sub(repl, text)
+
+    def emit_pdf_centered_with_links(tag: str, text: str) -> list[str]:
+        style = pdf_tag_styles[tag]
+        parts: list[str] = []
+        text = normalize_candidate_contact_text(text)
+        pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+        cursor = 0
+
+        for match in pattern.finditer(text):
+            prefix = text[cursor : match.start()]
+            if prefix:
+                parts.append(f"#text(\"{typst_escape(prefix)}\")")
+
+            label = typst_escape(match.group(1))
+            raw_url = match.group(2)
+            is_mailto = raw_url.lower().startswith("mailto:")
+            if raw_url.lower().startswith("mailto:"):
+                raw_url = raw_url.replace("@", "%40")
+            url = typst_escape(raw_url)
+            if is_mailto:
+                # Keep email clickable, but use normal text styling.
+                parts.append(f"#link(\"{url}\")[#text(\"{label}\")]")
+            else:
+                # Social/web links remain visibly clickable.
+                parts.append(
+                    f"#link(\"{url}\")[#underline[#text(fill: rgb(\"#0563C1\"))[#text(\"{label}\")]]]"
+                )
+            cursor = match.end()
+
+        suffix = text[cursor:]
+        if suffix:
+            parts.append(f"#text(\"{typst_escape(suffix)}\")")
+
+        if not parts:
+            parts = [f"#text(\"{typst_escape(text)}\")"]
+
+        return [
+            "```{=typst}",
+            "#align(center)[",
+            f"  #set text({style['size']}, weight: \"{style['weight']}\")",
+            "  " + " ".join(parts),
+            "]",
+            "#parbreak()",
+            "```",
+            "",
+        ]
+
     def emit_pdf_centered(tag: str, text: str) -> list[str]:
         style = pdf_tag_styles[tag]
         escaped_text = typst_escape(text)
@@ -60,7 +146,39 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
             f"  #set text({style['size']}, weight: \"{style['weight']}\")",
             f"  #text(\"{escaped_text}\")",
             "]",
+            "#parbreak()",
             "```",
+            "",
+        ]
+
+    def emit_pdf_section_heading(text: str) -> list[str]:
+        escaped_text = typst_escape(text)
+        return [
+            "```{=typst}",
+            f"#text(12pt, weight: \"bold\")[{escaped_text}]",
+            "#parbreak()",
+            "```",
+            "",
+        ]
+
+    def emit_pdf_role_heading(text: str) -> list[str]:
+        escaped_text = typst_escape(text)
+        return [
+            "```{=typst}",
+            f"#text(10pt, weight: \"bold\")[{escaped_text}]",
+            "#parbreak()",
+            "```",
+            "",
+        ]
+
+    def emit_pdf_date_range(text: str) -> list[str]:
+        escaped_text = typst_escape(text)
+        return [
+            "```{=typst}",
+            f"#text(9pt)[{escaped_text}]",
+            "#parbreak()",
+            "```",
+            "",
         ]
 
     for line in markdown_text.splitlines():
@@ -87,11 +205,46 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         if stripped.startswith("[candidate_contact]"):
             contact_text = stripped[len("[candidate_contact]") :].strip()
             if contact_text:
+                contact_text = normalize_candidate_contact_text(contact_text)
                 if target == "pdf":
-                    transformed_lines.extend(emit_pdf_centered("candidate_contact", contact_text))
+                    transformed_lines.extend(emit_pdf_centered_with_links("candidate_contact", contact_text))
                 else:
                     transformed_lines.append(contact_text)
                 continue
+
+        section_match = re.match(r"^#+\s+\[section_heading\]\s*(.+)$", stripped)
+        if section_match:
+            heading_text = section_match.group(1).strip()
+            if target == "pdf":
+                transformed_lines.extend(emit_pdf_section_heading(heading_text))
+            else:
+                transformed_lines.append(f"**{heading_text}**")
+            continue
+
+        role_match = re.match(r"^##\s+\[role_heading\]\s*(.+)$", stripped)
+        if role_match:
+            role_text = role_match.group(1).strip()
+            if target == "pdf":
+                transformed_lines.extend(emit_pdf_role_heading(role_text))
+            else:
+                transformed_lines.append(f"**{role_text}**")
+            continue
+
+        date_match = re.match(r"^\[date_range\]\s*(.+)$", stripped)
+        if date_match:
+            date_text = date_match.group(1).strip()
+            if target == "pdf":
+                transformed_lines.extend(emit_pdf_date_range(date_text))
+            else:
+                transformed_lines.append(date_text)
+            continue
+
+        summary_match = re.match(r"^\[summary_paragraph\]\s*(.+)$", stripped)
+        if summary_match:
+            summary_text = normalize_summary_markdown(summary_match.group(1).strip())
+            transformed_lines.append(f"*{summary_text}*")
+            transformed_lines.append("")
+            continue
 
         transformed_lines.append(line)
 
@@ -265,13 +418,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--pdf",
-        default="tailored.pdf",
-        help="Output PDF path (default: tailored.pdf)",
+        default="tailored_dev.pdf",
+        help="Output PDF path (default: tailored_dev.pdf)",
     )
     parser.add_argument(
         "--docx",
-        default="tailored.docx",
-        help="Output DOCX path (default: tailored.docx)",
+        default="tailored_dev.docx",
+        help="Output DOCX path (default: tailored_dev.docx)",
     )
     parser.add_argument(
         "--sanitized-markdown",
