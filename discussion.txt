@@ -1,0 +1,130 @@
+ARCHITECTURE & TASK BRIEF
+Goal
+Build a single, zero-dependency Python script (generate_cv.py) that acts as a local CV projection pipeline:
+
+Reads CV.md (master record) and jobspec.txt (target description).
+
+Sends a prompt to the official gemini CLI tool non-interactively to generate tailored Markdown output (tailored.md).
+
+Compiles tailored.md into tailored.pdf in the current working directory using a simple system tool (pandoc or typst).
+
+1. Input Files Needed in Working Directory
+CV.md: Master career database (Markdown with frontmatter metadata).
+
+jobspec.txt: Plaintext job requirements.
+
+generate_cv.py: Executable automation script.
+
+2. Gemini CLI Non-Interactive Mechanics
+The script will invoke the gemini CLI via a subprocess call.
+
+Because gemini CLI reads context directly from local files or stdin, the Python script constructs a single prompt string incorporating both input files, pipes it to gemini CLI, and captures stdout.
+
+[ CV.md ] + [ jobspec.txt ] + System Rules ──► `gemini` CLI ──► tailored.md ──► Pandoc/Typst ──► tailored.pdf
+
+3. Python Proof of Concept (generate_cv.py)
+Here is the exact implementation script for the agent to output:
+
+Python
+#!/usr/bin/env python3
+import subprocess
+import sys
+import shutil
+from pathlib import Path
+
+# File paths in current working directory
+CV_FILE = Path("CV.md")
+JOBSPEC_FILE = Path("jobspec.txt")
+TAILORED_MD = Path("tailored.md")
+OUTPUT_PDF = Path("tailored.pdf")
+
+# System Prompt given to Gemini
+PROMPT_TEMPLATE = """
+You are a CV Projection Engine. You receive a Master CV and a Job Specification.
+Your job is to emit a tailored Markdown CV optimized for the Job Specification.
+
+CONSTRAINTS:
+1. Do NOT invent new employers, dates, or metrics.
+2. Filter bullet points in recent roles to prioritize key skills requested in the Job Spec.
+3. Keep recent roles (2020-Present) as targeted bullet points.
+4. Keep older roles summarized concisely.
+5. Extract and update the Skills section to directly highlight matching target technologies.
+6. Return ONLY standard GitHub-Flavored Markdown. Do NOT include markdown code-block wrappers like ```markdown.
+
+=== MASTER CV ===
+{cv_content}
+
+=== JOB SPECIFICATION ===
+{jobspec_content}
+"""
+
+def main():
+    # 1. Verify files exist
+    if not CV_FILE.exists() or not JOBSPEC_FILE.exists():
+        print(f"Error: Ensure both {CV_FILE} and {JOBSPEC_FILE} exist in directory.", file=sys.stderr)
+        sys.exit(1)
+
+    # 2. Verify gemini CLI is installed
+    if not shutil.which("gemini"):
+        print("Error: 'gemini' CLI tool not found. Install via: npm install -g @google/gemini-cli", file=sys.stderr)
+        sys.exit(1)
+
+    print("Reading inputs...")
+    cv_content = CV_FILE.read_text(encoding="utf-8")
+    jobspec_content = JOBSPEC_FILE.read_text(encoding="utf-8")
+
+    # 3. Formulate Prompt
+    full_prompt = PROMPT_TEMPLATE.format(
+        cv_content=cv_content, 
+        jobspec_content=jobspec_content
+    )
+
+    print("Invoking Gemini CLI to project CV...")
+    # Run gemini non-interactively using stdin/stdout
+    try:
+        process = subprocess.run(
+            ["gemini"],
+            input=full_prompt,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        tailored_markdown = process.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        print(f"Gemini CLI execution failed: {e.stderr}", file=sys.stderr)
+        sys.exit(1)
+
+    # Save tailored markdown
+    TAILORED_MD.write_text(tailored_markdown, encoding="utf-8")
+    print(f"Generated intermediate markdown: {TAILORED_MD}")
+
+    # 4. Compile to PDF (Tries Typst or Pandoc as lightweight compiler)
+    print("Compiling PDF...")
+    if shutil.which("typst"):
+        # Preferred modern compiler
+        subprocess.run(["typst", "compile", str(TAILORED_MD), str(OUTPUT_PDF)], check=True)
+    elif shutil.which("pandoc"):
+        # Fallback to Pandoc
+        subprocess.run(["pandoc", str(TAILORED_MD), "-o", str(OUTPUT_PDF)], check=True)
+    else:
+        print("Warning: Neither 'typst' nor 'pandoc' found. Outputting markdown only.")
+        print(f"Find your generated markdown at: {TAILORED_MD}")
+        sys.exit(0)
+
+    print(f"Success! PDF created at: {OUTPUT_PDF.resolve()}")
+
+if __name__ == "__main__":
+    main()
+
+4. Execution Workflow for the Agent
+Make sure CV.md and jobspec.txt exist in your folder.
+
+Install dependencies (if not present):
+
+Gemini CLI: npm install -g @google/gemini-cli
+
+PDF Engine (Choose one): brew install typst or brew install pandoc
+
+Run authentication once for Gemini: gemini (follows browser sign-in flow).
+
+Run the script: python3 generate_cv.py
