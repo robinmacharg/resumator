@@ -24,33 +24,56 @@
       <section class="editor-pane">
         <div class="status-row">
           <span id="statusText">Loading...</span>
-          <button id="toggleLogsBtn" class="btn btn-ghost">Show Logs</button>
         </div>
 
-        <div class="editors">
-          <label for="cvEditor">CV.md</label>
-          <textarea id="cvEditor" spellcheck="false"></textarea>
-
-          <label for="promptEditor">prompt.md</label>
-          <textarea id="promptEditor" spellcheck="false"></textarea>
-
-          <label for="jobspecEditor">jobspec.txt</label>
-          <textarea id="jobspecEditor" spellcheck="false"></textarea>
+        <div class="tabbar" role="tablist" aria-label="Editor tabs">
+          <button class="tab-btn active" data-tab="cv" role="tab" aria-selected="true">CV</button>
+          <button class="tab-btn" data-tab="prompt" role="tab" aria-selected="false">Prompt</button>
+          <button class="tab-btn" data-tab="jobspec" role="tab" aria-selected="false">Job Spec</button>
+          <button class="tab-btn" data-tab="logs" role="tab" aria-selected="false">Logs</button>
         </div>
 
-        <section id="logsPanel" class="logs hidden">
-          <div class="logs-header">
-            <strong>Logs</strong>
-            <div class="logs-controls">
+        <div class="tab-panels">
+          <section id="tab-cv" class="tab-panel active" role="tabpanel">
+            <label for="cvEditor">CV.md</label>
+            <textarea id="cvEditor" spellcheck="false"></textarea>
+          </section>
+
+          <section id="tab-prompt" class="tab-panel" role="tabpanel">
+            <label for="promptEditor">prompt.md</label>
+            <textarea id="promptEditor" spellcheck="false"></textarea>
+          </section>
+
+          <section id="tab-jobspec" class="tab-panel" role="tabpanel">
+            <label for="jobspecEditor">jobspec.txt</label>
+            <textarea id="jobspecEditor" spellcheck="false"></textarea>
+          </section>
+
+          <section id="tab-logs" class="tab-panel logs" role="tabpanel">
+            <div class="logs-header">
+              <strong>Logs</strong>
               <button id="refreshLogsBtn" class="btn btn-secondary">Refresh Logs</button>
-              <select id="logSelect">
-                <option value="">Select debug log...</option>
-              </select>
             </div>
-          </div>
-          <pre id="runLogOutput">No logs yet.</pre>
-          <pre id="debugLogOutput">Select a debug log to view its content.</pre>
-        </section>
+
+            <div class="logs-tabbar" role="tablist" aria-label="Log tabs">
+              <button class="log-tab-btn active" data-log-tab="run" role="tab" aria-selected="true">Run Log</button>
+              <button class="log-tab-btn" data-log-tab="debug" role="tab" aria-selected="false">Debug Log</button>
+            </div>
+
+            <section id="log-panel-run" class="log-panel active" role="tabpanel">
+              <pre id="runLogOutput">No logs yet.</pre>
+            </section>
+
+            <section id="log-panel-debug" class="log-panel" role="tabpanel">
+              <div class="logs-controls">
+                <select id="logSelect">
+                  <option value="">Select debug log...</option>
+                </select>
+              </div>
+              <pre id="debugLogOutput">Select a debug log to view its content.</pre>
+            </section>
+          </section>
+        </div>
       </section>
 
       <aside class="preview-pane">

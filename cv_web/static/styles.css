@@ -119,22 +119,71 @@ body {
 
 .status-row {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   padding: 0.65rem 0.9rem;
   border-bottom: 1px solid var(--line);
   font-size: 0.9rem;
 }
 
-.editors {
-  padding: 0.75rem;
+.tabbar {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.6rem 0.75rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.tab-btn {
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  background: #f7f2ec;
+  color: var(--muted);
+  border-radius: 0.5rem 0.5rem 0 0;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  background: #fff;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.tab-panels {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+}
+
+.tab-panel {
+  display: none;
+  min-height: 0;
+  width: 100%;
+}
+
+.tab-panel.active {
   display: grid;
-  grid-template-rows: auto minmax(140px, 1fr) auto minmax(140px, 1fr) auto minmax(120px, 0.9fr);
+}
+
+.tab-panel.logs {
+  display: none;
+}
+
+.tab-panel.logs.active {
+  display: grid;
+}
+
+#tab-cv,
+#tab-prompt,
+#tab-jobspec {
+  padding: 0.75rem;
+  grid-template-rows: auto minmax(260px, 1fr);
   gap: 0.4rem;
   min-height: 0;
 }
 
-.editors label {
+.tab-panel label {
   font-weight: 600;
   color: var(--muted);
 }
@@ -154,17 +203,13 @@ textarea {
 }
 
 .logs {
-  border-top: 1px solid var(--line);
-  background: #fff;
+  background: #fffdf9;
   padding: 0.75rem;
   display: grid;
+  grid-template-rows: auto auto 1fr;
   gap: 0.5rem;
-  max-height: 36%;
-  overflow: auto;
-}
-
-.hidden {
-  display: none;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .logs-header {
@@ -177,6 +222,49 @@ textarea {
 .logs-controls {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
+}
+
+.logs-tabbar {
+  display: flex;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.35rem;
+}
+
+.log-tab-btn {
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  background: #f7f2ec;
+  color: var(--muted);
+  border-radius: 0.45rem 0.45rem 0 0;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.log-tab-btn.active {
+  background: #fff;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.log-panel {
+  display: none;
+  min-height: 0;
+  height: 100%;
+}
+
+.log-panel.active {
+  display: grid;
+}
+
+#log-panel-run {
+  grid-template-rows: 1fr;
+}
+
+#log-panel-debug {
+  grid-template-rows: auto 1fr;
   gap: 0.5rem;
 }
 
@@ -198,6 +286,12 @@ pre {
   max-height: 180px;
   font-size: 0.8rem;
   line-height: 1.35;
+}
+
+.logs pre {
+  max-height: none;
+  height: 100%;
+  min-height: 0;
 }
 
 .preview-pane {

@@ -1,6 +1,7 @@
 const state = {
   isRunning: false,
-  logsVisible: false,
+  activeTab: "cv",
+  activeLogTab: "run",
 };
 
 const els = {
@@ -12,13 +13,23 @@ const els = {
   refreshDiskBtn: document.getElementById("refreshDiskBtn"),
   runFormatBtn: document.getElementById("runFormatBtn"),
   runFullBtn: document.getElementById("runFullBtn"),
-  toggleLogsBtn: document.getElementById("toggleLogsBtn"),
-  logsPanel: document.getElementById("logsPanel"),
   runLogOutput: document.getElementById("runLogOutput"),
   debugLogOutput: document.getElementById("debugLogOutput"),
   refreshLogsBtn: document.getElementById("refreshLogsBtn"),
   logSelect: document.getElementById("logSelect"),
   pdfPreview: document.getElementById("pdfPreview"),
+  tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
+  tabPanels: {
+    cv: document.getElementById("tab-cv"),
+    prompt: document.getElementById("tab-prompt"),
+    jobspec: document.getElementById("tab-jobspec"),
+    logs: document.getElementById("tab-logs"),
+  },
+  logTabButtons: Array.from(document.querySelectorAll(".log-tab-btn")),
+  logPanels: {
+    run: document.getElementById("log-panel-run"),
+    debug: document.getElementById("log-panel-debug"),
+  },
 };
 
 const LS_KEYS = {
@@ -242,13 +253,42 @@ async function reloadFromDisk() {
   }
 }
 
-function toggleLogs() {
-  state.logsVisible = !state.logsVisible;
-  els.logsPanel.classList.toggle("hidden", !state.logsVisible);
-  els.toggleLogsBtn.textContent = state.logsVisible ? "Hide Logs" : "Show Logs";
-  if (state.logsVisible) {
+function setActiveTab(tabName) {
+  if (!els.tabPanels[tabName]) {
+    return;
+  }
+
+  state.activeTab = tabName;
+  els.tabButtons.forEach((button) => {
+    const isActive = button.dataset.tab === tabName;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+
+  Object.entries(els.tabPanels).forEach(([name, panel]) => {
+    panel.classList.toggle("active", name === tabName);
+  });
+
+  if (tabName === "logs") {
     refreshLogs();
   }
+}
+
+function setActiveLogTab(tabName) {
+  if (!els.logPanels[tabName]) {
+    return;
+  }
+
+  state.activeLogTab = tabName;
+  els.logTabButtons.forEach((button) => {
+    const isActive = button.dataset.logTab === tabName;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+
+  Object.entries(els.logPanels).forEach(([name, panel]) => {
+    panel.classList.toggle("active", name === tabName);
+  });
 }
 
 async function initialize() {
@@ -279,9 +319,14 @@ els.saveBtn.addEventListener("click", saveToDisk);
 els.refreshDiskBtn.addEventListener("click", reloadFromDisk);
 els.runFormatBtn.addEventListener("click", () => runPipeline("format"));
 els.runFullBtn.addEventListener("click", () => runPipeline("full"));
-els.toggleLogsBtn.addEventListener("click", toggleLogs);
 els.refreshLogsBtn.addEventListener("click", refreshLogs);
 els.logSelect.addEventListener("change", loadSelectedDebugLog);
+els.tabButtons.forEach((button) => {
+  button.addEventListener("click", () => setActiveTab(button.dataset.tab));
+});
+els.logTabButtons.forEach((button) => {
+  button.addEventListener("click", () => setActiveLogTab(button.dataset.logTab));
+});
 
 bindAutosave();
 initialize();

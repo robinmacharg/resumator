@@ -72,6 +72,13 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         deitalicized = protected.replace("*", "")
         return deitalicized.replace("__BOLD_MARKER__", "**").strip()
 
+    def normalize_plain_text_markdown(text: str) -> str:
+        """Strip markdown emphasis markers for fields that should be plain text."""
+        cleaned = text.replace("**", "")
+        cleaned = cleaned.replace("*", "")
+        cleaned = cleaned.replace("`", "")
+        return re.sub(r"\s+", " ", cleaned).strip()
+
     def normalize_tel_url(url: str) -> str:
         phone = url[4:]
         phone = phone.replace("%2B", "+").replace("%2b", "+")
@@ -294,6 +301,7 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
 
         keywords_text = extract_tag_payload(stripped, "keywords")
         if keywords_text is not None:
+            keywords_text = normalize_plain_text_markdown(keywords_text)
             transformed_lines.append(keywords_text)
             transformed_lines.append("")
             continue
@@ -338,7 +346,7 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
 
         date_match = re.match(r"^\[date_range\]\s*(.+)$", stripped)
         if date_match:
-            date_text = date_match.group(1).strip()
+            date_text = normalize_plain_text_markdown(date_match.group(1).strip())
             if target == "pdf":
                 transformed_lines.extend(emit_pdf_date_range(date_text))
             else:
