@@ -181,6 +181,14 @@
                                 >
                                     Built Query
                                 </button>
+                                <button
+                                    class="research-output-tab-btn"
+                                    data-research-output-tab="command"
+                                    role="tab"
+                                    aria-selected="false"
+                                >
+                                    Command
+                                </button>
                             </div>
                             <section
                                 id="research-output-panel-console"
@@ -197,6 +205,17 @@
                                 <pre id="researchBuiltQueryOutput">
 No built query yet. Run Research first.</pre
                                 >
+                            </section>
+                            <section
+                                id="research-output-panel-command"
+                                class="research-output-panel"
+                                role="tabpanel"
+                            >
+                                <textarea
+                                    id="researchCommandOutput"
+                                    spellcheck="false"
+                                    readonly
+                                >No command yet. Run Research first.</textarea>
                             </section>
                         </div>
                     </section>

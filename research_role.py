@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,6 +20,9 @@ COMPANY_FILE = Path("research_company.txt")
 OUTPUT_MD = Path("research_output.md")
 OUTPUT_JSON = Path("research_output.json")
 OUTPUT_PROMPT = Path("research_prompt.built.txt")
+DEBUG_LOG_DIR = Path("gemini_debug_logs")
+RESEARCH_GEMINI_TIMEOUT_SECONDS = 300
+RESEARCH_HEARTBEAT_SECONDS = 15
 DEFAULT_MODEL = "gemini-2.5-flash-lite"
 DEFAULT_FALLBACK_MODELS = [
     "gemini-3.5-flash",
@@ -68,6 +72,105 @@ def load_full_report_content(report_path: str) -> str | None:
         return path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return None
+
+
+def print_attempt_summary(attempt_results: list[tuple[str, str]], stream) -> None:
+    if not attempt_results:
+        return
+    print("Model attempt summary:", file=stream)
+    for model_name, outcome in attempt_results:
+        print(f"- {model_name}: {outcome}", file=stream)
+
+
+def parse_positive_int(process_env: dict[str, str], key: str, default: int) -> int:
+    raw = (process_env.get(key) or "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+def run_gemini_with_diagnostics(
+    command: list[str],
+    env: dict[str, str],
+    timeout_seconds: int,
+    heartbeat_seconds: int,
+    model_name: str,
+    attempt_index: int,
+) -> tuple[subprocess.CompletedProcess[str], float, Path]:
+    DEBUG_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_path = DEBUG_LOG_DIR / f"research-attempt-{attempt_index:02d}-{model_name}-{timestamp}.log"
+
+    start = time.monotonic()
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        stdin=subprocess.DEVNULL,
+        text=True,
+        env=env,
+    )
+
+    stdout_text = ""
+    stderr_text = ""
+    timed_out = False
+
+    while True:
+        elapsed = time.monotonic() - start
+        remaining = timeout_seconds - elapsed
+        if remaining <= 0:
+            timed_out = True
+            process.kill()
+            stdout_text, stderr_text = process.communicate()
+            break
+
+        try:
+            stdout_text, stderr_text = process.communicate(
+                timeout=min(heartbeat_seconds, remaining)
+            )
+            break
+        except subprocess.TimeoutExpired:
+            print(
+                f"Attempt {attempt_index}: waiting on Gemini model "
+                f"{model_name} ({int(elapsed)}s elapsed)...",
+                file=sys.stderr,
+                flush=True,
+            )
+
+    end_elapsed = time.monotonic() - start
+    return_code = process.returncode if process.returncode is not None else 1
+
+    log_path.write_text(
+        "\n".join(
+            [
+                f"model={model_name}",
+                f"attempt={attempt_index}",
+                f"return_code={return_code}",
+                f"elapsed_seconds={end_elapsed:.2f}",
+                f"timed_out={timed_out}",
+                "--- STDOUT ---",
+                stdout_text,
+                "--- STDERR ---",
+                stderr_text,
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    if timed_out:
+        raise subprocess.TimeoutExpired(command, timeout_seconds, output=stdout_text, stderr=stderr_text)
+
+    completed = subprocess.CompletedProcess(
+        args=command,
+        returncode=return_code,
+        stdout=stdout_text,
+        stderr=stderr_text,
+    )
+    return completed, end_elapsed, log_path
 
 
 def build_model_sequence(process_env: dict[str, str], explicit_model: str | None = None) -> list[str]:
@@ -302,6 +405,16 @@ def main() -> None:
     process_env = os.environ.copy()
     process_env.update(load_dotenv_file(ENV_FILE))
     process_env.setdefault("GEMINI_CLI_TRUST_WORKSPACE", "true")
+    timeout_seconds = parse_positive_int(
+        process_env,
+        "RESEARCH_GEMINI_TIMEOUT_SECONDS",
+        RESEARCH_GEMINI_TIMEOUT_SECONDS,
+    )
+    heartbeat_seconds = parse_positive_int(
+        process_env,
+        "RESEARCH_GEMINI_HEARTBEAT_SECONDS",
+        RESEARCH_HEARTBEAT_SECONDS,
+    )
     model_sequence = build_model_sequence(process_env, explicit_model=args.model)
 
     envelope: dict[str, object] = {
@@ -325,9 +438,19 @@ def main() -> None:
         print("'gemini' CLI not found on PATH.", file=sys.stderr)
         sys.exit(1)
 
+    print(
+        f"Diagnostics enabled. Per-attempt logs at: {DEBUG_LOG_DIR.resolve()}",
+        flush=True,
+    )
+    print(
+        f"Research Gemini timeout: {timeout_seconds}s (heartbeat every {heartbeat_seconds}s)",
+        flush=True,
+    )
+
     model_attempts: list[dict[str, object]] = []
-    proc: subprocess.CompletedProcess | None = None
+    proc: subprocess.CompletedProcess[str] | None = None
     selected_model: str | None = None
+    attempt_results: list[tuple[str, str]] = []
 
     for idx, model_name in enumerate(model_sequence, start=1):
         print(f"Invoking Gemini model ({idx}/{len(model_sequence)}): {model_name}", flush=True)
@@ -341,13 +464,45 @@ def main() -> None:
             prompt_text,
         ]
 
-        proc = subprocess.run(
-            command,
-            cwd=Path.cwd(),
-            capture_output=True,
-            text=True,
-            env=process_env,
-        )
+        try:
+            proc, elapsed_seconds, log_path = run_gemini_with_diagnostics(
+                command=command,
+                env=process_env,
+                timeout_seconds=timeout_seconds,
+                heartbeat_seconds=heartbeat_seconds,
+                model_name=model_name,
+                attempt_index=idx,
+            )
+            print(
+                f"Attempt {idx} completed in {elapsed_seconds:.1f}s. Debug log: {log_path}",
+                flush=True,
+            )
+        except subprocess.TimeoutExpired as exc:
+            stderr_excerpt = (exc.stderr or "").strip()
+            excerpt = stderr_excerpt[:500] + ("..." if len(stderr_excerpt) > 500 else "")
+            model_attempts.append(
+                {
+                    "model": model_name,
+                    "exitCode": "timeout",
+                    "retryable": True,
+                }
+            )
+            attempt_results.append((model_name, f"timeout after {timeout_seconds}s"))
+            print(
+                f"Attempt {idx} timed out after {timeout_seconds}s. Model: {model_name}",
+                file=sys.stderr,
+                flush=True,
+            )
+            if excerpt:
+                print(f"Stderr excerpt: {excerpt}", file=sys.stderr)
+
+            envelope["model"] = model_name
+            envelope["modelAttempts"] = model_attempts
+            envelope["output"] = ""
+            envelope["stderr"] = "Model attempt timed out. See per-attempt debug log."
+            output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
+            print_attempt_summary(attempt_results, sys.stderr)
+            sys.exit(1)
 
         stderr_text = (proc.stderr or "").strip()
         stdout_text = (proc.stdout or "").strip()
@@ -361,9 +516,11 @@ def main() -> None:
 
         if proc.returncode == 0:
             selected_model = model_name
+            attempt_results.append((model_name, "success"))
             break
 
         if is_retryable_model_error(stderr_text) and idx < len(model_sequence):
+            attempt_results.append((model_name, "retryable error"))
             print(
                 f"Model {model_name} hit a transient/quota condition. Trying next fallback model...",
                 file=sys.stderr,
@@ -371,6 +528,7 @@ def main() -> None:
             )
             continue
 
+        attempt_results.append((model_name, "fatal error"))
         print("Gemini CLI call failed.", file=sys.stderr)
         if stderr_text:
             print(stderr_text, file=sys.stderr)
@@ -394,6 +552,7 @@ def main() -> None:
         if report_content:
             envelope["fatalReportContent"] = report_content
         output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
+        print_attempt_summary(attempt_results, sys.stderr)
         sys.exit(proc.returncode)
 
     if proc is None or proc.returncode != 0:
@@ -403,6 +562,7 @@ def main() -> None:
         envelope["output"] = ""
         envelope["stderr"] = "All model attempts failed. See modelAttempts for details."
         output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
+        print_attempt_summary(attempt_results, sys.stderr)
         sys.exit(1)
 
     output_text = (proc.stdout or "").strip()

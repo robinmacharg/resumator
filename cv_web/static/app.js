@@ -30,6 +30,7 @@ const els = {
     researchStatusText: document.getElementById("researchStatusText"),
     researchOutput: document.getElementById("researchOutput"),
     researchBuiltQueryOutput: document.getElementById("researchBuiltQueryOutput"),
+    researchCommandOutput: document.getElementById("researchCommandOutput"),
     jobspecEditor: document.getElementById("jobspecEditor"),
     envEditor: document.getElementById("envEditor"),
     tailoredViewer: document.getElementById("tailoredViewer"),
@@ -67,6 +68,7 @@ const els = {
     researchOutputPanels: {
         console: document.getElementById("research-output-panel-console"),
         built_query: document.getElementById("research-output-panel-built-query"),
+        command: document.getElementById("research-output-panel-command"),
     },
 };
 
@@ -457,6 +459,32 @@ function setResearchBuiltQueryOutput(text) {
     els.researchBuiltQueryOutput.scrollTop = els.researchBuiltQueryOutput.scrollHeight;
 }
 
+function shellQuote(arg) {
+    if (arg === "") {
+        return "''";
+    }
+    if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(arg)) {
+        return arg;
+    }
+    return `'${String(arg).replace(/'/g, `'\\''`)}'`;
+}
+
+function formatCommandForDisplay(command) {
+    if (!Array.isArray(command) || command.length === 0) {
+        return "No command yet. Run Research first.";
+    }
+    return command.map((part) => shellQuote(String(part))).join(" ");
+}
+
+function setResearchCommandOutput(command) {
+    if (!els.researchCommandOutput) {
+        return;
+    }
+    const rendered = Array.isArray(command) ? formatCommandForDisplay(command) : String(command || "");
+    els.researchCommandOutput.value = rendered || "No command yet. Run Research first.";
+    els.researchCommandOutput.scrollTop = els.researchCommandOutput.scrollHeight;
+}
+
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -568,6 +596,9 @@ function renderResearchState(payload) {
 
     if (payload.lastRun) {
         setResearchOutput(summarizeResearchOutput(payload.lastRun));
+        setResearchCommandOutput(payload.lastRun.command || []);
+    } else {
+        setResearchCommandOutput([]);
     }
 }
 
@@ -721,6 +752,7 @@ async function waitForResearchCompletion() {
         const run = status.run || null;
         if (run) {
             setResearchOutput(summarizeResearchOutput(run));
+            setResearchCommandOutput(run.command || []);
             if (status.running) {
                 setResearchStatus(`Research running (${run.elapsedSeconds || 0}s)...`);
             }
@@ -773,6 +805,7 @@ async function runResearch() {
 
         if (kickoff.run) {
             setResearchOutput(summarizeResearchOutput(kickoff.run));
+            setResearchCommandOutput(kickoff.run.command || []);
         }
 
         const run = await waitForResearchCompletion();
@@ -839,6 +872,7 @@ async function formatResearchPdf() {
 
         if (kickoff.run) {
             setResearchOutput(summarizeResearchOutput(kickoff.run));
+            setResearchCommandOutput(kickoff.run.command || []);
         }
 
         const run = await waitForResearchCompletion();
@@ -900,7 +934,11 @@ async function resetResearchPrompt() {
 
 async function copyResearchOutputToClipboard() {
     const sourceText =
-        state.activeResearchOutputTab === "built_query"
+        state.activeResearchOutputTab === "command"
+            ? els.researchCommandOutput && els.researchCommandOutput.value
+                ? els.researchCommandOutput.value
+                : ""
+            : state.activeResearchOutputTab === "built_query"
             ? els.researchBuiltQueryOutput && els.researchBuiltQueryOutput.textContent
                 ? els.researchBuiltQueryOutput.textContent
                 : ""
@@ -1168,11 +1206,13 @@ async function initialize() {
         const currentResearch = await fetchResearchStatus();
         if (currentResearch.run) {
             setResearchOutput(summarizeResearchOutput(currentResearch.run));
+            setResearchCommandOutput(currentResearch.run.command || []);
             if (currentResearch.running) {
                 setResearchStatus("Research run in progress...");
                 setResearchRunning(true);
                 waitForResearchCompletion()
                     .then((run) => {
+                        setResearchCommandOutput((run && run.command) || []);
                         if (run && run.success) {
                             setResearchStatus(`Research complete (${run.elapsedSeconds}s).`);
                         } else {
@@ -1192,6 +1232,7 @@ async function initialize() {
             }
         } else {
             setResearchStatus("Idle.");
+            setResearchCommandOutput([]);
         }
 
         updatePreviewCacheBuster();
