@@ -11,10 +11,9 @@
   "metadata": {
     "target_roles": [
       "Senior iOS Developer",
-      "Principal Mobile Security Engineer"
+      "Senior iOS / Mobile Security Engineer"
     ],
-    "last_updated": "2026-08-03",
-    "clearance": "Previous SC1 Security Clearance. 6 concurrent DBS."
+    "last_updated": "2026-08-03"
   },
   "semantic_tags": {
     "candidate_name": "candidate_name",
@@ -102,113 +101,132 @@
   },
   "document": {
     "professional_summary": [
-      "**Security-cleared native mobile engineer** with extensive commercial experience delivering robust, high-performance iOS applications and SDKs using Swift, Objective-C, and C/C++.",
-      "**Proven track record in secure architectures** including VPN-secured Government communications (SC Cleared) and penetration-remediated enterprise applications.",
-      "**Deep expertise in modern development patterns** such as MVVM, Clean Architecture, Composable Architecture (TCA), and multi-platform native SDK design.",
-      "**End-to-end automation specialist** expert in App Store Connect, TestFlight, Fastlane, and high-efficiency CI/CD pipeline optimization.",
-      "**Accomplished collaborative lead** with a focus on Agile processes, mentoring junior developers, and scaling white-label platforms."
+      "**Senior iOS & Security Architect:** Hands-on engineer with extensive experience developing secure, high-performance native iOS applications in Swift and Objective-C, combined with previous UK Government SC1 Security Clearance and secure device integration expertise.",
+      "**App Store Shipping & Scale:** Proven history of shipping and managing live applications on the Apple App Store, including sole ownership of a 13-app white-label portfolio driving £30M+ in annual revenue for blue-chip clients.",
+      "**Low-Level & Diagnostics Specialist:** Strong capability in C/C++ native integrations, memory optimization, low-level networking, and deep-dive crash log diagnostics developed while maintaining core enterprise SDK libraries.",
+      "**Continuous Automation & Delivery:** Highly proficient in modern devops and release tooling, including Xcode, TestFlight, App Store Connect, Fastlane, and GitHub Actions, successfully slashing release deployment times by up to 90%.",
+      "**Collaborative Engineering Leader:** Certified Scrum Master with a strong track record of mentoring international teams, establishing rigorous Git workflows, and successfully managing security audits and penetration testing."
     ],
     "role_requirements": {
-      "heading": "Security-Focused High-Scale iOS Engineering Alignment",
+      "heading": "Alignment with Native iOS, Security & High-Performance Engineering Requirements",
       "items": [
-        "- **Native iOS Engineering & Tooling:** Proficient with Swift, Objective-C, Xcode, TestFlight, and App Store Connect, delivering multiple live apps to the Apple App Store.",
-        "- **Secure & Optimized Architecture:** Deep hands-on experience implementing MVVM, TCA, and Clean Architecture alongside low-level C++, cryptography, and secure interop.",
-        "- **Rigorous Penetration & Security Remediations:** Proven ability to implement secure device identity, VPN-secured local storage, SSO, and secure payment integrations.",
-        "- **Scalable Product Delivery:** Led white-label platforms scaling to 13 applications, driving over £30M+ in annual revenue with automated release processes.",
-        "- **Low-Level Debugging & Crash Analysis:** Extensive experience diagnosing complex tracebacks, memory leaks, and low-level system integrations for SDK environments.",
-        "- **Agile & Collaborative Workflows:** Certified Scrum Master possessing excellent track record working within international, multi-component development teams."
+        "- **Native iOS Mastery (Swift & Objective-C):** Over a decade of deep native iOS experience designing clean, maintainable MVVM and Redux/TCA architectures using the iOS SDK, Xcode, and modern language paradigms.",
+        "- **App Store Shipping Experience:** Robust track record of publishing and maintaining enterprise-grade, high-traffic consumer and business applications live on the App Store using TestFlight and App Store Connect.",
+        "- **Performance, Security & Diagnostics:** Expert diagnostic skills utilizing Objective-C/C++ and low-level stack-trace analysis to resolve complex security, performance bottlenecks, and crash bugs at scale.",
+        "- **Secure Architectures & TEE/VPN Experience:** Direct experience building secure, custom VPN-encrypted applications for government projects, implementing enterprise SSO, and handling penetration testing remediations.",
+        "- **Automated Release Workflows:** Proficient in designing automated Fastlane and GitHub Actions pipelines to streamline App Store Connect distribution, code signing, and SDK delivery.",
+        "- **Collaborative Delivery & Git Workflows:** Certified Scrum Master with extensive experience leading Agile engineering teams, designing git-push hooks, and collaborating via structured peer-review pipelines."
       ]
     },
     "education_credentials": [
       "BSc (Hons) Artificial Intelligence and Computer Science (Joint) — University of Edinburgh",
-      "Certified Scrum Master (CSM)"
+      "Certified Scrum Master (CSM) — Scrum Alliance",
+      "Previous UK Government SC1 Security Clearance (6 concurrent DBS checks)"
     ],
     "selected_key_roles": [
       {
         "heading": "Lead Mobile Developer | Boostworks Ltd.",
         "date_range": "November 2023 - Present",
+        "app_store_url": "https://apps.apple.com/gb/app/boostworks/id6468470839",
         "keywords": [
           "React Native",
           "TypeScript",
           "iOS/Android",
+          "Cross-Platform Architecture",
+          "AI-Assisted Engineering",
           "CI/CD (Fastlane/Azure)",
+          "OpenAPI",
           "Apple/Google Pay",
           "SSO",
+          "White-Label Scaling",
           "Penetration Testing"
         ],
         "bullet_primary": [
-          "Commercial Ownership & Scale: Solely maintained a 60K-line multi-tenant codebase driving £30M+ annual revenue across 13 white-label iOS/Android apps for flagship enterprise clients.",
-          "Platform Security & Enterprise Payments: Led native component wrapping (Swift/Kotlin) for secure Apple/Google Pay integrations, executed penetration testing remediations, and integrated enterprise SSO."
+          "Sole maintainer of a 60K-line multi-tenant codebase driving £30M+ in annual revenue (70% of company turnover) across 13 white-label iOS/Android applications for flagship enterprise clients including Costa, BMW, EasyJet, Heathrow, and GWR.",
+          "Reduced mobile engineering costs by over 50% by successfully insourcing the entire 13-app catalog from an external agency and leading architectural migrations.",
+          "Built end-to-end automation pipelines using Fastlane, Azure Pipelines, and custom TUIs, slashing new app creation and App Store deployment times by 90%."
         ],
         "bullet_secondary": [
-          "Automation & CI/CD: Built end-to-end pipelines (Fastlane, Azure, OpenAPI) to slash new application deployment times by 90%."
+          "Led native component wrapping (Swift/Kotlin) for Apple Pay and Google Pay integrations, executed security penetration testing remediations, and integrated enterprise SSO."
         ]
       },
       {
-        "heading": "Senior iOS Developer | Sky",
-        "date_range": "October 2021 - April 2022",
+        "heading": "Senior Developer | Floww Ltd.",
+        "date_range": "May 2023 - September 2023",
+        "app_store_url": "https://apps.apple.com/gb/app/floww-private-markets/id1629021357",
         "keywords": [
-          "Swift",
-          "Kotlin Multiplatform",
+          "iOS",
           "SwiftUI",
-          "Video Streaming SDKs",
-          "Agile",
-          "Release Automation"
+          "TCA",
+          "Redux",
+          "GitHub Actions",
+          "CI/CD",
+          "Mentoring",
+          "Shell Scripting",
+          "Optimization"
         ],
         "bullet_primary": [
-          "High-Scale SDK Management: Maintained a hybrid Swift and Kotlin Multiplatform Mobile (KMM) SDK and reference apps utilized daily by over 25 million customers.",
-          "Engineering Improvement: Rewrote the internal SDK reference application using SwiftUI, ensuring highly optimized performance and clean architecture."
+          "Developed critical features for a high-security private investment market mobile platform using modern Redux-like Composable Architecture (TCA) and SwiftUI.",
+          "Maintained and optimized CI/CD pipelines utilizing GitHub Actions and custom shell scripts to ensure robust code quality controls."
         ],
         "bullet_secondary": [
-          "Release & Delivery: Managed bi-weekly release cycles, release notes, and custom Probot/Octokit GitHub tools for repo automation."
+          "Introduced and enforced development best practices, including SwiftUI previews, compile-time monitoring, git-push lint hooks, and App startup-time optimizations."
         ]
       },
       {
         "heading": "Senior Apple Engineer | Bugsnag Inc.",
         "date_range": "January 2020 - June 2020",
+        "app_store_url": null,
         "keywords": [
           "Objective-C",
           "C++",
           "iOS",
           "macOS",
-          "Crash Reporting",
+          "watchOS",
+          "tvOS",
           "Open Source",
-          "Diagnostics"
+          "Crash Reporting",
+          "Diagnostics",
+          "Optimization"
         ],
         "bullet_primary": [
-          "Low-Level Diagnostics & Cocoa/C++: Maintained high-performance open-source Bugsnag Cocoa and C/C++ diagnostic libraries serving global enterprise clients like Netflix, Nintendo, and Amazon.",
-          "Root Cause Engineering: Conducted deep system diagnostics, handling complex multi-threaded stack traces, crash log analysis, and targeted patch releases."
+          "Maintained and optimized open-source Bugsnag crash-reporting libraries for multi-platform Apple ecosystems serving major global enterprises like Netflix, Nintendo, Airbnb, and Amazon.",
+          "Handled 3rd line support isolating complex native stack traces, low-overhead C/C++ exceptions, and publishing robust, lightweight diagnostic patch releases."
         ],
         "bullet_secondary": [
-          "Distribution Engineering: Managed library packaging across CocoaPods, Carthage, SPM, and manual installations."
+          "Managed automated SDK packaging and multi-channel distribution across CocoaPods, Carthage, Swift Package Manager (SPM), and manual integrations."
         ]
       },
       {
         "heading": "Principal iOS Developer | Amiosec Ltd. (Contract)",
         "date_range": "March 2019 - December 2019",
+        "app_store_url": null,
         "keywords": [
           "Xamarin",
+          "Visual Studio",
           "C#",
           "Objective-C/Swift Interop",
-          "Security",
-          "SSL MiM",
           "EWS",
-          "Foxhound Project"
+          "ReactiveUI",
+          "Security",
+          "VPN",
+          "Charles Proxy"
         ],
         "bullet_primary": [
-          "Secure Defense Communications: Engineered a custom VPN-secured Exchange email client for the UK Government's secure Foxhound project.",
-          "Secure Interoperability: Developed robust, secure interop bindings between Xamarin/C# and Objective-C/Swift utilizing .NET embedding.",
-          "Advanced Network Inspection: Reverse-engineered Exchange Web Services (EWS) using secure SSL Man-in-the-Middle proxying via Charles Proxy."
+          "Architected and engineered a custom VPN-secured Exchange email and calendar client for the UK Government's high-security Foxhound project.",
+          "Built high-performance, cross-language native interoperability between Xamarin/C# and Objective-C/Swift using .NET Embedding frameworks."
         ],
         "bullet_secondary": [
-          "Modern Reactive Patterns: Implemented MVVM architecture leveraging ReactiveUI, DynamicData, and Realm.NET with robust error handling via Polly."
+          "Reverse-engineered Exchange Web Services (EWS) using Charles Proxy SSL Man-in-the-Middle decryption to construct a resilient local syncing mechanism."
         ]
       },
       {
         "heading": "Principal iOS Developer | Dyson Ltd. (Contract)",
         "date_range": "June 2017 - January 2020",
+        "app_store_url": null,
         "keywords": [
           "iOS",
+          "Greenfield",
           "Enterprise MDM",
           "ARKit",
           "RealmDB",
@@ -217,32 +235,20 @@
           "Penetration Testing"
         ],
         "bullet_primary": [
-          "Enterprise iOS Engineering: Designed and delivered Dyson's first B2B sales iPad app ('Hero') for global deployment to hundreds of staff.",
-          "Secure Enterprise Integration: Managed end-to-end integration covering AirWatch enterprise MDM deployment, extensive penetration testing, and secure CMS backends."
+          "Sole developer delivering Dyson's first B2B sales iPad application ('Hero') from greenfield to global field test in 8 weeks, expanding the app to 23k lines of code.",
+          "Achieved >80% code coverage across unit and UI test suites while utilizing custom Xcode templates to enforce a clean, testable MVVM architecture."
         ],
         "bullet_secondary": [
-          "Robust Architecture & Testing: Achieved over 80% UI and Unit Test coverage utilizing RealmDB and custom Xcode project templates."
+          "Managed end-to-end enterprise Mobile Device Management (MDM via AirWatch) deployment, resolved penetration testing vulnerability findings, and integrated secure CMS backends."
         ]
       }
     ],
     "earlier_career": {
-      "intro": "**2012 - 2023** Broad engineering roles spanning private equity fintech platforms, mapping SDKs, startup growth, and high-performance network analytics.",
+      "intro": "**1996 - 2023** Multi-platform engineering, senior mobile SDK delivery, network analytics, and DevOps positions across diverse sectors.",
       "items": [
         {
-          "role_title": "Senior Developer",
-          "company": "Floww Ltd",
-          "technologies": [
-            "iOS",
-            "SwiftUI",
-            "TCA",
-            "Redux",
-            "CI/CD",
-            "Git hooks"
-          ]
-        },
-        {
           "role_title": "Lead Mobile Developer",
-          "company": "This One Ltd",
+          "company": "This One Ltd.",
           "technologies": [
             "SwiftUI",
             "Combine",
@@ -250,18 +256,34 @@
             "Python",
             "Flask",
             "Fastlane",
-            "GCP"
+            "GCP",
+            "Firebase",
+            "ML"
+          ]
+        },
+        {
+          "role_title": "Senior iOS Developer",
+          "company": "Sky",
+          "technologies": [
+            "Swift",
+            "Kotlin Multiplatform",
+            "SwiftUI",
+            "Video Streaming",
+            "Analytics",
+            "Agile"
           ]
         },
         {
           "role_title": "Senior Developer",
-          "company": "Living Map Ltd",
+          "company": "Living Map Ltd.",
           "technologies": [
             "iOS",
+            "Mapping SDK",
             "XCFrameworks",
             "CocoaPods",
             "Carthage",
-            "Background Location"
+            "Background Location",
+            "UX"
           ]
         },
         {
@@ -272,12 +294,14 @@
             "Swift",
             "CoreData",
             "Realm",
-            "Low-level Networking (ICMP/TCP)"
+            "Networking",
+            "Jenkins",
+            "Vagrant"
           ]
         },
         {
-          "role_title": "Principal Mobile Developer",
-          "company": "Accident Exchange Group (Contract)",
+          "role_title": "Principal Mobile Developer (Contract)",
+          "company": "Accident Exchange Group",
           "technologies": [
             "iOS",
             "CoreData",
@@ -293,94 +317,115 @@
             "Java",
             "Python",
             "JBoss",
+            "Drools",
             "Puppet",
-            "Objective-C"
+            "Maven",
+            "RPM"
           ]
         },
         {
-          "role_title": "Senior Developer / Engineer",
-          "company": "RMS Services Ltd / Airbus UK",
+          "role_title": "Senior Developer",
+          "company": "RMS Services Ltd.",
           "technologies": [
             "Python",
             "PostgreSQL",
+            "RESTful APIs",
+            "Asset Discovery"
+          ]
+        },
+        {
+          "role_title": "Aerodynamics & Mass Properties Engineer",
+          "company": "Airbus UK Ltd.",
+          "technologies": [
+            "Python",
             "PyQt",
-            "C/C++",
+            "Perl",
+            "Tk",
+            "PDL",
             "OpenGL"
           ]
         },
         {
           "role_title": "Server & Embedded Developer",
-          "company": "Sift / Appliance Studio / Obtree",
+          "company": "Sift Ltd. / The Appliance Studio / Obtree / Circle.com / Glaxo Wellcome",
           "technologies": [
             "Linux",
-            "Embedded Systems",
             "Java",
             "Perl",
-            "C"
+            "Embedded Systems",
+            "Web Infrastructure"
           ]
         }
       ]
     },
     "open_source_contributions": [
-      "Bricksmith: SourceForge award-winning LEGO CAD software for macOS (Objective-C/C).",
-      "Pycel: Python-based Excel dependency graph and compiler formula parser.",
-      "React Native Input Spinner: Regular contributor to popular open-source UI component.",
-      "RMHelpfulLabel: Open-source custom iOS UI helper components and utility libraries.",
-      "Coding Exercises: Public repository of algorithms and structured programming solutions."
+      "Bugsnag Cocoa & C++: Core maintainer of open-source Apple platform crash-reporting libraries, resolving complex stack traces and low-level C++ exceptions.",
+      "React Native Input Spinner: Key open-source contributor, developing and maintaining custom UI components for the cross-platform community.",
+      "Pycel / Excel Formula Parser: Core contributor to this Python-based compiler mapping Excel dependency graphs and parsing formulas.",
+      "Bricksmith: SourceForge award-winning LEGO CAD software for macOS, written in Objective-C and C."
     ],
     "technical_skills": [
       {
-        "group": "Native iOS Ecosystem & Languages",
+        "group": "Native iOS & Core Tooling",
         "items": [
           "Swift",
           "Objective-C",
-          "SwiftUI",
-          "Combine",
-          "async/await",
-          "UIKit",
-          "CoreData",
-          "RealmDB",
-          "XCFrameworks"
-        ]
-      },
-      {
-        "group": "Security & Architecture",
-        "items": [
-          "VPN integrations",
-          "Penetration testing remediation",
-          "SSO",
-          "Apple/Google Pay",
-          "MVVM",
-          "TCA",
-          "Clean Architecture",
-          "Scrum (CSM)"
-        ]
-      },
-      {
-        "group": "Tooling & Delivery",
-        "items": [
+          "iOS SDK",
           "Xcode",
           "TestFlight",
           "App Store Connect",
-          "Fastlane",
-          "Git",
-          "GitHub Actions",
-          "Azure Pipelines",
-          "xcodebuild",
-          "SPM",
+          "Swift Package Manager (SPM)",
           "CocoaPods",
-          "Carthage"
+          "Carthage",
+          "xcodebuild"
         ]
       },
       {
-        "group": "Multi-Platform & Systems",
+        "group": "Security, Performance & Diagnostics",
         "items": [
-          "C/C++",
+          "UK SC1 Security Clearance",
+          "TEE/VPN-secured integrations",
+          "Penetration testing remediations",
+          "Crash reporting and diagnostics",
+          "Memory and compilation optimization",
+          "Background Location operations",
+          "Raw socket low-level networking"
+        ]
+      },
+      {
+        "group": "Architecture & Programming Paradigms",
+        "items": [
+          "Clean Architecture",
+          "MVVM",
+          "Redux/TCA (Composable Architecture)",
+          "MVC",
+          "ReactiveUI",
+          "White-Label Scaling",
+          "Kotlin Multiplatform Mobile (KMM)"
+        ]
+      },
+      {
+        "group": "Automation & DevOps Pipelines",
+        "items": [
+          "Fastlane",
+          "Azure Pipelines",
+          "GitHub Actions",
+          "Jenkins",
+          "Custom Python/Shell Scripting",
+          "Git workflow automation (Probot/Octokit)"
+        ]
+      },
+      {
+        "group": "Secondary Languages & Databases",
+        "items": [
           "Python (FastAPI, Flask)",
-          "Kotlin Multiplatform (KMM)",
+          "C/C++",
           "C#",
-          "Docker",
-          "Shell Scripting"
+          "Java",
+          "PostgreSQL",
+          "RealmDB",
+          "CoreData",
+          "OpenAPI/RESTful API design"
         ]
       }
     ]

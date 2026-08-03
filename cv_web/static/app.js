@@ -237,9 +237,12 @@ function summarizeRun(run) {
     }
 
     const isRunning = Boolean(run.running);
-    const exitDisplay = run.exitCode === null || run.exitCode === undefined ? "running" : run.exitCode;
+    const exitDisplay =
+        run.exitCode === null || run.exitCode === undefined ? "running" : run.exitCode;
     const elapsedDisplay =
-        run.elapsedSeconds === null || run.elapsedSeconds === undefined ? "-" : `${run.elapsedSeconds}s`;
+        run.elapsedSeconds === null || run.elapsedSeconds === undefined
+            ? "-"
+            : `${run.elapsedSeconds}s`;
 
     const summary = [
         `Kind: ${run.kind}`,
