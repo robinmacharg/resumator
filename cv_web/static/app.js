@@ -1,7 +1,10 @@
 const state = {
     isRunning: false,
     isResearchRunning: false,
+    selectedProvider: "gemini",
     selectedModel: "",
+    defaultProvider: "gemini",
+    modelsByProvider: {},
     activeTab: "cv",
     activeLogTab: "run",
     activeResearchOutputTab: "console",
@@ -16,6 +19,7 @@ const state = {
 
 const els = {
     statusText: document.getElementById("statusText"),
+    providerSelect: document.getElementById("providerSelect"),
     modelSelect: document.getElementById("modelSelect"),
     cvEditor: document.getElementById("cvEditor"),
     promptEditor: document.getElementById("promptEditor"),
@@ -109,6 +113,7 @@ const LS_KEYS = {
     env: "cvweb.env",
     active_tab: "cvweb.active_tab",
     research_output_tab: "cvweb.research_output_tab",
+    selected_provider: "cvweb.selected_provider",
     selected_model: "cvweb.selected_model",
 };
 
@@ -153,6 +158,7 @@ function applyControlDisabledState() {
         els.researchCompanyInput,
         els.researchUrlsInput,
         els.researchDryRunCheckbox,
+        els.providerSelect,
         els.modelSelect,
     ].forEach((el) => {
         if (!el) {
@@ -185,6 +191,22 @@ function selectedModelFromUi() {
     return (els.modelSelect.value || "").trim();
 }
 
+function selectedProviderFromUi() {
+    if (!els.providerSelect) {
+        return state.defaultProvider || "gemini";
+    }
+    return (els.providerSelect.value || state.defaultProvider || "gemini").trim();
+}
+
+function setSelectedProvider(provider) {
+    const next = (provider || state.defaultProvider || "gemini").trim();
+    state.selectedProvider = next;
+    localStorage.setItem(LS_KEYS.selected_provider, next);
+    if (els.providerSelect && els.providerSelect.value !== next) {
+        els.providerSelect.value = next;
+    }
+}
+
 function setSelectedModel(model) {
     const next = (model || "").trim();
     state.selectedModel = next;
@@ -194,23 +216,19 @@ function setSelectedModel(model) {
     }
 }
 
-function populateModelSelect(modelsPayload) {
+function getActiveModelOptions() {
+    const options = state.modelsByProvider[state.selectedProvider];
+    return Array.isArray(options) ? options : [];
+}
+
+function refreshModelSelectOptions() {
     if (!els.modelSelect) {
         return;
     }
 
-    const defaultOptionValue =
-        modelsPayload && typeof modelsPayload.defaultOptionValue === "string"
-            ? modelsPayload.defaultOptionValue
-            : "";
-    const defaultOptionLabel =
-        modelsPayload && typeof modelsPayload.defaultOptionLabel === "string"
-            ? modelsPayload.defaultOptionLabel
-            : "Default order";
-    const modelOptions =
-        modelsPayload && Array.isArray(modelsPayload.options)
-            ? modelsPayload.options.filter((item) => typeof item === "string" && item.trim())
-            : [];
+    const defaultOptionValue = "";
+    const defaultOptionLabel = "Default order";
+    const modelOptions = getActiveModelOptions();
 
     const deduped = [];
     const seen = new Set();
@@ -238,9 +256,63 @@ function populateModelSelect(modelsPayload) {
     });
 
     const savedSelection = (localStorage.getItem(LS_KEYS.selected_model) || "").trim();
-    const hasSaved = deduped.includes(savedSelection);
-    const selected = hasSaved ? savedSelection : defaultOptionValue;
+    const currentSelection = (state.selectedModel || "").trim();
+    const selectedCandidate = currentSelection || savedSelection;
+    const selected = deduped.includes(selectedCandidate) ? selectedCandidate : defaultOptionValue;
     setSelectedModel(selected);
+}
+
+function populateProviderAndModelSelect(providersPayload, modelsPayload) {
+    const defaultProvider =
+        providersPayload && typeof providersPayload.defaultProvider === "string"
+            ? providersPayload.defaultProvider.trim() || "gemini"
+            : "gemini";
+    state.defaultProvider = defaultProvider;
+
+    const providerOptions =
+        providersPayload && Array.isArray(providersPayload.options)
+            ? providersPayload.options
+                  .filter(
+                      (item) =>
+                          item && typeof item.value === "string" && typeof item.label === "string",
+                  )
+                  .map((item) => ({ value: item.value.trim(), label: item.label.trim() }))
+                  .filter((item) => item.value && item.label)
+            : [{ value: "gemini", label: "Gemini" }];
+
+    if (els.providerSelect) {
+        els.providerSelect.innerHTML = "";
+        providerOptions.forEach((item) => {
+            const opt = document.createElement("option");
+            opt.value = item.value;
+            opt.textContent = item.label;
+            els.providerSelect.appendChild(opt);
+        });
+    }
+
+    state.modelsByProvider =
+        modelsPayload && modelsPayload.byProvider && typeof modelsPayload.byProvider === "object"
+            ? Object.fromEntries(
+                  Object.entries(modelsPayload.byProvider).map(([provider, models]) => {
+                      const cleaned = Array.isArray(models)
+                          ? models
+                                .filter((item) => typeof item === "string" && item.trim())
+                                .map((item) => item.trim())
+                          : [];
+                      return [provider, cleaned];
+                  }),
+              )
+            : {};
+
+    const savedProvider = (localStorage.getItem(LS_KEYS.selected_provider) || "").trim();
+    const availableProviders = providerOptions.map((item) => item.value);
+    const selectedProvider = availableProviders.includes(savedProvider)
+        ? savedProvider
+        : availableProviders.includes(defaultProvider)
+          ? defaultProvider
+          : availableProviders[0] || "gemini";
+    setSelectedProvider(selectedProvider);
+    refreshModelSelectOptions();
 }
 
 function syncResearchPrimaryButton() {
@@ -480,7 +552,9 @@ function setResearchCommandOutput(command) {
     if (!els.researchCommandOutput) {
         return;
     }
-    const rendered = Array.isArray(command) ? formatCommandForDisplay(command) : String(command || "");
+    const rendered = Array.isArray(command)
+        ? formatCommandForDisplay(command)
+        : String(command || "");
     els.researchCommandOutput.value = rendered || "No command yet. Run Research first.";
     els.researchCommandOutput.scrollTop = els.researchCommandOutput.scrollHeight;
 }
@@ -575,7 +649,9 @@ function summarizeResearchOutput(run) {
         `Exit: ${exit}`,
         `Elapsed: ${elapsed}`,
         `Dry Run: ${run.dryRun ? "yes" : "no"}`,
-        run.success ? `Generated At: ${formatTimestampToSecond(run.finishedAt || run.startedAt)}` : null,
+        run.success
+            ? `Generated At: ${formatTimestampToSecond(run.finishedAt || run.startedAt)}`
+            : null,
         "",
         run.output || "(No process output)",
     ].filter((line) => line !== null);
@@ -815,6 +891,7 @@ async function runResearch() {
                 companyName,
                 urls,
                 dryRun: Boolean(els.researchDryRunCheckbox.checked),
+                selectedProvider: state.selectedProvider || "gemini",
                 selectedModel: state.selectedModel || "",
             }),
         });
@@ -955,12 +1032,12 @@ async function copyResearchOutputToClipboard() {
                 ? els.researchCommandOutput.value
                 : ""
             : state.activeResearchOutputTab === "built_query"
-            ? els.researchBuiltQueryOutput && els.researchBuiltQueryOutput.textContent
-                ? els.researchBuiltQueryOutput.textContent
-                : ""
-            : els.researchOutput && els.researchOutput.textContent
-              ? els.researchOutput.textContent
-              : "";
+              ? els.researchBuiltQueryOutput && els.researchBuiltQueryOutput.textContent
+                  ? els.researchBuiltQueryOutput.textContent
+                  : ""
+              : els.researchOutput && els.researchOutput.textContent
+                ? els.researchOutput.textContent
+                : "";
 
     const text = sourceText.trim();
     if (!text) {
@@ -1033,6 +1110,7 @@ async function runPipeline(kind) {
             method: "POST",
             body: JSON.stringify({
                 files: currentFiles(),
+                selectedProvider: state.selectedProvider || "gemini",
                 selectedModel: state.selectedModel || "",
             }),
         });
@@ -1198,7 +1276,7 @@ async function initialize() {
     setStatus("Loading editor state...");
     try {
         const payload = await api("/api/state");
-        populateModelSelect(payload.models || null);
+        populateProviderAndModelSelect(payload.providers || null, payload.models || null);
         applyFilesToEditors(payload.files || {});
         updateDiskSnapshot(payload.files || {});
         applyCvOutputState(payload);
@@ -1314,6 +1392,13 @@ if (els.paneSplitter) {
 if (els.modelSelect) {
     els.modelSelect.addEventListener("change", () => {
         setSelectedModel(selectedModelFromUi());
+    });
+}
+if (els.providerSelect) {
+    els.providerSelect.addEventListener("change", () => {
+        setSelectedProvider(selectedProviderFromUi());
+        setSelectedModel("");
+        refreshModelSelectOptions();
     });
 }
 

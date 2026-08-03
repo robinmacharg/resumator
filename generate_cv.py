@@ -11,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 
 from cv_convert import convert_markdown_outputs
+from provider_catalog import load_provider_catalog, provider_map
+from provider_clients import AttemptResult, run_gemini_attempt, run_huggingface_attempt
 
 # File paths in current working directory
 CV_FILE = Path("CV.md")
@@ -23,6 +25,7 @@ RAW_MODEL_JSON_FILE = Path("tailored.model.json")
 OUTPUT_PDF = Path("tailored_dev.pdf")
 OUTPUT_DOCX = Path("tailored_dev.docx")
 GEMINI_TIMEOUT_SECONDS = 300
+HUGGINGFACE_TIMEOUT_SECONDS = 180
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_FALLBACK_MODELS = [
     "gemini-3.5-flash",
@@ -40,6 +43,12 @@ GEMINI_HEARTBEAT_SECONDS = 15
 DEBUG_LOG_DIR = Path("gemini_debug_logs")
 DEFAULT_FAST_MODEL = "gemini-2.5-flash-lite"
 DEFAULT_FAST_FALLBACK_MODELS = DEFAULT_FALLBACK_MODELS
+DEFAULT_HUGGINGFACE_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
+DEFAULT_HUGGINGFACE_FALLBACK_MODELS = [
+    "Qwen/Qwen2.5-7B-Instruct",
+    "mistralai/Mistral-7B-Instruct-v0.3",
+    "google/gemma-2-9b-it",
+]
 MAX_FAST_CV_CHARS = 18000
 REQUIRED_SEMANTIC_TAG_KEYS = [
     "candidate_name",
@@ -77,21 +86,24 @@ def is_high_load_error(stderr_text: str) -> bool:
     )
 
 
-def build_model_sequence(process_env: dict, explicit_model: str = "") -> list[str]:
+def build_model_sequence(process_env: dict, provider: str, explicit_model: str = "") -> list[str]:
     """Build model attempt order from environment with sensible fallbacks."""
     explicit = explicit_model.strip()
     if explicit:
         return [explicit]
 
     fast_mode = process_env.get("CV_FAST_MODE", "false").strip().lower() in {"1", "true", "yes", "on"}
-    default_primary = DEFAULT_FAST_MODEL if fast_mode else DEFAULT_GEMINI_MODEL
-    primary = process_env.get("GEMINI_MODEL", default_primary).strip()
-    fallback_raw = process_env.get("GEMINI_MODEL_FALLBACKS", "")
-    fallback_from_env = [
-        item.strip() for item in fallback_raw.split(",") if item.strip()
-    ]
-
-    fallback_defaults = DEFAULT_FAST_FALLBACK_MODELS if fast_mode else DEFAULT_FALLBACK_MODELS
+    if provider == "huggingface":
+        primary = process_env.get("HUGGINGFACE_MODEL", DEFAULT_HUGGINGFACE_MODEL).strip()
+        fallback_raw = process_env.get("HUGGINGFACE_MODEL_FALLBACKS", "")
+        fallback_from_env = [item.strip() for item in fallback_raw.split(",") if item.strip()]
+        fallback_defaults = DEFAULT_HUGGINGFACE_FALLBACK_MODELS
+    else:
+        default_primary = DEFAULT_FAST_MODEL if fast_mode else DEFAULT_GEMINI_MODEL
+        primary = process_env.get("GEMINI_MODEL", default_primary).strip()
+        fallback_raw = process_env.get("GEMINI_MODEL_FALLBACKS", "")
+        fallback_from_env = [item.strip() for item in fallback_raw.split(",") if item.strip()]
+        fallback_defaults = DEFAULT_FAST_FALLBACK_MODELS if fast_mode else DEFAULT_FALLBACK_MODELS
 
     ordered: list[str] = []
     for model in [primary, *fallback_from_env, *fallback_defaults]:
@@ -103,6 +115,7 @@ def build_model_sequence(process_env: dict, explicit_model: str = "") -> list[st
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate a tailored CV via Gemini CLI")
+    parser.add_argument("--provider", default="", help="Model provider override (gemini or huggingface)")
     parser.add_argument("--model", default="", help="Explicit Gemini model override")
     return parser.parse_args()
 
@@ -699,14 +712,6 @@ def main() -> None:
         print(f"Error: Missing required file(s): {', '.join(missing)}", file=sys.stderr)
         sys.exit(1)
 
-    # 2. Verify gemini CLI is installed
-    if not shutil.which("gemini"):
-        print(
-            "Error: 'gemini' CLI tool not found. Install via: npm install -g @google/gemini-cli",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
     print("Reading inputs...")
     cv_content = CV_FILE.read_text(encoding="utf-8")
     jobspec_content = JOBSPEC_FILE.read_text(encoding="utf-8")
@@ -721,6 +726,27 @@ def main() -> None:
     # Headless automation: allow Gemini CLI to run in this workspace without
     # interactive trust prompts.
     process_env.setdefault("GEMINI_CLI_TRUST_WORKSPACE", "true")
+    catalog = load_provider_catalog(Path("model_providers.json"))
+    providers = provider_map(catalog)
+    default_provider = str(catalog.get("defaultProvider") or "gemini").strip() or "gemini"
+
+    selected_provider = (args.provider or process_env.get("MODEL_PROVIDER") or default_provider).strip().lower()
+    if selected_provider not in providers:
+        print(f"Error: Unsupported provider '{selected_provider}'.", file=sys.stderr)
+        sys.exit(1)
+
+    if selected_provider == "gemini" and not shutil.which("gemini"):
+        print(
+            "Error: 'gemini' CLI tool not found. Install via: npm install -g @google/gemini-cli",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if selected_provider == "huggingface":
+        hf_token = (process_env.get("HF_API_TOKEN") or process_env.get("HUGGINGFACE_API_TOKEN") or "").strip()
+        if not hf_token:
+            print("Error: Missing HF_API_TOKEN for Hugging Face provider.", file=sys.stderr)
+            sys.exit(1)
 
     # 4. Formulate prompt and invoke Gemini non-interactively via stdin/stdout
     fast_mode = is_fast_mode_enabled(process_env)
@@ -731,64 +757,45 @@ def main() -> None:
     full_prompt = build_prompt(prompt_text, mode_cv_content, jobspec_content)
     full_prompt = apply_fast_mode_prompt_rules(full_prompt, fast_mode)
 
-    print("Invoking Gemini CLI to project CV...")
-    models_to_try = build_model_sequence(process_env, explicit_model=args.model)
+    print(f"Invoking provider '{selected_provider}' to project CV...")
+    models_to_try = build_model_sequence(process_env, provider=selected_provider, explicit_model=args.model)
     print("Model attempt order: " + ", ".join(models_to_try))
     print(
         f"Diagnostics enabled. Per-attempt logs will be written to: {DEBUG_LOG_DIR.resolve()}"
     )
 
-    process: subprocess.CompletedProcess | None = None
+    process: AttemptResult | None = None
     last_error = ""
     attempt_results: list[tuple[str, str]] = []
     for index, model_name in enumerate(models_to_try, start=1):
-        print(f"Gemini attempt {index}/{len(models_to_try)} with model: {model_name}")
-        command = [
-            "gemini",
-            "--skip-trust",
-            "--model",
-            model_name,
-            "--prompt",
-            full_prompt,
-        ]
-        try:
-            completed, elapsed, log_path = run_gemini_with_diagnostics(
-                command=command,
+        print(f"{selected_provider} attempt {index}/{len(models_to_try)} with model: {model_name}")
+        if selected_provider == "huggingface":
+            completed = run_huggingface_attempt(
+                model_name=model_name,
+                prompt_text=full_prompt,
+                env=process_env,
+                timeout_seconds=HUGGINGFACE_TIMEOUT_SECONDS,
+                heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
+                attempt_index=index,
+                debug_log_dir=DEBUG_LOG_DIR,
+                log_prefix="cv-attempt",
+                emit_live_output=True,
+            )
+        else:
+            completed = run_gemini_attempt(
+                model_name=model_name,
+                prompt_text=full_prompt,
                 env=process_env,
                 timeout_seconds=GEMINI_TIMEOUT_SECONDS,
-                model_name=model_name,
+                heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
                 attempt_index=index,
+                debug_log_dir=DEBUG_LOG_DIR,
+                log_prefix="cv-attempt",
+                emit_live_output=False,
             )
-            if completed.returncode != 0:
-                raise subprocess.CalledProcessError(
-                    returncode=completed.returncode,
-                    cmd=completed.args,
-                    output=completed.stdout,
-                    stderr=completed.stderr,
-                )
 
-            process = completed
-            print(
-                f"Attempt {index} completed in {elapsed:.1f}s. "
-                f"Debug log: {log_path}"
-            )
-            attempt_results.append((model_name, "success"))
-            break
-        except subprocess.TimeoutExpired as exc:
-            stderr_excerpt = (exc.stderr or "").strip()
-            excerpt = stderr_excerpt[:500] + ("..." if len(stderr_excerpt) > 500 else "")
-            attempt_results.append((model_name, f"timeout after {GEMINI_TIMEOUT_SECONDS}s"))
-            print(
-                f"Attempt {index} timed out after {GEMINI_TIMEOUT_SECONDS}s. "
-                f"Model: {model_name}",
-                file=sys.stderr,
-            )
-            if excerpt:
-                print(f"Stderr excerpt: {excerpt}", file=sys.stderr)
-            print_attempt_summary(attempt_results, sys.stderr)
-            sys.exit(1)
-        except subprocess.CalledProcessError as exc:
-            stderr_text = (exc.stderr or "").strip() or "(no stderr output)"
+        if completed.returncode != 0:
+            stderr_text = (completed.stderr or "").strip() or "(no stderr output)"
             last_error = stderr_text
             reason = classify_error_reason(stderr_text)
 
@@ -802,10 +809,18 @@ def main() -> None:
                 continue
 
             attempt_results.append((model_name, reason))
-            print(f"Gemini CLI execution failed on model {model_name}:", file=sys.stderr)
+            print(f"Provider call failed on model {model_name}:", file=sys.stderr)
             print(stderr_text, file=sys.stderr)
             print_attempt_summary(attempt_results, sys.stderr)
             sys.exit(1)
+
+        process = completed
+        print(
+            f"Attempt {index} completed in {completed.elapsed_seconds:.1f}s. "
+            f"Debug log: {completed.log_path}"
+        )
+        attempt_results.append((model_name, "success"))
+        break
 
     if process is None:
         print(

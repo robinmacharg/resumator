@@ -12,6 +12,9 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from provider_catalog import load_provider_catalog, provider_map
+from provider_clients import AttemptResult, run_gemini_attempt, run_huggingface_attempt
+
 CV_FILE = Path("CV.md")
 JOBSPEC_FILE = Path("jobspec.txt")
 PROMPT_FILE = Path("research_prompt.md")
@@ -42,6 +45,13 @@ DEFAULT_FALLBACK_MODELS = [
     "gemini-2.0-flash-lite",
     "gemini-1.5-flash",
 ]
+DEFAULT_HUGGINGFACE_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
+DEFAULT_HUGGINGFACE_FALLBACK_MODELS = [
+    "Qwen/Qwen2.5-7B-Instruct",
+    "mistralai/Mistral-7B-Instruct-v0.3",
+    "google/gemma-2-9b-it",
+]
+HUGGINGFACE_TIMEOUT_SECONDS = 180
 
 
 def utc_now_iso() -> str:
@@ -358,21 +368,30 @@ def run_gemini_with_diagnostics(
     return completed, end_elapsed, log_path
 
 
-def build_model_sequence(process_env: dict[str, str], explicit_model: str | None = None) -> list[str]:
+def build_model_sequence(
+    process_env: dict[str, str],
+    provider: str,
+    explicit_model: str | None = None,
+) -> list[str]:
     explicit = (explicit_model or "").strip()
     if explicit:
         return [explicit]
 
-    primary = process_env.get("GEMINI_MODEL", "").strip()
-    if not primary:
-        primary = DEFAULT_MODEL
-
-    fallback_raw = process_env.get("GEMINI_MODEL_FALLBACKS", "").strip()
-
-    env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
+    if provider == "huggingface":
+        primary = process_env.get("HUGGINGFACE_MODEL", "").strip() or DEFAULT_HUGGINGFACE_MODEL
+        fallback_raw = process_env.get("HUGGINGFACE_MODEL_FALLBACKS", "").strip()
+        env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
+        defaults = DEFAULT_HUGGINGFACE_FALLBACK_MODELS
+    else:
+        primary = process_env.get("GEMINI_MODEL", "").strip()
+        if not primary:
+            primary = DEFAULT_MODEL
+        fallback_raw = process_env.get("GEMINI_MODEL_FALLBACKS", "").strip()
+        env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
+        defaults = DEFAULT_FALLBACK_MODELS
 
     ordered: list[str] = []
-    for model in [primary, *env_fallbacks, *DEFAULT_FALLBACK_MODELS]:
+    for model in [primary, *env_fallbacks, *defaults]:
         if model and model not in ordered:
             ordered.append(model)
 
@@ -514,6 +533,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--url", action="append", default=[], help="Additional URL (repeatable)")
     parser.add_argument("--output-md", default=str(OUTPUT_MD), help="Markdown output path")
     parser.add_argument("--output-json", default=str(OUTPUT_JSON), help="JSON output path")
+    parser.add_argument("--provider", default="", help="Model provider override (gemini or huggingface)")
     parser.add_argument("--model", default="", help="Gemini model name (optional override)")
     parser.add_argument(
         "--dry-run",
@@ -590,6 +610,14 @@ def main() -> None:
     process_env = os.environ.copy()
     process_env.update(load_dotenv_file(ENV_FILE))
     process_env.setdefault("GEMINI_CLI_TRUST_WORKSPACE", "true")
+    catalog = load_provider_catalog(Path("model_providers.json"))
+    providers = provider_map(catalog)
+    default_provider = str(catalog.get("defaultProvider") or "gemini").strip() or "gemini"
+    selected_provider = (args.provider or process_env.get("MODEL_PROVIDER") or default_provider).strip().lower()
+    if selected_provider not in providers:
+        print(f"Unsupported provider: {selected_provider}", file=sys.stderr)
+        sys.exit(1)
+
     timeout_seconds = parse_positive_int(
         process_env,
         "RESEARCH_GEMINI_TIMEOUT_SECONDS",
@@ -620,10 +648,11 @@ def main() -> None:
         "RESEARCH_GEMINI_MAX_CONSECUTIVE_HARD_QUOTA_MODELS",
         RESEARCH_MAX_CONSECUTIVE_HARD_QUOTA_MODELS,
     )
-    model_sequence = build_model_sequence(process_env, explicit_model=args.model)
+    model_sequence = build_model_sequence(process_env, selected_provider, explicit_model=args.model)
 
     envelope: dict[str, object] = {
         "companyName": company_name,
+        "provider": selected_provider,
         "model": model_sequence[0] if model_sequence else DEFAULT_MODEL,
         "urls": urls,
         "generatedAt": utc_now_iso(),
@@ -639,14 +668,20 @@ def main() -> None:
         print(f"Dry run complete. JSON written to: {output_json.resolve()}")
         return
 
-    if not shutil.which("gemini"):
+    if selected_provider == "gemini" and not shutil.which("gemini"):
         print("'gemini' CLI not found on PATH.", file=sys.stderr)
         sys.exit(1)
+    if selected_provider == "huggingface":
+        hf_token = (process_env.get("HF_API_TOKEN") or process_env.get("HUGGINGFACE_API_TOKEN") or "").strip()
+        if not hf_token:
+            print("HF_API_TOKEN (or HUGGINGFACE_API_TOKEN) is required for provider=huggingface.", file=sys.stderr)
+            sys.exit(1)
 
     print(
         f"Diagnostics enabled. Per-attempt logs at: {DEBUG_LOG_DIR.resolve()}",
         flush=True,
     )
+    print(f"Selected provider: {selected_provider}", flush=True)
     print(
         f"Research Gemini timeout: {timeout_seconds}s (heartbeat every {heartbeat_seconds}s)",
         flush=True,
@@ -668,42 +703,51 @@ def main() -> None:
     )
 
     model_attempts: list[dict[str, object]] = []
-    proc: subprocess.CompletedProcess[str] | None = None
+    proc: AttemptResult | None = None
     selected_model: str | None = None
     attempt_results: list[tuple[str, str]] = []
     consecutive_hard_quota_models = 0
 
     for idx, model_name in enumerate(model_sequence, start=1):
-        print(f"Invoking Gemini model ({idx}/{len(model_sequence)}): {model_name}", flush=True)
-
-        command = [
-            "gemini",
-            "--skip-trust",
-            "--model",
-            model_name,
-            "--prompt",
-            prompt_text,
-        ]
+        print(
+            f"Invoking {selected_provider} model ({idx}/{len(model_sequence)}): {model_name}",
+            flush=True,
+        )
 
         try:
-            proc, elapsed_seconds, log_path = run_gemini_with_diagnostics(
-                command=command,
-                env=process_env,
-                timeout_seconds=timeout_seconds,
-                heartbeat_seconds=heartbeat_seconds,
-                model_name=model_name,
-                attempt_index=idx,
-                max_429_lines_before_fallback=max_429_lines_before_fallback,
-                rate_limit_grace_seconds=rate_limit_grace_seconds,
-                max_retry_after_seconds_before_fallback=max_retry_after_seconds_before_fallback,
-            )
+            if selected_provider == "huggingface":
+                proc = run_huggingface_attempt(
+                    model_name=model_name,
+                    prompt_text=prompt_text,
+                    env=process_env,
+                    timeout_seconds=HUGGINGFACE_TIMEOUT_SECONDS,
+                    heartbeat_seconds=heartbeat_seconds,
+                    attempt_index=idx,
+                    debug_log_dir=DEBUG_LOG_DIR,
+                    log_prefix="research-attempt",
+                    emit_live_output=True,
+                )
+            else:
+                proc = run_gemini_attempt(
+                    model_name=model_name,
+                    prompt_text=prompt_text,
+                    env=process_env,
+                    timeout_seconds=timeout_seconds,
+                    heartbeat_seconds=heartbeat_seconds,
+                    attempt_index=idx,
+                    debug_log_dir=DEBUG_LOG_DIR,
+                    log_prefix="research-attempt",
+                    max_429_lines_before_fallback=max_429_lines_before_fallback,
+                    rate_limit_grace_seconds=rate_limit_grace_seconds,
+                    max_retry_after_seconds_before_fallback=max_retry_after_seconds_before_fallback,
+                    emit_live_output=True,
+                )
             print(
-                f"Attempt {idx} completed in {elapsed_seconds:.1f}s. Debug log: {log_path}",
+                f"Attempt {idx} completed in {proc.elapsed_seconds:.1f}s. Debug log: {proc.log_path}",
                 flush=True,
             )
-        except subprocess.TimeoutExpired as exc:
-            stderr_excerpt = (exc.stderr or "").strip()
-            excerpt = stderr_excerpt[:500] + ("..." if len(stderr_excerpt) > 500 else "")
+        except Exception as exc:
+            excerpt = str(exc)[:500]
             model_attempts.append(
                 {
                     "model": model_name,
@@ -711,9 +755,9 @@ def main() -> None:
                     "retryable": True,
                 }
             )
-            attempt_results.append((model_name, f"timeout after {timeout_seconds}s"))
+            attempt_results.append((model_name, f"provider exception: {exc}"))
             print(
-                f"Attempt {idx} timed out after {timeout_seconds}s. Model: {model_name}",
+                f"Attempt {idx} failed unexpectedly. Model: {model_name}",
                 file=sys.stderr,
                 flush=True,
             )
@@ -723,7 +767,7 @@ def main() -> None:
             envelope["model"] = model_name
             envelope["modelAttempts"] = model_attempts
             envelope["output"] = ""
-            envelope["stderr"] = "Model attempt timed out. See per-attempt debug log."
+            envelope["stderr"] = "Model attempt failed unexpectedly. See per-attempt debug log."
             output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
             print_attempt_summary(attempt_results, sys.stderr)
             sys.exit(1)

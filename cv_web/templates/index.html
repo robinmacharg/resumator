@@ -13,6 +13,12 @@
                 <p>Tailor your CV to a role in one click</p>
             </div>
             <div class="actions">
+                <label class="model-picker" for="providerSelect">
+                    <span>Provider</span>
+                    <select id="providerSelect" aria-label="Model provider selection">
+                        <option value="gemini">Gemini</option>
+                    </select>
+                </label>
                 <label class="model-picker" for="modelSelect">
                     <span>Model</span>
                     <select id="modelSelect" aria-label="Model selection">
@@ -211,11 +217,9 @@ No built query yet. Run Research first.</pre
                                 class="research-output-panel"
                                 role="tabpanel"
                             >
-                                <textarea
-                                    id="researchCommandOutput"
-                                    spellcheck="false"
-                                    readonly
-                                >No command yet. Run Research first.</textarea>
+                                <textarea id="researchCommandOutput" spellcheck="false" readonly>
+No command yet. Run Research first.</textarea
+                                >
                             </section>
                         </div>
                     </section>

@@ -15,6 +15,11 @@ from urllib.parse import parse_qs, urlparse
 
 APP_DIR = Path(__file__).resolve().parent
 ROOT_DIR = APP_DIR.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from provider_catalog import load_provider_catalog, provider_map
+
 TEMPLATES_DIR = APP_DIR / "templates"
 STATIC_DIR = APP_DIR / "static"
 LOG_DIR = ROOT_DIR / "gemini_debug_logs"
@@ -30,20 +35,7 @@ RESEARCH_FORMATTED_PDF = ROOT_DIR / "research_output.formatted.pdf"
 HOST = "127.0.0.1"
 PORT = 8765
 ENV_FILE_PATH = ROOT_DIR / ".env"
-
-DEFAULT_APP_MODEL_ORDER = [
-    "gemini-3.5-flash-lite",
-    "gemini-3.5-flash",
-    "gemini-3.6-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-flash",
-    "gemini-2.0-flash-lite-001",
-    "gemini-2.0-flash-001",
-    "gemini-2.5-pro",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash",
-]
+MODEL_CATALOG_PATH = ROOT_DIR / "model_providers.json"
 
 EDITOR_FILES = {
     "cv": ROOT_DIR / "CV.md",
@@ -135,21 +127,65 @@ def dedupe_keep_order(items: list[str]) -> list[str]:
     return ordered
 
 
-def build_available_models() -> list[str]:
-    env = parse_dotenv_file(ENV_FILE_PATH)
-    env_models = [
-        env.get("GEMINI_MODEL", "").strip(),
-        *split_csv(env.get("GEMINI_MODEL_FALLBACKS", "")),
+def load_catalog() -> dict[str, Any]:
+    return load_provider_catalog(MODEL_CATALOG_PATH)
+
+
+def build_provider_options() -> list[dict[str, str]]:
+    catalog = load_catalog()
+    return [
+        {"value": item["id"], "label": item["label"]}
+        for item in catalog.get("providers", [])
+        if isinstance(item, dict) and item.get("id") and item.get("label")
     ]
-    return dedupe_keep_order(
-        [
-            *env_models,
-            *DEFAULT_APP_MODEL_ORDER,
+
+
+def build_available_models(selected_provider: str) -> list[str]:
+    catalog = load_catalog()
+    providers = provider_map(catalog)
+    provider_entry = providers.get(selected_provider)
+    if not provider_entry:
+        provider_entry = providers.get(catalog.get("defaultProvider", ""))
+    if not provider_entry:
+        return []
+
+    env = parse_dotenv_file(ENV_FILE_PATH)
+    provider_id = str(provider_entry.get("id", "")).strip()
+    default_models = [item for item in provider_entry.get("models", []) if isinstance(item, str)]
+    if provider_id == "gemini":
+        env_models = [
+            env.get("GEMINI_MODEL", "").strip(),
+            *split_csv(env.get("GEMINI_MODEL_FALLBACKS", "")),
         ]
-    )
+    elif provider_id == "huggingface":
+        env_models = [
+            env.get("HUGGINGFACE_MODEL", "").strip(),
+            *split_csv(env.get("HUGGINGFACE_MODEL_FALLBACKS", "")),
+        ]
+    else:
+        env_models = []
+
+    return dedupe_keep_order([*env_models, *default_models])
 
 
-def parse_selected_model(payload: dict[str, Any]) -> str:
+def parse_selected_provider(payload: dict[str, Any]) -> str:
+    catalog = load_catalog()
+    providers = provider_map(catalog)
+    default_provider = str(catalog.get("defaultProvider", "gemini")).strip() or "gemini"
+
+    raw_provider = payload.get("selectedProvider", "")
+    if raw_provider is None:
+        return default_provider
+    if not isinstance(raw_provider, str):
+        raise ValueError("selectedProvider must be a string")
+
+    selected_provider = raw_provider.strip() or default_provider
+    if selected_provider not in providers:
+        raise ValueError("selectedProvider is not in available provider options")
+    return selected_provider
+
+
+def parse_selected_model(payload: dict[str, Any], selected_provider: str) -> str:
     raw_model = payload.get("selectedModel", "")
     if raw_model is None:
         return ""
@@ -160,7 +196,7 @@ def parse_selected_model(payload: dict[str, Any]) -> str:
     if not selected_model:
         return ""
 
-    available = build_available_models()
+    available = build_available_models(selected_provider)
     if selected_model not in available:
         raise ValueError("selectedModel is not in available model options")
     return selected_model
@@ -176,13 +212,23 @@ def build_state() -> dict[str, Any]:
     files = {key: read_text(path) for key, path in EDITOR_FILES.items()}
     output_pdf = ROOT_DIR / "tailored_dev.pdf"
     output_docx = ROOT_DIR / "tailored_dev.docx"
-    model_options = build_available_models()
+    catalog = load_catalog()
+    provider_options = build_provider_options()
+    default_provider = str(catalog.get("defaultProvider", "gemini")).strip() or "gemini"
+    models_by_provider = {
+        item["value"]: build_available_models(item["value"])
+        for item in provider_options
+    }
     return {
         "files": files,
+        "providers": {
+            "defaultProvider": default_provider,
+            "options": provider_options,
+        },
         "models": {
             "defaultOptionValue": "",
             "defaultOptionLabel": "Default order",
-            "options": model_options,
+            "byProvider": models_by_provider,
         },
         "outputs": {
             "pdfExists": output_pdf.exists(),
@@ -264,9 +310,11 @@ def read_log_file(name: str) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def make_command(kind: str, selected_model: str = "") -> list[str]:
+def make_command(kind: str, selected_provider: str = "", selected_model: str = "") -> list[str]:
     if kind == "full":
         command = [sys.executable, str(ROOT_DIR / "generate_cv.py")]
+        if selected_provider:
+            command.extend(["--provider", selected_provider])
         if selected_model:
             command.extend(["--model", selected_model])
         return command
@@ -461,8 +509,8 @@ def stream_pipe_research(pipe, prefix: str = "") -> None:
         pipe.close()
 
 
-def run_subprocess_streaming(kind: str, selected_model: str = "") -> dict[str, Any]:
-    command = make_command(kind, selected_model=selected_model)
+def run_subprocess_streaming(kind: str, selected_provider: str = "", selected_model: str = "") -> dict[str, Any]:
+    command = make_command(kind, selected_provider=selected_provider, selected_model=selected_model)
 
     started_at = utc_now_iso()
     started_monotonic = time.monotonic()
@@ -477,6 +525,7 @@ def run_subprocess_streaming(kind: str, selected_model: str = "") -> dict[str, A
             "success": None,
             "running": True,
             "output": "",
+            "selectedProvider": selected_provider,
             "selectedModel": selected_model,
             "pdfMtime": file_mtime(ROOT_DIR / "tailored_dev.pdf"),
             "docxMtime": file_mtime(ROOT_DIR / "tailored_dev.docx"),
@@ -509,14 +558,14 @@ def run_subprocess_streaming(kind: str, selected_model: str = "") -> dict[str, A
     return run_result
 
 
-def run_subprocess_async(kind: str, selected_model: str = "") -> None:
+def run_subprocess_async(kind: str, selected_provider: str = "", selected_model: str = "") -> None:
     try:
-        run_subprocess_streaming(kind, selected_model=selected_model)
+        run_subprocess_streaming(kind, selected_provider=selected_provider, selected_model=selected_model)
     except Exception as exc:
         set_current_run(
             {
                 "kind": kind,
-                "command": make_command(kind, selected_model=selected_model),
+                "command": make_command(kind, selected_provider=selected_provider, selected_model=selected_model),
                 "exitCode": 1,
                 "startedAt": utc_now_iso(),
                 "finishedAt": utc_now_iso(),
@@ -524,6 +573,7 @@ def run_subprocess_async(kind: str, selected_model: str = "") -> None:
                 "success": False,
                 "running": False,
                 "output": f"Wrapper failed to execute run: {exc}",
+                "selectedProvider": selected_provider,
                 "selectedModel": selected_model,
                 "pdfMtime": file_mtime(ROOT_DIR / "tailored_dev.pdf"),
                 "docxMtime": file_mtime(ROOT_DIR / "tailored_dev.docx"),
@@ -543,6 +593,7 @@ def run_research_subprocess_streaming(
     company_name: str,
     urls: list[str],
     dry_run: bool,
+    selected_provider: str = "",
     selected_model: str = "",
 ) -> dict[str, Any]:
     command = [
@@ -553,6 +604,8 @@ def run_research_subprocess_streaming(
     ]
     if selected_model:
         command.extend(["--model", selected_model])
+    if selected_provider:
+        command.extend(["--provider", selected_provider])
     for url in urls:
         command.extend(["--url", url])
     if dry_run:
@@ -574,6 +627,7 @@ def run_research_subprocess_streaming(
             "success": None,
             "running": True,
             "output": "",
+            "selectedProvider": selected_provider,
             "selectedModel": selected_model,
             "_startedMonotonic": started_monotonic,
         }
@@ -673,6 +727,7 @@ def run_research_subprocess_async(
     company_name: str,
     urls: list[str],
     dry_run: bool,
+    selected_provider: str = "",
     selected_model: str = "",
 ) -> None:
     try:
@@ -680,6 +735,7 @@ def run_research_subprocess_async(
             company_name=company_name,
             urls=urls,
             dry_run=dry_run,
+            selected_provider=selected_provider,
             selected_model=selected_model,
         )
     except Exception as exc:
@@ -690,6 +746,7 @@ def run_research_subprocess_async(
                 "companyName": company_name,
                 "urls": urls,
                 "dryRun": dry_run,
+                "selectedProvider": selected_provider,
                 "selectedModel": selected_model,
                 "exitCode": 1,
                 "startedAt": utc_now_iso(),
@@ -932,7 +989,8 @@ class CVWebHandler(BaseHTTPRequestHandler):
                     payload,
                     allowed_keys={"cv", "prompt", "research_prompt", "jobspec"},
                 )
-                selected_model = parse_selected_model(payload)
+                selected_provider = parse_selected_provider(payload)
+                selected_model = parse_selected_model(payload, selected_provider)
             except ValueError as exc:
                 self._json_response({"error": str(exc)}, status=400)
                 return
@@ -984,7 +1042,7 @@ class CVWebHandler(BaseHTTPRequestHandler):
             try:
                 thread = threading.Thread(
                     target=run_research_subprocess_async,
-                    args=(company_name, urls, dry_run, selected_model),
+                    args=(company_name, urls, dry_run, selected_provider, selected_model),
                     daemon=True,
                 )
                 thread.start()
@@ -1051,7 +1109,8 @@ class CVWebHandler(BaseHTTPRequestHandler):
                     payload,
                     allowed_keys={"cv", "prompt", "research_prompt", "jobspec"},
                 )
-                selected_model = parse_selected_model(payload)
+                selected_provider = parse_selected_provider(payload)
+                selected_model = parse_selected_model(payload, selected_provider)
             except ValueError as exc:
                 self._json_response({"error": str(exc)}, status=400)
                 return
@@ -1065,7 +1124,7 @@ class CVWebHandler(BaseHTTPRequestHandler):
                 model_override = selected_model if kind == "full" else ""
                 thread = threading.Thread(
                     target=run_subprocess_async,
-                    args=(kind, model_override),
+                    args=(kind, selected_provider, model_override),
                     daemon=True,
                 )
                 thread.start()
