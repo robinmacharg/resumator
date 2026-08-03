@@ -17,6 +17,8 @@ JOBSPEC_FILE = Path("jobspec.txt")
 PROMPT_FILE = Path("prompt.md")
 ENV_FILE = Path(".env")
 TAILORED_MD = Path("tailored.md")
+RAW_MODEL_OUTPUT_FILE = Path("tailored.model-output.txt")
+RAW_MODEL_JSON_FILE = Path("tailored.model.json")
 OUTPUT_PDF = Path("tailored_dev.pdf")
 OUTPUT_DOCX = Path("tailored_dev.docx")
 GEMINI_TIMEOUT_SECONDS = 300
@@ -777,16 +779,33 @@ def main() -> None:
         )
         sys.exit(1)
 
-    raw_model_output = (process.stdout or "").strip()
-    if not raw_model_output:
+    raw_model_output = process.stdout or ""
+    RAW_MODEL_OUTPUT_FILE.write_text(raw_model_output, encoding="utf-8")
+    print(f"Saved raw model output to: {RAW_MODEL_OUTPUT_FILE}")
+
+    if not raw_model_output.strip():
         print("Gemini CLI returned empty output.", file=sys.stderr)
         sys.exit(1)
+
+    try:
+        extracted_json_payload = extract_json_payload(raw_model_output)
+        RAW_MODEL_JSON_FILE.write_text(extracted_json_payload + "\n", encoding="utf-8")
+        print(f"Saved extracted model JSON to: {RAW_MODEL_JSON_FILE}")
+    except ValueError:
+        print(
+            "Could not extract JSON payload from raw model output; "
+            "inspect tailored.model-output.txt.",
+            file=sys.stderr,
+        )
 
     try:
         structured_payload = parse_and_validate_json_output(raw_model_output)
     except ValueError as exc:
         print(f"Generated output failed JSON contract validation: {exc}", file=sys.stderr)
-        print("Inspect gemini_debug_logs for the raw model output.", file=sys.stderr)
+        print(
+            "Inspect tailored.model-output.txt and tailored.model.json for raw output details.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     tailored_markdown = render_tagged_markdown(structured_payload)

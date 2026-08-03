@@ -136,15 +136,17 @@ Section/content rules to enforce in JSON values:
 7. selected_key_roles must include only the most relevant roles started in the last 10 years.
 8. selected_key_roles length must be <= 5.
 9. For each selected role, provide concise bullets; prioritize strongest evidence.
-10. If a selected role has an App Store URL in the source CV, include it in app_store_url for that role.
-11. Do not place App Store links in date_range text; place them only in app_store_url.
-12. app_store_url, when present, must be an https URL to the app page.
-13. earlier_career must include roles not listed in selected_key_roles.
-14. open_source_contributions must contain 3 to 5 relevant items.
-15. technical_skills must be grouped, concise, and concrete.
-16. Do not include non-professional unrelated achievements.
-17. Do not include location in contact content.
-18. Mention security clearance and management experience only where role-relevant, and place in role-appropriate sections.
+10. If a selected role summary in the input CV includes an App Store link, app_store_url is REQUIRED for that role.
+11. App Store links may appear as markdown links, plain URLs, or labels such as "App Store:"; you MUST detect these variants.
+12. app_store_url must be the full https URL to the app page (typically apps.apple.com). Do not shorten, rewrite, or infer a new URL.
+13. If no App Store link exists for a selected role in the source input, set app_store_url to null for that role.
+14. Do not place App Store links inside date_range, heading, or bullets when app_store_url is available.
+15. earlier_career must include roles not listed in selected_key_roles.
+16. open_source_contributions must contain 3 to 5 relevant items.
+17. technical_skills must be grouped, concise, and concrete.
+18. Do not include non-professional unrelated achievements.
+19. Do not include location in contact content.
+20. Mention security clearance and management experience only where role-relevant, and place in role-appropriate sections.
 
 Critical output rules:
 - Return JSON only.
