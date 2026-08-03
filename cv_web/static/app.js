@@ -1,8 +1,10 @@
 const state = {
     isRunning: false,
     isResearchRunning: false,
+    selectedModel: "",
     activeTab: "cv",
     activeLogTab: "run",
+    activeResearchOutputTab: "console",
     isDraggingSplitter: false,
     diskFiles: {},
     runStatusTimerId: null,
@@ -14,6 +16,7 @@ const state = {
 
 const els = {
     statusText: document.getElementById("statusText"),
+    modelSelect: document.getElementById("modelSelect"),
     cvEditor: document.getElementById("cvEditor"),
     promptEditor: document.getElementById("promptEditor"),
     researchPromptEditor: document.getElementById("researchPromptEditor"),
@@ -26,6 +29,7 @@ const els = {
     copyResearchOutputBtn: document.getElementById("copyResearchOutputBtn"),
     researchStatusText: document.getElementById("researchStatusText"),
     researchOutput: document.getElementById("researchOutput"),
+    researchBuiltQueryOutput: document.getElementById("researchBuiltQueryOutput"),
     jobspecEditor: document.getElementById("jobspecEditor"),
     envEditor: document.getElementById("envEditor"),
     tailoredViewer: document.getElementById("tailoredViewer"),
@@ -55,9 +59,14 @@ const els = {
         logs: document.getElementById("tab-logs"),
     },
     logTabButtons: Array.from(document.querySelectorAll(".log-tab-btn")),
+    researchOutputTabButtons: Array.from(document.querySelectorAll(".research-output-tab-btn")),
     logPanels: {
         run: document.getElementById("log-panel-run"),
         debug: document.getElementById("log-panel-debug"),
+    },
+    researchOutputPanels: {
+        console: document.getElementById("research-output-panel-console"),
+        built_query: document.getElementById("research-output-panel-built-query"),
     },
 };
 
@@ -96,6 +105,9 @@ const LS_KEYS = {
     research_urls: "cvweb.research.urls",
     jobspec: "cvweb.jobspec",
     env: "cvweb.env",
+    active_tab: "cvweb.active_tab",
+    research_output_tab: "cvweb.research_output_tab",
+    selected_model: "cvweb.selected_model",
 };
 
 function setStatus(message, isError = false) {
@@ -133,19 +145,25 @@ function applyControlDisabledState() {
         els.runFullBtn,
         ...els.fileLoadButtons,
         ...els.fileSaveButtons,
-        els.runResearchBtn,
         els.formatResearchBtn,
         els.resetResearchPromptBtn,
         els.copyResearchOutputBtn,
         els.researchCompanyInput,
         els.researchUrlsInput,
         els.researchDryRunCheckbox,
+        els.modelSelect,
     ].forEach((el) => {
         if (!el) {
             return;
         }
         el.disabled = disabled;
     });
+
+    if (els.runResearchBtn) {
+        els.runResearchBtn.disabled = state.isRunning;
+    }
+
+    syncResearchPrimaryButton();
 }
 
 function setRunning(running) {
@@ -156,6 +174,87 @@ function setRunning(running) {
 function setResearchRunning(running) {
     state.isResearchRunning = running;
     applyControlDisabledState();
+}
+
+function selectedModelFromUi() {
+    if (!els.modelSelect) {
+        return "";
+    }
+    return (els.modelSelect.value || "").trim();
+}
+
+function setSelectedModel(model) {
+    const next = (model || "").trim();
+    state.selectedModel = next;
+    localStorage.setItem(LS_KEYS.selected_model, next);
+    if (els.modelSelect && els.modelSelect.value !== next) {
+        els.modelSelect.value = next;
+    }
+}
+
+function populateModelSelect(modelsPayload) {
+    if (!els.modelSelect) {
+        return;
+    }
+
+    const defaultOptionValue =
+        modelsPayload && typeof modelsPayload.defaultOptionValue === "string"
+            ? modelsPayload.defaultOptionValue
+            : "";
+    const defaultOptionLabel =
+        modelsPayload && typeof modelsPayload.defaultOptionLabel === "string"
+            ? modelsPayload.defaultOptionLabel
+            : "Default order";
+    const modelOptions =
+        modelsPayload && Array.isArray(modelsPayload.options)
+            ? modelsPayload.options.filter((item) => typeof item === "string" && item.trim())
+            : [];
+
+    const deduped = [];
+    const seen = new Set();
+    modelOptions.forEach((item) => {
+        const cleaned = item.trim();
+        if (!cleaned || seen.has(cleaned)) {
+            return;
+        }
+        seen.add(cleaned);
+        deduped.push(cleaned);
+    });
+
+    els.modelSelect.innerHTML = "";
+
+    const defaultOpt = document.createElement("option");
+    defaultOpt.value = defaultOptionValue;
+    defaultOpt.textContent = defaultOptionLabel;
+    els.modelSelect.appendChild(defaultOpt);
+
+    deduped.forEach((modelName) => {
+        const opt = document.createElement("option");
+        opt.value = modelName;
+        opt.textContent = modelName;
+        els.modelSelect.appendChild(opt);
+    });
+
+    const savedSelection = (localStorage.getItem(LS_KEYS.selected_model) || "").trim();
+    const hasSaved = deduped.includes(savedSelection);
+    const selected = hasSaved ? savedSelection : defaultOptionValue;
+    setSelectedModel(selected);
+}
+
+function syncResearchPrimaryButton() {
+    if (!els.runResearchBtn) {
+        return;
+    }
+
+    if (state.isResearchRunning) {
+        els.runResearchBtn.textContent = "Stop Research";
+        els.runResearchBtn.classList.remove("btn-primary");
+        els.runResearchBtn.classList.add("btn-danger");
+    } else {
+        els.runResearchBtn.textContent = "Run Research";
+        els.runResearchBtn.classList.remove("btn-danger");
+        els.runResearchBtn.classList.add("btn-primary");
+    }
 }
 
 function currentFiles() {
@@ -350,6 +449,14 @@ function setResearchOutput(text) {
     els.researchOutput.scrollTop = els.researchOutput.scrollHeight;
 }
 
+function setResearchBuiltQueryOutput(text) {
+    if (!els.researchBuiltQueryOutput) {
+        return;
+    }
+    els.researchBuiltQueryOutput.textContent = text;
+    els.researchBuiltQueryOutput.scrollTop = els.researchBuiltQueryOutput.scrollHeight;
+}
+
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -402,7 +509,13 @@ function summarizeResearchOutput(run) {
     if (!run) {
         return "No research run output yet.";
     }
-    const status = run.running ? "running" : run.success ? "success" : "failed";
+    const status = run.running
+        ? "running"
+        : run.stoppedByUser
+          ? "stopped"
+          : run.success
+            ? "success"
+            : "failed";
     const elapsed =
         run.elapsedSeconds === null || run.elapsedSeconds === undefined
             ? "-"
@@ -441,6 +554,12 @@ function renderResearchState(payload) {
     }
 
     const output = payload.output || {};
+    if (typeof output.builtPrompt === "string" && output.builtPrompt.trim()) {
+        setResearchBuiltQueryOutput(output.builtPrompt);
+    } else {
+        setResearchBuiltQueryOutput("No built query yet. Run Research first.");
+    }
+
     if (typeof output.markdown === "string" && output.markdown.trim()) {
         setResearchOutput(output.markdown);
     } else if (typeof output.json === "string" && output.json.trim()) {
@@ -648,6 +767,7 @@ async function runResearch() {
                 companyName,
                 urls,
                 dryRun: Boolean(els.researchDryRunCheckbox.checked),
+                selectedModel: state.selectedModel || "",
             }),
         });
 
@@ -656,7 +776,10 @@ async function runResearch() {
         }
 
         const run = await waitForResearchCompletion();
-        if (run && run.success) {
+        if (run && run.stoppedByUser) {
+            setResearchStatus(`Research stopped (${run.elapsedSeconds}s).`);
+            setStatus("Research run stopped.");
+        } else if (run && run.success) {
             setResearchStatus(`Research complete (${run.elapsedSeconds}s).`);
             setStatus("Research run complete.");
         } else {
@@ -674,6 +797,34 @@ async function runResearch() {
     } finally {
         setResearchRunning(false);
     }
+}
+
+async function stopResearch() {
+    setResearchStatus("Stopping research run...");
+    setStatus("Stopping research run...");
+
+    try {
+        await api("/api/research/stop", {
+            method: "POST",
+            body: JSON.stringify({}),
+        });
+        setResearchStatus("Stop requested. Waiting for process to exit...");
+    } catch (err) {
+        setResearchStatus(`Failed to stop research run: ${err.message}`, true);
+        setStatus(`Failed to stop research run: ${err.message}`, true);
+    }
+}
+
+function onResearchPrimaryAction() {
+    if (state.isResearchRunning) {
+        const shouldStop = window.confirm("Stop the current research run?");
+        if (!shouldStop) {
+            return;
+        }
+        stopResearch();
+        return;
+    }
+    runResearch();
 }
 
 async function formatResearchPdf() {
@@ -748,9 +899,16 @@ async function resetResearchPrompt() {
 }
 
 async function copyResearchOutputToClipboard() {
-    const text = (
-        els.researchOutput && els.researchOutput.textContent ? els.researchOutput.textContent : ""
-    ).trim();
+    const sourceText =
+        state.activeResearchOutputTab === "built_query"
+            ? els.researchBuiltQueryOutput && els.researchBuiltQueryOutput.textContent
+                ? els.researchBuiltQueryOutput.textContent
+                : ""
+            : els.researchOutput && els.researchOutput.textContent
+              ? els.researchOutput.textContent
+              : "";
+
+    const text = sourceText.trim();
     if (!text) {
         setResearchStatus("No research output to copy.", true);
         return;
@@ -819,7 +977,10 @@ async function runPipeline(kind) {
         writeDraftToLocalStorage();
         const kickoff = await api(kind === "full" ? "/api/run/full" : "/api/run/format", {
             method: "POST",
-            body: JSON.stringify({ files: currentFiles() }),
+            body: JSON.stringify({
+                files: currentFiles(),
+                selectedModel: state.selectedModel || "",
+            }),
         });
         if (kickoff.run) {
             setRunLogOutput(summarizeRun(kickoff.run));
@@ -879,6 +1040,7 @@ function setActiveTab(tabName) {
     }
 
     state.activeTab = tabName;
+    localStorage.setItem(LS_KEYS.active_tab, tabName);
     els.tabButtons.forEach((button) => {
         const isActive = button.dataset.tab === tabName;
         button.classList.toggle("active", isActive);
@@ -911,6 +1073,25 @@ function setActiveLogTab(tabName) {
     });
 
     Object.entries(els.logPanels).forEach(([name, panel]) => {
+        panel.classList.toggle("active", name === tabName);
+    });
+}
+
+function setActiveResearchOutputTab(tabName) {
+    if (!els.researchOutputPanels[tabName]) {
+        return;
+    }
+
+    state.activeResearchOutputTab = tabName;
+    localStorage.setItem(LS_KEYS.research_output_tab, tabName);
+
+    els.researchOutputTabButtons.forEach((button) => {
+        const isActive = button.dataset.researchOutputTab === tabName;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
+    Object.entries(els.researchOutputPanels).forEach(([name, panel]) => {
         panel.classList.toggle("active", name === tabName);
     });
 }
@@ -963,6 +1144,7 @@ async function initialize() {
     setStatus("Loading editor state...");
     try {
         const payload = await api("/api/state");
+        populateModelSelect(payload.models || null);
         applyFilesToEditors(payload.files || {});
         updateDiskSnapshot(payload.files || {});
         applyCvOutputState(payload);
@@ -1014,6 +1196,20 @@ async function initialize() {
 
         updatePreviewCacheBuster();
         await refreshTailoredOutput();
+
+        const savedTab = localStorage.getItem(LS_KEYS.active_tab);
+        if (savedTab && els.tabPanels[savedTab]) {
+            setActiveTab(savedTab);
+        } else {
+            setActiveTab("cv");
+        }
+
+        const savedResearchOutputTab = localStorage.getItem(LS_KEYS.research_output_tab);
+        if (savedResearchOutputTab && els.researchOutputPanels[savedResearchOutputTab]) {
+            setActiveResearchOutputTab(savedResearchOutputTab);
+        } else {
+            setActiveResearchOutputTab("console");
+        }
     } catch (err) {
         setStatus(`Initialization failed: ${err.message}`, true);
     }
@@ -1022,7 +1218,7 @@ async function initialize() {
 els.runFormatBtn.addEventListener("click", () => runPipeline("format"));
 els.runFullBtn.addEventListener("click", () => runPipeline("full"));
 if (els.runResearchBtn) {
-    els.runResearchBtn.addEventListener("click", runResearch);
+    els.runResearchBtn.addEventListener("click", onResearchPrimaryAction);
 }
 if (els.formatResearchBtn) {
     els.formatResearchBtn.addEventListener("click", formatResearchPdf);
@@ -1041,6 +1237,11 @@ els.tabButtons.forEach((button) => {
 els.logTabButtons.forEach((button) => {
     button.addEventListener("click", () => setActiveLogTab(button.dataset.logTab));
 });
+els.researchOutputTabButtons.forEach((button) => {
+    button.addEventListener("click", () =>
+        setActiveResearchOutputTab(button.dataset.researchOutputTab),
+    );
+});
 els.fileSaveButtons.forEach((button) => {
     button.addEventListener("click", () => saveSingleFile(button.dataset.file));
 });
@@ -1052,6 +1253,11 @@ if (els.paneSplitter) {
     window.addEventListener("pointermove", onSplitterPointerMove);
     window.addEventListener("pointerup", onSplitterPointerUp);
     window.addEventListener("pointercancel", onSplitterPointerUp);
+}
+if (els.modelSelect) {
+    els.modelSelect.addEventListener("change", () => {
+        setSelectedModel(selectedModelFromUi());
+    });
 }
 
 bindAutosave();

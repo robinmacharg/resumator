@@ -66,7 +66,11 @@ def load_full_report_content(report_path: str) -> str | None:
 
 
 def build_model_sequence(process_env: dict[str, str], explicit_model: str | None = None) -> list[str]:
-    primary = (explicit_model or "").strip() or process_env.get("RESEARCH_GEMINI_MODEL", "").strip()
+    explicit = (explicit_model or "").strip()
+    if explicit:
+        return [explicit]
+
+    primary = process_env.get("RESEARCH_GEMINI_MODEL", "").strip()
     if not primary:
         primary = process_env.get("GEMINI_MODEL", "").strip()
     if not primary:

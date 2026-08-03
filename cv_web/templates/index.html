@@ -13,6 +13,12 @@
                 <p>Tailor your CV to a role in one click</p>
             </div>
             <div class="actions">
+                <label class="model-picker" for="modelSelect">
+                    <span>Model</span>
+                    <select id="modelSelect" aria-label="Model selection">
+                        <option value="">Default order</option>
+                    </select>
+                </label>
                 <button id="runFormatBtn" class="btn btn-primary">Run Formatting Only</button>
                 <button id="runFullBtn" class="btn btn-primary">Run Full Pipeline</button>
             </div>
@@ -154,7 +160,44 @@
                                     </svg>
                                 </button>
                             </div>
-                            <pre id="researchOutput">No research output yet.</pre>
+                            <div
+                                class="research-output-tabbar"
+                                role="tablist"
+                                aria-label="Research output tabs"
+                            >
+                                <button
+                                    class="research-output-tab-btn active"
+                                    data-research-output-tab="console"
+                                    role="tab"
+                                    aria-selected="true"
+                                >
+                                    Console Log
+                                </button>
+                                <button
+                                    class="research-output-tab-btn"
+                                    data-research-output-tab="built_query"
+                                    role="tab"
+                                    aria-selected="false"
+                                >
+                                    Built Query
+                                </button>
+                            </div>
+                            <section
+                                id="research-output-panel-console"
+                                class="research-output-panel active"
+                                role="tabpanel"
+                            >
+                                <pre id="researchOutput">No research output yet.</pre>
+                            </section>
+                            <section
+                                id="research-output-panel-built-query"
+                                class="research-output-panel"
+                                role="tabpanel"
+                            >
+                                <pre id="researchBuiltQueryOutput">
+No built query yet. Run Research first.</pre
+                                >
+                            </section>
                         </div>
                     </section>
 
@@ -249,7 +292,11 @@
             <aside class="preview-pane">
                 <div class="preview-header">
                     <strong id="pdfPreviewTitle">PDF Preview (CV)</strong>
-                    <a id="pdfPreviewOpenLink" href="/output/tailored_dev.pdf" target="_blank" rel="noopener"
+                    <a
+                        id="pdfPreviewOpenLink"
+                        href="/output/tailored_dev.pdf"
+                        target="_blank"
+                        rel="noopener"
                         >Open in New Tab</a
                     >
                 </div>

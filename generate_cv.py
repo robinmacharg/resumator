@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import os
 import re
@@ -65,8 +66,12 @@ def is_high_load_error(stderr_text: str) -> bool:
     )
 
 
-def build_model_sequence(process_env: dict) -> list[str]:
+def build_model_sequence(process_env: dict, explicit_model: str = "") -> list[str]:
     """Build model attempt order from environment with sensible fallbacks."""
+    explicit = explicit_model.strip()
+    if explicit:
+        return [explicit]
+
     fast_mode = process_env.get("CV_FAST_MODE", "false").strip().lower() in {"1", "true", "yes", "on"}
     default_primary = DEFAULT_FAST_MODEL if fast_mode else DEFAULT_GEMINI_MODEL
     primary = process_env.get("GEMINI_MODEL", default_primary).strip()
@@ -83,6 +88,12 @@ def build_model_sequence(process_env: dict) -> list[str]:
             ordered.append(model)
 
     return ordered
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Generate a tailored CV via Gemini CLI")
+    parser.add_argument("--model", default="", help="Explicit Gemini model override")
+    return parser.parse_args()
 
 
 def classify_error_reason(stderr_text: str) -> str:
@@ -669,6 +680,8 @@ def apply_fast_mode_prompt_rules(full_prompt: str, fast_mode: bool) -> str:
 
 
 def main() -> None:
+    args = parse_args()
+
     # 1. Verify input files exist
     missing = [str(path) for path in (CV_FILE, JOBSPEC_FILE, PROMPT_FILE) if not path.exists()]
     if missing:
@@ -708,7 +721,7 @@ def main() -> None:
     full_prompt = apply_fast_mode_prompt_rules(full_prompt, fast_mode)
 
     print("Invoking Gemini CLI to project CV...")
-    models_to_try = build_model_sequence(process_env)
+    models_to_try = build_model_sequence(process_env, explicit_model=args.model)
     print("Model attempt order: " + ", ".join(models_to_try))
     print(
         f"Diagnostics enabled. Per-attempt logs will be written to: {DEBUG_LOG_DIR.resolve()}"

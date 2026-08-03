@@ -29,7 +29,12 @@ Output requirements (markdown only):
 5. Questions the candidate should ask the company, grouped by theme
 6. Follow-up points for each candidate question to drive useful discussion and signal good fit
 7. Candidate revision focus: CV areas and experiences to sharpen before interview
-8. Risk and uncertainty notes where source information is weak
+8. Brief glossary of unfamiliar terms relevant to this role and CV
+	- Expand acronyms on first mention (for example, "CI/CD" -> "Continuous Integration/Continuous Delivery").
+	- Briefly explain domain-specific terms in plain language.
+	- Tie each definition to the candidate's CV context where possible (for example, where they used or could reference the term).
+	- Keep each definition concise (1 sentence, max 2).
+9. Risk and uncertainty notes where source information is weak
 
 Section ordering and structure requirements:
 - Place the candidate-asks section before Candidate revision focus.
@@ -45,3 +50,4 @@ Constraints:
 - Make the final output easy to skim.
 - Prefer URL-derived evidence over generic prior knowledge.
 - Optimize for token efficiency and reasonable runtime; avoid unnecessary breadth/depth in live URL research.
+- Include only terms likely to be unfamiliar, ambiguous, or domain-heavy; do not define obvious general words.

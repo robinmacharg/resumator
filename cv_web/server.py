@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import json
+import os
+import signal
 import subprocess
 import sys
 import threading
@@ -21,11 +23,28 @@ RESEARCH_URLS_FILE = ROOT_DIR / "research_urls.txt"
 RESEARCH_PROMPT_DEFAULT_FILE = ROOT_DIR / "research_prompt.default.md"
 RESEARCH_OUTPUT_MD = ROOT_DIR / "research_output.md"
 RESEARCH_OUTPUT_JSON = ROOT_DIR / "research_output.json"
+RESEARCH_PROMPT_BUILT_FILE = ROOT_DIR / "research_prompt.built.txt"
 RESEARCH_FORMATTED_MD = ROOT_DIR / "research_output.formatted.md"
 RESEARCH_FORMATTED_PDF = ROOT_DIR / "research_output.formatted.pdf"
 
 HOST = "127.0.0.1"
 PORT = 8765
+ENV_FILE_PATH = ROOT_DIR / ".env"
+
+DEFAULT_CV_MODEL_ORDER = [
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash-lite",
+]
+
+DEFAULT_RESEARCH_MODEL_ORDER = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-flash",
+    "gemini-2.5-pro",
+]
 
 EDITOR_FILES = {
     "cv": ROOT_DIR / "CV.md",
@@ -54,6 +73,8 @@ RESEARCH_RUN_LOCK = threading.Lock()
 RESEARCH_STATE_LOCK = threading.Lock()
 LAST_RESEARCH_RUN: dict[str, Any] = {}
 CURRENT_RESEARCH_RUN: dict[str, Any] = {}
+RESEARCH_PROC_LOCK = threading.Lock()
+CURRENT_RESEARCH_PROC: subprocess.Popen[str] | None = None
 
 
 def utc_now_iso() -> str:
@@ -70,6 +91,85 @@ def write_text(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def parse_dotenv_file(path: Path) -> dict[str, str]:
+    env_vars: dict[str, str] = {}
+    if not path.exists():
+        return env_vars
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+
+        if "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key:
+            continue
+
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+
+        env_vars[key] = value
+
+    return env_vars
+
+
+def split_csv(raw: str) -> list[str]:
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def dedupe_keep_order(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in items:
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        ordered.append(item)
+    return ordered
+
+
+def build_available_models() -> list[str]:
+    env = parse_dotenv_file(ENV_FILE_PATH)
+    env_models = [
+        env.get("GEMINI_MODEL", "").strip(),
+        *split_csv(env.get("GEMINI_MODEL_FALLBACKS", "")),
+        env.get("RESEARCH_GEMINI_MODEL", "").strip(),
+        *split_csv(env.get("RESEARCH_GEMINI_MODEL_FALLBACKS", "")),
+    ]
+    return dedupe_keep_order(
+        [
+            *env_models,
+            *DEFAULT_CV_MODEL_ORDER,
+            *DEFAULT_RESEARCH_MODEL_ORDER,
+        ]
+    )
+
+
+def parse_selected_model(payload: dict[str, Any]) -> str:
+    raw_model = payload.get("selectedModel", "")
+    if raw_model is None:
+        return ""
+    if not isinstance(raw_model, str):
+        raise ValueError("selectedModel must be a string")
+
+    selected_model = raw_model.strip()
+    if not selected_model:
+        return ""
+
+    available = build_available_models()
+    if selected_model not in available:
+        raise ValueError("selectedModel is not in available model options")
+    return selected_model
+
+
 def file_mtime(path: Path) -> float | None:
     if not path.exists():
         return None
@@ -80,8 +180,14 @@ def build_state() -> dict[str, Any]:
     files = {key: read_text(path) for key, path in EDITOR_FILES.items()}
     output_pdf = ROOT_DIR / "tailored_dev.pdf"
     output_docx = ROOT_DIR / "tailored_dev.docx"
+    model_options = build_available_models()
     return {
         "files": files,
+        "models": {
+            "defaultOptionValue": "",
+            "defaultOptionLabel": "Default order",
+            "options": model_options,
+        },
         "outputs": {
             "pdfExists": output_pdf.exists(),
             "docxExists": output_docx.exists(),
@@ -109,6 +215,7 @@ def build_research_state() -> dict[str, Any]:
     company_name = read_text(RESEARCH_COMPANY_FILE).strip()
     output_md_mtime = file_mtime(RESEARCH_OUTPUT_MD)
     output_json_mtime = file_mtime(RESEARCH_OUTPUT_JSON)
+    built_prompt_mtime = file_mtime(RESEARCH_PROMPT_BUILT_FILE)
     formatted_md_mtime = file_mtime(RESEARCH_FORMATTED_MD)
     formatted_pdf_mtime = file_mtime(RESEARCH_FORMATTED_PDF)
 
@@ -120,6 +227,9 @@ def build_research_state() -> dict[str, Any]:
             "json": read_text(RESEARCH_OUTPUT_JSON),
             "markdownMtime": output_md_mtime,
             "jsonMtime": output_json_mtime,
+            "builtPrompt": read_text(RESEARCH_PROMPT_BUILT_FILE),
+            "builtPromptExists": RESEARCH_PROMPT_BUILT_FILE.exists(),
+            "builtPromptMtime": built_prompt_mtime,
             "formattedMarkdownExists": RESEARCH_FORMATTED_MD.exists(),
             "formattedPdfExists": RESEARCH_FORMATTED_PDF.exists(),
             "formattedMarkdownMtime": formatted_md_mtime,
@@ -158,9 +268,12 @@ def read_log_file(name: str) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def make_command(kind: str) -> list[str]:
+def make_command(kind: str, selected_model: str = "") -> list[str]:
     if kind == "full":
-        return [sys.executable, str(ROOT_DIR / "generate_cv.py")]
+        command = [sys.executable, str(ROOT_DIR / "generate_cv.py")]
+        if selected_model:
+            command.extend(["--model", selected_model])
+        return command
     elif kind == "format":
         return [
             sys.executable,
@@ -263,6 +376,17 @@ def set_current_research_run(run_state: dict[str, Any]) -> None:
         CURRENT_RESEARCH_RUN.update(run_state)
 
 
+def set_current_research_proc(proc: subprocess.Popen[str] | None) -> None:
+    with RESEARCH_PROC_LOCK:
+        global CURRENT_RESEARCH_PROC
+        CURRENT_RESEARCH_PROC = proc
+
+
+def get_current_research_proc() -> subprocess.Popen[str] | None:
+    with RESEARCH_PROC_LOCK:
+        return CURRENT_RESEARCH_PROC
+
+
 def append_current_research_output(chunk: str) -> None:
     if not chunk:
         return
@@ -288,6 +412,7 @@ def finalize_current_research_run(return_code: int) -> dict[str, Any] | None:
         CURRENT_RESEARCH_RUN["finishedAt"] = utc_now_iso()
         CURRENT_RESEARCH_RUN["elapsedSeconds"] = elapsed
         CURRENT_RESEARCH_RUN["success"] = return_code == 0
+        CURRENT_RESEARCH_RUN["stoppedByUser"] = bool(CURRENT_RESEARCH_RUN.get("stopRequested", False))
 
         snapshot = {
             key: value
@@ -299,6 +424,29 @@ def finalize_current_research_run(return_code: int) -> dict[str, Any] | None:
     LAST_RESEARCH_RUN.clear()
     LAST_RESEARCH_RUN.update(snapshot)
     return snapshot
+
+
+def request_stop_research_run() -> bool:
+    with RESEARCH_STATE_LOCK:
+        if not CURRENT_RESEARCH_RUN or not CURRENT_RESEARCH_RUN.get("running"):
+            return False
+        CURRENT_RESEARCH_RUN["stopRequested"] = True
+
+    proc = get_current_research_proc()
+    if proc is None:
+        return False
+
+    append_current_research_output("Stop requested by user. Terminating research process...\n")
+
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except Exception:
+        try:
+            proc.terminate()
+        except Exception:
+            return False
+
+    return True
 
 
 def stream_pipe(pipe, prefix: str = "") -> None:
@@ -317,8 +465,8 @@ def stream_pipe_research(pipe, prefix: str = "") -> None:
         pipe.close()
 
 
-def run_subprocess_streaming(kind: str) -> dict[str, Any]:
-    command = make_command(kind)
+def run_subprocess_streaming(kind: str, selected_model: str = "") -> dict[str, Any]:
+    command = make_command(kind, selected_model=selected_model)
 
     started_at = utc_now_iso()
     started_monotonic = time.monotonic()
@@ -333,6 +481,7 @@ def run_subprocess_streaming(kind: str) -> dict[str, Any]:
             "success": None,
             "running": True,
             "output": "",
+            "selectedModel": selected_model,
             "pdfMtime": file_mtime(ROOT_DIR / "tailored_dev.pdf"),
             "docxMtime": file_mtime(ROOT_DIR / "tailored_dev.docx"),
             "_startedMonotonic": started_monotonic,
@@ -364,14 +513,14 @@ def run_subprocess_streaming(kind: str) -> dict[str, Any]:
     return run_result
 
 
-def run_subprocess_async(kind: str) -> None:
+def run_subprocess_async(kind: str, selected_model: str = "") -> None:
     try:
-        run_subprocess_streaming(kind)
+        run_subprocess_streaming(kind, selected_model=selected_model)
     except Exception as exc:
         set_current_run(
             {
                 "kind": kind,
-                "command": make_command(kind),
+                "command": make_command(kind, selected_model=selected_model),
                 "exitCode": 1,
                 "startedAt": utc_now_iso(),
                 "finishedAt": utc_now_iso(),
@@ -379,6 +528,7 @@ def run_subprocess_async(kind: str) -> None:
                 "success": False,
                 "running": False,
                 "output": f"Wrapper failed to execute run: {exc}",
+                "selectedModel": selected_model,
                 "pdfMtime": file_mtime(ROOT_DIR / "tailored_dev.pdf"),
                 "docxMtime": file_mtime(ROOT_DIR / "tailored_dev.docx"),
             }
@@ -393,13 +543,20 @@ def run_subprocess_async(kind: str) -> None:
         RUN_LOCK.release()
 
 
-def run_research_subprocess_streaming(company_name: str, urls: list[str], dry_run: bool) -> dict[str, Any]:
+def run_research_subprocess_streaming(
+    company_name: str,
+    urls: list[str],
+    dry_run: bool,
+    selected_model: str = "",
+) -> dict[str, Any]:
     command = [
         sys.executable,
         str(ROOT_DIR / "research_role.py"),
         "--company-name",
         company_name,
     ]
+    if selected_model:
+        command.extend(["--model", selected_model])
     for url in urls:
         command.extend(["--url", url])
     if dry_run:
@@ -421,6 +578,7 @@ def run_research_subprocess_streaming(company_name: str, urls: list[str], dry_ru
             "success": None,
             "running": True,
             "output": "",
+            "selectedModel": selected_model,
             "_startedMonotonic": started_monotonic,
         }
     )
@@ -432,16 +590,21 @@ def run_research_subprocess_streaming(company_name: str, urls: list[str], dry_ru
         stderr=subprocess.PIPE,
         text=True,
         bufsize=1,
+        start_new_session=True,
     )
+    set_current_research_proc(proc)
 
     stdout_thread = threading.Thread(target=stream_pipe_research, args=(proc.stdout,), daemon=True)
     stderr_thread = threading.Thread(target=stream_pipe_research, args=(proc.stderr, "[stderr] "), daemon=True)
     stdout_thread.start()
     stderr_thread.start()
 
-    return_code = proc.wait()
-    stdout_thread.join()
-    stderr_thread.join()
+    try:
+        return_code = proc.wait()
+        stdout_thread.join()
+        stderr_thread.join()
+    finally:
+        set_current_research_proc(None)
 
     run_result = finalize_current_research_run(return_code)
     if run_result is None:
@@ -484,16 +647,21 @@ def run_research_format_subprocess_streaming() -> dict[str, Any]:
         stderr=subprocess.PIPE,
         text=True,
         bufsize=1,
+        start_new_session=True,
     )
+    set_current_research_proc(proc)
 
     stdout_thread = threading.Thread(target=stream_pipe_research, args=(proc.stdout,), daemon=True)
     stderr_thread = threading.Thread(target=stream_pipe_research, args=(proc.stderr, "[stderr] "), daemon=True)
     stdout_thread.start()
     stderr_thread.start()
 
-    return_code = proc.wait()
-    stdout_thread.join()
-    stderr_thread.join()
+    try:
+        return_code = proc.wait()
+        stdout_thread.join()
+        stderr_thread.join()
+    finally:
+        set_current_research_proc(None)
 
     run_result = finalize_current_research_run(return_code)
     if run_result is None:
@@ -505,9 +673,19 @@ def run_research_format_subprocess_streaming() -> dict[str, Any]:
     return run_result
 
 
-def run_research_subprocess_async(company_name: str, urls: list[str], dry_run: bool) -> None:
+def run_research_subprocess_async(
+    company_name: str,
+    urls: list[str],
+    dry_run: bool,
+    selected_model: str = "",
+) -> None:
     try:
-        run_research_subprocess_streaming(company_name=company_name, urls=urls, dry_run=dry_run)
+        run_research_subprocess_streaming(
+            company_name=company_name,
+            urls=urls,
+            dry_run=dry_run,
+            selected_model=selected_model,
+        )
     except Exception as exc:
         set_current_research_run(
             {
@@ -516,6 +694,7 @@ def run_research_subprocess_async(company_name: str, urls: list[str], dry_run: b
                 "companyName": company_name,
                 "urls": urls,
                 "dryRun": dry_run,
+                "selectedModel": selected_model,
                 "exitCode": 1,
                 "startedAt": utc_now_iso(),
                 "finishedAt": utc_now_iso(),
@@ -757,6 +936,7 @@ class CVWebHandler(BaseHTTPRequestHandler):
                     payload,
                     allowed_keys={"cv", "prompt", "research_prompt", "jobspec"},
                 )
+                selected_model = parse_selected_model(payload)
             except ValueError as exc:
                 self._json_response({"error": str(exc)}, status=400)
                 return
@@ -808,7 +988,7 @@ class CVWebHandler(BaseHTTPRequestHandler):
             try:
                 thread = threading.Thread(
                     target=run_research_subprocess_async,
-                    args=(company_name, urls, dry_run),
+                    args=(company_name, urls, dry_run, selected_model),
                     daemon=True,
                 )
                 thread.start()
@@ -850,12 +1030,32 @@ class CVWebHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if route == "/api/research/stop":
+            snapshot = get_current_research_run_snapshot()
+            if not snapshot or not snapshot.get("running"):
+                self._json_response({"error": "No active research run to stop"}, status=409)
+                return
+
+            if not request_stop_research_run():
+                self._json_response({"error": "Unable to stop active research run"}, status=500)
+                return
+
+            self._json_response(
+                {
+                    "success": True,
+                    "stopping": True,
+                    "run": get_current_research_run_snapshot(),
+                }
+            )
+            return
+
         if route in {"/api/run/full", "/api/run/format"}:
             try:
                 self._save_editor_payload(
                     payload,
                     allowed_keys={"cv", "prompt", "research_prompt", "jobspec"},
                 )
+                selected_model = parse_selected_model(payload)
             except ValueError as exc:
                 self._json_response({"error": str(exc)}, status=400)
                 return
@@ -866,7 +1066,12 @@ class CVWebHandler(BaseHTTPRequestHandler):
                 return
 
             try:
-                thread = threading.Thread(target=run_subprocess_async, args=(kind,), daemon=True)
+                model_override = selected_model if kind == "full" else ""
+                thread = threading.Thread(
+                    target=run_subprocess_async,
+                    args=(kind, model_override),
+                    daemon=True,
+                )
                 thread.start()
             except Exception as exc:
                 RUN_LOCK.release()
