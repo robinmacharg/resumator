@@ -1,5 +1,6 @@
 const state = {
     isRunning: false,
+    isResearchRunning: false,
     activeTab: "cv",
     activeLogTab: "run",
     isDraggingSplitter: false,
@@ -13,6 +14,14 @@ const els = {
     statusText: document.getElementById("statusText"),
     cvEditor: document.getElementById("cvEditor"),
     promptEditor: document.getElementById("promptEditor"),
+    researchPromptEditor: document.getElementById("researchPromptEditor"),
+    researchCompanyInput: document.getElementById("researchCompanyInput"),
+    researchUrlsInput: document.getElementById("researchUrlsInput"),
+    researchDryRunCheckbox: document.getElementById("researchDryRunCheckbox"),
+    runResearchBtn: document.getElementById("runResearchBtn"),
+    resetResearchPromptBtn: document.getElementById("resetResearchPromptBtn"),
+    researchStatusText: document.getElementById("researchStatusText"),
+    researchOutput: document.getElementById("researchOutput"),
     jobspecEditor: document.getElementById("jobspecEditor"),
     envEditor: document.getElementById("envEditor"),
     tailoredViewer: document.getElementById("tailoredViewer"),
@@ -32,6 +41,7 @@ const els = {
     tabPanels: {
         cv: document.getElementById("tab-cv"),
         prompt: document.getElementById("tab-prompt"),
+        research: document.getElementById("tab-research"),
         jobspec: document.getElementById("tab-jobspec"),
         env: document.getElementById("tab-env"),
         tailored: document.getElementById("tab-tailored"),
@@ -47,9 +57,14 @@ const els = {
 const EDITABLE_FILES = {
     cv: { tabLabel: "CV", title: document.getElementById("cvTitle"), editor: () => els.cvEditor },
     prompt: {
-        tabLabel: "Prompt",
+        tabLabel: "CV Prompt",
         title: document.getElementById("promptTitle"),
         editor: () => els.promptEditor,
+    },
+    research_prompt: {
+        tabLabel: "Research Role",
+        title: document.getElementById("researchPromptTitle"),
+        editor: () => els.researchPromptEditor,
     },
     jobspec: {
         tabLabel: "Job Spec",
@@ -69,6 +84,9 @@ const SPLITTER_MIN_RIGHT_PX = 320;
 const LS_KEYS = {
     cv: "cvweb.cv",
     prompt: "cvweb.prompt",
+    research_prompt: "cvweb.research_prompt",
+    research_company: "cvweb.research.company",
+    research_urls: "cvweb.research.urls",
     jobspec: "cvweb.jobspec",
     env: "cvweb.env",
 };
@@ -101,22 +119,41 @@ function stopRunStatusTimer() {
     state.runStatusMessage = "";
 }
 
+function applyControlDisabledState() {
+    const disabled = state.isRunning || state.isResearchRunning;
+    [
+        els.runFormatBtn,
+        els.runFullBtn,
+        ...els.fileLoadButtons,
+        ...els.fileSaveButtons,
+        els.runResearchBtn,
+        els.resetResearchPromptBtn,
+        els.researchCompanyInput,
+        els.researchUrlsInput,
+        els.researchDryRunCheckbox,
+    ].forEach((el) => {
+        if (!el) {
+            return;
+        }
+        el.disabled = disabled;
+    });
+}
+
 function setRunning(running) {
     state.isRunning = running;
-    [els.runFormatBtn, els.runFullBtn, ...els.fileLoadButtons, ...els.fileSaveButtons].forEach(
-        (btn) => {
-            if (!btn) {
-                return;
-            }
-            btn.disabled = running;
-        },
-    );
+    applyControlDisabledState();
+}
+
+function setResearchRunning(running) {
+    state.isResearchRunning = running;
+    applyControlDisabledState();
 }
 
 function currentFiles() {
     return {
         cv: els.cvEditor.value,
         prompt: els.promptEditor.value,
+        research_prompt: els.researchPromptEditor.value,
         jobspec: els.jobspecEditor.value,
         env: els.envEditor.value,
     };
@@ -143,19 +180,31 @@ function writeDraftToLocalStorage() {
     const files = currentFiles();
     localStorage.setItem(LS_KEYS.cv, files.cv);
     localStorage.setItem(LS_KEYS.prompt, files.prompt);
+    localStorage.setItem(LS_KEYS.research_prompt, files.research_prompt);
+    localStorage.setItem(LS_KEYS.research_company, els.researchCompanyInput.value || "");
+    localStorage.setItem(LS_KEYS.research_urls, els.researchUrlsInput.value || "");
     localStorage.setItem(LS_KEYS.jobspec, files.jobspec);
     localStorage.setItem(LS_KEYS.env, files.env);
 }
 
 function hasLocalDraft() {
-    return [LS_KEYS.cv, LS_KEYS.prompt, LS_KEYS.jobspec, LS_KEYS.env].some(
-        (key) => localStorage.getItem(key) !== null,
-    );
+    return [
+        LS_KEYS.cv,
+        LS_KEYS.prompt,
+        LS_KEYS.research_prompt,
+        LS_KEYS.research_company,
+        LS_KEYS.research_urls,
+        LS_KEYS.jobspec,
+        LS_KEYS.env,
+    ].some((key) => localStorage.getItem(key) !== null);
 }
 
 function loadLocalDraft(diskFiles = {}) {
     const cv = localStorage.getItem(LS_KEYS.cv);
     const prompt = localStorage.getItem(LS_KEYS.prompt);
+    const researchPrompt = localStorage.getItem(LS_KEYS.research_prompt);
+    const researchCompany = localStorage.getItem(LS_KEYS.research_company);
+    const researchUrls = localStorage.getItem(LS_KEYS.research_urls);
     const jobspec = localStorage.getItem(LS_KEYS.jobspec);
     const env = localStorage.getItem(LS_KEYS.env);
 
@@ -164,6 +213,15 @@ function loadLocalDraft(diskFiles = {}) {
     }
     if (prompt !== null) {
         els.promptEditor.value = prompt;
+    }
+    if (researchPrompt !== null) {
+        els.researchPromptEditor.value = researchPrompt;
+    }
+    if (researchCompany !== null) {
+        els.researchCompanyInput.value = researchCompany;
+    }
+    if (researchUrls !== null) {
+        els.researchUrlsInput.value = researchUrls;
     }
     if (jobspec !== null) {
         els.jobspecEditor.value = jobspec;
@@ -181,6 +239,7 @@ function loadLocalDraft(diskFiles = {}) {
 function applyFilesToEditors(files) {
     els.cvEditor.value = files.cv || "";
     els.promptEditor.value = files.prompt || "";
+    els.researchPromptEditor.value = files.research_prompt || "";
     els.jobspecEditor.value = files.jobspec || "";
     els.envEditor.value = files.env || "";
 }
@@ -189,6 +248,7 @@ function updateDiskSnapshot(files) {
     state.diskFiles = {
         cv: files.cv || "",
         prompt: files.prompt || "",
+        research_prompt: files.research_prompt || "",
         jobspec: files.jobspec || "",
         env: files.env || "",
     };
@@ -227,6 +287,22 @@ function setRunLogOutput(text) {
     els.runLogOutput.scrollTop = els.runLogOutput.scrollHeight;
 }
 
+function setResearchStatus(message, isError = false) {
+    if (!els.researchStatusText) {
+        return;
+    }
+    els.researchStatusText.textContent = message;
+    els.researchStatusText.style.color = isError ? "#b42318" : "#57534e";
+}
+
+function setResearchOutput(text) {
+    if (!els.researchOutput) {
+        return;
+    }
+    els.researchOutput.textContent = text;
+    els.researchOutput.scrollTop = els.researchOutput.scrollHeight;
+}
+
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -261,6 +337,68 @@ function summarizeRun(run) {
     return summary.join("\n");
 }
 
+function parseResearchUrlsInput(rawText) {
+    const seen = new Set();
+    const urls = [];
+    (rawText || "").split(/\r?\n/).forEach((line) => {
+        const cleaned = line.trim();
+        if (!cleaned || cleaned.startsWith("#") || seen.has(cleaned)) {
+            return;
+        }
+        seen.add(cleaned);
+        urls.push(cleaned);
+    });
+    return urls;
+}
+
+function summarizeResearchOutput(run) {
+    if (!run) {
+        return "No research run output yet.";
+    }
+    const status = run.running ? "running" : run.success ? "success" : "failed";
+    const elapsed =
+        run.elapsedSeconds === null || run.elapsedSeconds === undefined
+            ? "-"
+            : `${run.elapsedSeconds}s`;
+    const exit = run.exitCode === null || run.exitCode === undefined ? "running" : run.exitCode;
+
+    const lines = [
+        `Company: ${run.companyName || "(unknown)"}`,
+        `Status: ${status}`,
+        `Exit: ${exit}`,
+        `Elapsed: ${elapsed}`,
+        `Dry Run: ${run.dryRun ? "yes" : "no"}`,
+        "",
+        run.output || "(No process output)",
+    ];
+    return lines.join("\n");
+}
+
+function renderResearchState(payload) {
+    if (!payload || typeof payload !== "object") {
+        return;
+    }
+
+    if (typeof payload.companyName === "string") {
+        els.researchCompanyInput.value = payload.companyName;
+    }
+
+    if (Array.isArray(payload.urls)) {
+        els.researchUrlsInput.value = payload.urls.join("\n");
+    }
+
+    const output = payload.output || {};
+    if (typeof output.markdown === "string" && output.markdown.trim()) {
+        setResearchOutput(output.markdown);
+    } else if (typeof output.json === "string" && output.json.trim()) {
+        setResearchOutput(output.json);
+    }
+
+    if (payload.lastRun) {
+        setResearchOutput(summarizeResearchOutput(payload.lastRun));
+    }
+}
+
 async function refreshTailoredOutput() {
     if (!els.tailoredViewer) {
         return;
@@ -286,9 +424,16 @@ function bindAutosave() {
         }, 300);
     };
 
-    [els.cvEditor, els.promptEditor, els.jobspecEditor, els.envEditor].forEach((editor) => {
+    [els.cvEditor, els.promptEditor, els.researchPromptEditor, els.jobspecEditor, els.envEditor].forEach((editor) => {
         editor.addEventListener("input", schedule);
         editor.addEventListener("input", syncDirtyIndicators);
+    });
+
+    [els.researchCompanyInput, els.researchUrlsInput].forEach((inputEl) => {
+        if (!inputEl) {
+            return;
+        }
+        inputEl.addEventListener("input", schedule);
     });
 }
 
@@ -372,6 +517,10 @@ async function fetchRunStatus() {
     return api("/api/run/status");
 }
 
+async function fetchResearchStatus() {
+    return api("/api/research/status");
+}
+
 async function waitForRunCompletion() {
     while (true) {
         const status = await fetchRunStatus();
@@ -385,6 +534,112 @@ async function waitForRunCompletion() {
         }
 
         await sleep(1000);
+    }
+}
+
+async function waitForResearchCompletion() {
+    while (true) {
+        const status = await fetchResearchStatus();
+        const run = status.run || null;
+        if (run) {
+            setResearchOutput(summarizeResearchOutput(run));
+            if (status.running) {
+                setResearchStatus(`Research running (${run.elapsedSeconds || 0}s)...`);
+            }
+        }
+
+        if (!status.running) {
+            return run;
+        }
+
+        await sleep(1000);
+    }
+}
+
+async function runResearch() {
+    const companyName = (els.researchCompanyInput.value || "").trim();
+    if (!companyName) {
+        setStatus("Company name is required for research run.", true);
+        setResearchStatus("Company name is required.", true);
+        return;
+    }
+
+    const urls = parseResearchUrlsInput(els.researchUrlsInput.value || "");
+
+    setResearchRunning(true);
+    setResearchStatus("Starting research run...");
+    setResearchOutput("Starting research run...");
+
+    try {
+        writeDraftToLocalStorage();
+        const kickoff = await api("/api/research/run", {
+            method: "POST",
+            body: JSON.stringify({
+                files: currentFiles(),
+                companyName,
+                urls,
+                dryRun: Boolean(els.researchDryRunCheckbox.checked),
+            }),
+        });
+
+        if (kickoff.run) {
+            setResearchOutput(summarizeResearchOutput(kickoff.run));
+        }
+
+        const run = await waitForResearchCompletion();
+        if (run && run.success) {
+            setResearchStatus(`Research complete (${run.elapsedSeconds}s).`);
+            setStatus("Research run complete.");
+        } else {
+            setResearchStatus("Research run failed.", true);
+            setStatus("Research run failed. See Research Output.", true);
+        }
+
+        const refreshed = await api("/api/research/state");
+        renderResearchState(refreshed);
+    } catch (err) {
+        setResearchStatus(`Research run failed: ${err.message}`, true);
+        setResearchOutput(err.stack || err.message);
+        setStatus(`Research run failed: ${err.message}`, true);
+    } finally {
+        setResearchRunning(false);
+    }
+}
+
+async function resetResearchPrompt() {
+    const confirmed = window.confirm(
+        "Reset research prompt to default? This will overwrite the current research prompt file.",
+    );
+    if (!confirmed) {
+        return;
+    }
+
+    setResearchRunning(true);
+    setResearchStatus("Resetting prompt to default...");
+
+    try {
+        await api("/api/research/reset-prompt", {
+            method: "POST",
+            body: JSON.stringify({}),
+        });
+
+        const disk = await api("/api/state");
+        const files = disk.files || {};
+        if (typeof files.research_prompt === "string") {
+            els.researchPromptEditor.value = files.research_prompt;
+            updateDiskSnapshot(files);
+            writeDraftToLocalStorage();
+        }
+
+        const researchState = await api("/api/research/state");
+        renderResearchState(researchState);
+        setResearchStatus("Prompt reset to default.");
+        setStatus("Research prompt reset from default file.");
+    } catch (err) {
+        setResearchStatus(`Reset failed: ${err.message}`, true);
+        setStatus(`Research prompt reset failed: ${err.message}`, true);
+    } finally {
+        setResearchRunning(false);
     }
 }
 
@@ -573,6 +828,8 @@ async function initialize() {
         const payload = await api("/api/state");
         applyFilesToEditors(payload.files || {});
         updateDiskSnapshot(payload.files || {});
+        const researchPayload = await api("/api/research/state");
+        renderResearchState(researchPayload);
 
         if (hasLocalDraft()) {
             loadLocalDraft(payload.files || {});
@@ -588,6 +845,33 @@ async function initialize() {
             setRunLogOutput(summarizeRun(payload.lastRun));
         }
 
+        const currentResearch = await fetchResearchStatus();
+        if (currentResearch.run) {
+            setResearchOutput(summarizeResearchOutput(currentResearch.run));
+            if (currentResearch.running) {
+                setResearchStatus("Research run in progress...");
+                setResearchRunning(true);
+                waitForResearchCompletion()
+                    .then((run) => {
+                        if (run && run.success) {
+                            setResearchStatus(`Research complete (${run.elapsedSeconds}s).`);
+                        } else {
+                            setResearchStatus("Research run failed.", true);
+                        }
+                    })
+                    .catch((err) => {
+                        setResearchStatus(`Research status polling failed: ${err.message}`, true);
+                    })
+                    .finally(() => {
+                        setResearchRunning(false);
+                    });
+            } else {
+                setResearchStatus(currentResearch.run.success ? "Last run succeeded." : "Last run failed.");
+            }
+        } else {
+            setResearchStatus("Idle.");
+        }
+
         updatePreviewCacheBuster();
         await refreshTailoredOutput();
     } catch (err) {
@@ -597,6 +881,12 @@ async function initialize() {
 
 els.runFormatBtn.addEventListener("click", () => runPipeline("format"));
 els.runFullBtn.addEventListener("click", () => runPipeline("full"));
+if (els.runResearchBtn) {
+    els.runResearchBtn.addEventListener("click", runResearch);
+}
+if (els.resetResearchPromptBtn) {
+    els.resetResearchPromptBtn.addEventListener("click", resetResearchPrompt);
+}
 els.refreshLogsBtn.addEventListener("click", refreshLogs);
 els.logSelect.addEventListener("change", loadSelectedDebugLog);
 els.tabButtons.forEach((button) => {

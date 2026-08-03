@@ -206,6 +206,7 @@ body {
 
 #tab-cv,
 #tab-prompt,
+#tab-research,
 #tab-jobspec,
 #tab-env,
 #tab-tailored {
@@ -213,6 +214,11 @@ body {
   grid-template-rows: auto minmax(260px, 1fr);
   gap: 0.4rem;
   min-height: 0;
+}
+
+#tab-research {
+  grid-template-rows: auto auto minmax(220px, 1fr) minmax(140px, 0.8fr);
+  gap: 0.55rem;
 }
 
 .tab-panel label {
@@ -251,6 +257,71 @@ textarea {
   font-family: "SF Mono", "Menlo", "Consolas", monospace;
   font-size: 0.84rem;
   line-height: 1.35;
+}
+
+#researchUrlsInput {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.research-controls {
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: #fff;
+  padding: 0.65rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.research-input-grid {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.research-input-grid label {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.research-input-grid input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.88rem;
+}
+
+.research-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.inline-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-right: 0.1rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+#researchStatusText {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.research-output-wrap {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(110px, 1fr);
+  gap: 0.35rem;
+}
+
+#researchOutput {
+  max-height: none;
+  height: 100%;
 }
 
 textarea[readonly] {

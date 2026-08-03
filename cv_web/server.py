@@ -16,6 +16,11 @@ ROOT_DIR = APP_DIR.parent
 TEMPLATES_DIR = APP_DIR / "templates"
 STATIC_DIR = APP_DIR / "static"
 LOG_DIR = ROOT_DIR / "gemini_debug_logs"
+RESEARCH_COMPANY_FILE = ROOT_DIR / "research_company.txt"
+RESEARCH_URLS_FILE = ROOT_DIR / "research_urls.txt"
+RESEARCH_PROMPT_DEFAULT_FILE = ROOT_DIR / "research_prompt.default.md"
+RESEARCH_OUTPUT_MD = ROOT_DIR / "research_output.md"
+RESEARCH_OUTPUT_JSON = ROOT_DIR / "research_output.json"
 
 HOST = "127.0.0.1"
 PORT = 8765
@@ -23,6 +28,7 @@ PORT = 8765
 EDITOR_FILES = {
     "cv": ROOT_DIR / "CV.md",
     "prompt": ROOT_DIR / "prompt.md",
+    "research_prompt": ROOT_DIR / "research_prompt.md",
     "jobspec": ROOT_DIR / "jobspec.txt",
     "env": ROOT_DIR / ".env",
 }
@@ -39,6 +45,11 @@ RUN_LOCK = threading.Lock()
 RUN_STATE_LOCK = threading.Lock()
 LAST_RUN: dict[str, Any] = {}
 CURRENT_RUN: dict[str, Any] = {}
+
+RESEARCH_RUN_LOCK = threading.Lock()
+RESEARCH_STATE_LOCK = threading.Lock()
+LAST_RESEARCH_RUN: dict[str, Any] = {}
+CURRENT_RESEARCH_RUN: dict[str, Any] = {}
 
 
 def utc_now_iso() -> str:
@@ -74,6 +85,37 @@ def build_state() -> dict[str, Any]:
             "docxMtime": file_mtime(output_docx),
         },
         "lastRun": LAST_RUN,
+    }
+
+
+def read_research_urls(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+
+    urls: list[str] = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        urls.append(line)
+    return urls
+
+
+def build_research_state() -> dict[str, Any]:
+    company_name = read_text(RESEARCH_COMPANY_FILE).strip()
+    output_md_mtime = file_mtime(RESEARCH_OUTPUT_MD)
+    output_json_mtime = file_mtime(RESEARCH_OUTPUT_JSON)
+
+    return {
+        "companyName": company_name,
+        "urls": read_research_urls(RESEARCH_URLS_FILE),
+        "output": {
+            "markdown": read_text(RESEARCH_OUTPUT_MD),
+            "json": read_text(RESEARCH_OUTPUT_JSON),
+            "markdownMtime": output_md_mtime,
+            "jsonMtime": output_json_mtime,
+        },
+        "lastRun": LAST_RESEARCH_RUN,
     }
 
 
@@ -187,10 +229,80 @@ def finalize_current_run(return_code: int) -> dict[str, Any] | None:
     return snapshot
 
 
+def get_current_research_run_snapshot() -> dict[str, Any] | None:
+    with RESEARCH_STATE_LOCK:
+        if not CURRENT_RESEARCH_RUN:
+            return None
+
+        snapshot = {
+            key: value
+            for key, value in CURRENT_RESEARCH_RUN.items()
+            if not key.startswith("_")
+        }
+
+        started_monotonic = CURRENT_RESEARCH_RUN.get("_startedMonotonic")
+        if isinstance(started_monotonic, float) and snapshot.get("running"):
+            snapshot["elapsedSeconds"] = round(time.monotonic() - started_monotonic, 2)
+
+        return snapshot
+
+
+def set_current_research_run(run_state: dict[str, Any]) -> None:
+    with RESEARCH_STATE_LOCK:
+        CURRENT_RESEARCH_RUN.clear()
+        CURRENT_RESEARCH_RUN.update(run_state)
+
+
+def append_current_research_output(chunk: str) -> None:
+    if not chunk:
+        return
+
+    with RESEARCH_STATE_LOCK:
+        if not CURRENT_RESEARCH_RUN:
+            return
+
+        existing = CURRENT_RESEARCH_RUN.get("output", "")
+        CURRENT_RESEARCH_RUN["output"] = existing + chunk
+
+
+def finalize_current_research_run(return_code: int) -> dict[str, Any] | None:
+    with RESEARCH_STATE_LOCK:
+        if not CURRENT_RESEARCH_RUN:
+            return None
+
+        started_monotonic = CURRENT_RESEARCH_RUN.get("_startedMonotonic")
+        elapsed = round(time.monotonic() - started_monotonic, 2) if isinstance(started_monotonic, float) else 0.0
+
+        CURRENT_RESEARCH_RUN["running"] = False
+        CURRENT_RESEARCH_RUN["exitCode"] = return_code
+        CURRENT_RESEARCH_RUN["finishedAt"] = utc_now_iso()
+        CURRENT_RESEARCH_RUN["elapsedSeconds"] = elapsed
+        CURRENT_RESEARCH_RUN["success"] = return_code == 0
+
+        snapshot = {
+            key: value
+            for key, value in CURRENT_RESEARCH_RUN.items()
+            if not key.startswith("_")
+        }
+        CURRENT_RESEARCH_RUN.clear()
+
+    LAST_RESEARCH_RUN.clear()
+    LAST_RESEARCH_RUN.update(snapshot)
+    return snapshot
+
+
 def stream_pipe(pipe, prefix: str = "") -> None:
     try:
         for line in iter(pipe.readline, ""):
             append_current_run_output(f"{prefix}{line}")
+    finally:
+        pipe.close()
+
+
+def stream_pipe_research(pipe, prefix: str = "") -> None:
+    try:
+        for line in iter(pipe.readline, ""):
+            append_current_research_output(f"{prefix}{line}")
     finally:
         pipe.close()
 
@@ -269,6 +381,93 @@ def run_subprocess_async(kind: str) -> None:
                 CURRENT_RUN.clear()
     finally:
         RUN_LOCK.release()
+
+
+def run_research_subprocess_streaming(company_name: str, urls: list[str], dry_run: bool) -> dict[str, Any]:
+    command = [
+        sys.executable,
+        str(ROOT_DIR / "research_role.py"),
+        "--company-name",
+        company_name,
+    ]
+    for url in urls:
+        command.extend(["--url", url])
+    if dry_run:
+        command.append("--dry-run")
+
+    started_at = utc_now_iso()
+    started_monotonic = time.monotonic()
+    set_current_research_run(
+        {
+            "kind": "research",
+            "command": command,
+            "companyName": company_name,
+            "urls": urls,
+            "dryRun": dry_run,
+            "exitCode": None,
+            "startedAt": started_at,
+            "finishedAt": None,
+            "elapsedSeconds": 0.0,
+            "success": None,
+            "running": True,
+            "output": "",
+            "_startedMonotonic": started_monotonic,
+        }
+    )
+
+    proc = subprocess.Popen(
+        command,
+        cwd=ROOT_DIR,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
+
+    stdout_thread = threading.Thread(target=stream_pipe_research, args=(proc.stdout,), daemon=True)
+    stderr_thread = threading.Thread(target=stream_pipe_research, args=(proc.stderr, "[stderr] "), daemon=True)
+    stdout_thread.start()
+    stderr_thread.start()
+
+    return_code = proc.wait()
+    stdout_thread.join()
+    stderr_thread.join()
+
+    run_result = finalize_current_research_run(return_code)
+    if run_result is None:
+        raise RuntimeError("Research run completed but no run state was available.")
+
+    return run_result
+
+
+def run_research_subprocess_async(company_name: str, urls: list[str], dry_run: bool) -> None:
+    try:
+        run_research_subprocess_streaming(company_name=company_name, urls=urls, dry_run=dry_run)
+    except Exception as exc:
+        set_current_research_run(
+            {
+                "kind": "research",
+                "command": [],
+                "companyName": company_name,
+                "urls": urls,
+                "dryRun": dry_run,
+                "exitCode": 1,
+                "startedAt": utc_now_iso(),
+                "finishedAt": utc_now_iso(),
+                "elapsedSeconds": 0.0,
+                "success": False,
+                "running": False,
+                "output": f"Wrapper failed to execute research run: {exc}",
+            }
+        )
+        snapshot = get_current_research_run_snapshot()
+        if snapshot is not None:
+            LAST_RESEARCH_RUN.clear()
+            LAST_RESEARCH_RUN.update(snapshot)
+            with RESEARCH_STATE_LOCK:
+                CURRENT_RESEARCH_RUN.clear()
+    finally:
+        RESEARCH_RUN_LOCK.release()
 
 
 class CVWebHandler(BaseHTTPRequestHandler):
@@ -360,6 +559,21 @@ class CVWebHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if route == "/api/research/state":
+            self._json_response(build_research_state())
+            return
+
+        if route == "/api/research/status":
+            current = get_current_research_run_snapshot()
+            run_payload = current if current is not None else (LAST_RESEARCH_RUN if LAST_RESEARCH_RUN else None)
+            self._json_response(
+                {
+                    "running": bool(current and current.get("running")),
+                    "run": run_payload,
+                }
+            )
+            return
+
         if route == "/api/logs":
             logs = collect_log_index()
             self._json_response({"logs": logs, "lastRun": LAST_RUN})
@@ -414,6 +628,78 @@ class CVWebHandler(BaseHTTPRequestHandler):
                 self._json_response({"error": str(exc)}, status=400)
                 return
             self._json_response({"success": True, "savedAt": utc_now_iso(), "state": build_state()})
+            return
+
+        if route == "/api/research/reset-prompt":
+            if not RESEARCH_PROMPT_DEFAULT_FILE.exists():
+                self._json_response(
+                    {"error": f"Default research prompt not found: {RESEARCH_PROMPT_DEFAULT_FILE.name}"},
+                    status=404,
+                )
+                return
+
+            write_text(EDITOR_FILES["research_prompt"], read_text(RESEARCH_PROMPT_DEFAULT_FILE))
+            self._json_response(
+                {
+                    "success": True,
+                    "resetAt": utc_now_iso(),
+                    "state": build_research_state(),
+                }
+            )
+            return
+
+        if route == "/api/research/run":
+            try:
+                self._save_editor_payload(payload)
+            except ValueError as exc:
+                self._json_response({"error": str(exc)}, status=400)
+                return
+
+            company_name = str(payload.get("companyName", "")).strip()
+            if not company_name:
+                self._json_response({"error": "companyName is required"}, status=400)
+                return
+
+            raw_urls = payload.get("urls", [])
+            if not isinstance(raw_urls, list):
+                self._json_response({"error": "urls must be a list of strings"}, status=400)
+                return
+
+            urls: list[str] = []
+            for idx, item in enumerate(raw_urls):
+                if not isinstance(item, str):
+                    self._json_response({"error": f"urls[{idx}] must be a string"}, status=400)
+                    return
+                cleaned = item.strip()
+                if cleaned:
+                    urls.append(cleaned)
+
+            dry_run = bool(payload.get("dryRun", False))
+
+            if not RESEARCH_RUN_LOCK.acquire(blocking=False):
+                self._json_response({"error": "A research run is already in progress"}, status=409)
+                return
+
+            try:
+                thread = threading.Thread(
+                    target=run_research_subprocess_async,
+                    args=(company_name, urls, dry_run),
+                    daemon=True,
+                )
+                thread.start()
+            except Exception as exc:
+                RESEARCH_RUN_LOCK.release()
+                self._json_response({"error": f"Failed to start research run: {exc}"}, status=500)
+                return
+
+            self._json_response(
+                {
+                    "success": True,
+                    "running": True,
+                    "run": get_current_research_run_snapshot(),
+                    "state": build_research_state(),
+                }
+            )
             return
 
         if route in {"/api/run/full", "/api/run/format"}:
