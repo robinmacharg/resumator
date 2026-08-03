@@ -91,6 +91,7 @@ JSON schema to follow:
       {
         "heading": "Role Title | Company",
         "date_range": "Month YYYY - Month YYYY",
+        "app_store_url": "https://apps.apple.com/... optional",
         "keywords": ["keyword1", "keyword2"],
         "bullet_primary": [
           "primary bullet 1",
@@ -135,12 +136,15 @@ Section/content rules to enforce in JSON values:
 7. selected_key_roles must include only the most relevant roles started in the last 10 years.
 8. selected_key_roles length must be <= 5.
 9. For each selected role, provide concise bullets; prioritize strongest evidence.
-10. earlier_career must include roles not listed in selected_key_roles.
-11. open_source_contributions must contain 3 to 5 relevant items.
-12. technical_skills must be grouped, concise, and concrete.
-13. Do not include non-professional unrelated achievements.
-14. Do not include location in contact content.
-15. Mention security clearance and management experience only where role-relevant, and place in role-appropriate sections.
+10. If a selected role has an App Store URL in the source CV, include it in app_store_url for that role.
+11. Do not place App Store links in date_range text; place them only in app_store_url.
+12. app_store_url, when present, must be an https URL to the app page.
+13. earlier_career must include roles not listed in selected_key_roles.
+14. open_source_contributions must contain 3 to 5 relevant items.
+15. technical_skills must be grouped, concise, and concrete.
+16. Do not include non-professional unrelated achievements.
+17. Do not include location in contact content.
+18. Mention security clearance and management experience only where role-relevant, and place in role-appropriate sections.
 
 Critical output rules:
 - Return JSON only.

@@ -268,6 +268,15 @@ def require_list_of_strings(value, field_name: str, *, min_items: int = 0, max_i
     return cleaned
 
 
+def normalize_optional_http_url(value, field_name: str) -> str | None:
+    if value is None:
+        return None
+    url = require_non_empty_string(value, field_name)
+    if not re.match(r"^https?://", url, flags=re.IGNORECASE):
+        raise ValueError(f"{field_name} must be an http(s) URL.")
+    return url
+
+
 def validate_and_normalize_payload(payload: dict) -> dict:
     """Validate schema and normalize key sections for deterministic rendering."""
     if not isinstance(payload, dict):
@@ -368,6 +377,10 @@ def validate_and_normalize_payload(payload: dict) -> dict:
             {
                 "heading": heading,
                 "date_range": date_range,
+                "app_store_url": normalize_optional_http_url(
+                    role.get("app_store_url"),
+                    f"document.selected_key_roles[{idx}].app_store_url",
+                ),
                 "keywords": keywords,
                 "bullet_primary": bullet_primary,
                 "bullet_secondary": bullet_secondary,
@@ -561,7 +574,11 @@ def render_tagged_markdown(payload: dict) -> str:
     lines.append("")
     for role in document["selected_key_roles"]:
         lines.append(f"[role_heading] ## {role['heading']}")
-        lines.append(f"[date_range] **Dates:** {role['date_range']}")
+        role_dates = role["date_range"]
+        app_store_url = role.get("app_store_url")
+        if app_store_url:
+            role_dates = f"{role_dates} ([AppStore]({app_store_url}))"
+        lines.append(f"[date_range] **Dates:** {role_dates}")
         keywords_text = ", ".join(role["keywords"])
         lines.append(f"[keywords] **Keywords:** `[{keywords_text}]`")
         for item in role["bullet_primary"]:

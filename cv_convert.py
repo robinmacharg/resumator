@@ -81,8 +81,9 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
 
     def normalize_date_text(text: str) -> str:
         """Normalize date_range text to date values only (no 'Dates' label)."""
-        cleaned = normalize_plain_text_markdown(text)
+        cleaned = text.replace("**", "").replace("*", "")
         cleaned = re.sub(r"^dates\s*[:\-]?\s*", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
         return cleaned.strip()
 
     def normalize_education_item_text(text: str) -> str:
@@ -237,10 +238,33 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         ]
 
     def emit_pdf_date_range(text: str) -> list[str]:
-        escaped_text = typst_escape(text)
+        parts: list[str] = []
+        pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+        cursor = 0
+
+        for match in pattern.finditer(text):
+            prefix = text[cursor : match.start()]
+            if prefix:
+                parts.append(f"#text(\"{typst_escape(prefix)}\")")
+
+            label = typst_escape(match.group(1))
+            url = typst_escape(match.group(2))
+            parts.append(
+                f"#link(\"{url}\")[#underline[#text(fill: rgb(\"#0563C1\"))[#text(\"{label}\")]]]"
+            )
+            cursor = match.end()
+
+        suffix = text[cursor:]
+        if suffix:
+            parts.append(f"#text(\"{typst_escape(suffix)}\")")
+
+        if not parts:
+            parts = [f"#text(\"{typst_escape(text)}\")"]
+
         return [
             "```{=typst}",
-            f"#text(9pt)[{escaped_text}]",
+            "#set text(9pt)",
+            " ".join(parts),
             "#parbreak()",
             "```",
             "",
