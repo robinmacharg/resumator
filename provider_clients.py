@@ -10,6 +10,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -363,6 +364,61 @@ def _extract_hf_text(payload: dict[str, Any]) -> str:
     return ""
 
 
+def _extract_hf_error_details(body_text: str) -> tuple[str, str]:
+    message = ""
+    guidance = ""
+    parsed: dict[str, Any] | None = None
+
+    try:
+        decoded = json.loads(body_text) if body_text else {}
+        if isinstance(decoded, dict):
+            parsed = decoded
+    except Exception:
+        parsed = None
+
+    if parsed:
+        top_error = parsed.get("error")
+        if isinstance(top_error, str):
+            message = top_error
+        elif isinstance(top_error, dict):
+            nested = top_error.get("message")
+            if isinstance(nested, str):
+                message = nested
+    if not message:
+        message = (body_text or "").strip()[:1000]
+
+    lowered = message.lower()
+    if "depleted your monthly included credits" in lowered:
+        guidance = (
+            "Hugging Face router rejected the request due to depleted included credits. "
+            "Purchase inference credits, upgrade plan, or switch provider/model."
+        )
+    elif "not a chat model" in lowered or "model_not_supported" in lowered:
+        guidance = (
+            "Selected model is not compatible with chat completions at this endpoint. "
+            "Pick a chat-capable model for /v1/chat/completions."
+        )
+
+    return message, guidance
+
+
+def _is_hf_retryable_http_status(status_code: int) -> bool:
+    return status_code in {408, 409, 425, 429, 500, 502, 503, 504}
+
+
+def _is_hf_retryable_exception_message(message: str) -> bool:
+    lowered = message.lower()
+    return (
+        "remote end closed connection without response" in lowered
+        or "connection reset by peer" in lowered
+        or "timed out" in lowered
+        or "temporarily unavailable" in lowered
+        or "service unavailable" in lowered
+        or "connection aborted" in lowered
+        or "connection refused" in lowered
+    )
+
+
 def run_huggingface_attempt(
     *,
     model_name: str,
@@ -417,69 +473,144 @@ def run_huggingface_attempt(
         "messages": [{"role": "user", "content": prompt_text}],
         "temperature": 0.2,
     }
+    payload_json = json.dumps(payload)
+    payload_bytes = payload_json.encode("utf-8")
+    prompt_chars = len(prompt_text)
+    payload_size_bytes = len(payload_bytes)
 
-    req = request.Request(
-        api_url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-
-    result_box: dict[str, Any] = {"done": False, "status": 1, "stdout": "", "stderr": ""}
-
-    def do_request() -> None:
-        try:
-            with request.urlopen(req, timeout=timeout_seconds) as response:
-                body = response.read().decode("utf-8", errors="replace")
-                parsed = json.loads(body)
-                text = _extract_hf_text(parsed)
-                if not text:
-                    result_box["status"] = 1
-                    result_box["stderr"] = f"Hugging Face response did not include usable text. Raw body: {body[:1000]}"
-                else:
-                    result_box["status"] = 0
-                    result_box["stdout"] = text
-        except error.HTTPError as exc:
-            body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
-            result_box["status"] = int(exc.code or 1)
-            result_box["stderr"] = f"HTTP {exc.code}: {body}".strip()
-        except Exception as exc:
-            result_box["status"] = 1
-            result_box["stderr"] = str(exc)
-        finally:
-            result_box["done"] = True
-
-    start = time.monotonic()
-    thread = threading.Thread(target=do_request, daemon=True)
-    thread.start()
+    max_retries = max(0, int((env.get("HUGGINGFACE_MAX_RETRIES") or "2").strip() or "2"))
+    initial_backoff_seconds = max(1, int((env.get("HUGGINGFACE_INITIAL_BACKOFF_SECONDS") or "2").strip() or "2"))
 
     timed_out = False
+    stdout_text = ""
+    stderr_text = ""
+    return_code = 1
+    total_start = time.monotonic()
+    retry_count = 0
+    final_exception_type = ""
+
     if emit_live_output:
         print(
-            f"Attempt {attempt_index}: invoking Hugging Face model {model_name} via {api_url}",
+            f"Attempt {attempt_index}: invoking Hugging Face model {model_name} via {api_url} "
+            f"(prompt chars: {prompt_chars}, payload bytes: {payload_size_bytes})",
             file=sys.stderr,
             flush=True,
         )
 
-    while thread.is_alive():
-        elapsed = time.monotonic() - start
-        if elapsed >= timeout_seconds:
-            timed_out = True
-            break
-        wait = min(heartbeat_seconds, max(timeout_seconds - elapsed, 0))
-        if wait > 0:
-            thread.join(timeout=wait)
-        if emit_live_output and thread.is_alive():
-            print(
-                f"Attempt {attempt_index}: waiting on Hugging Face model {model_name} ({int(time.monotonic() - start)}s elapsed)...",
-                file=sys.stderr,
-                flush=True,
-            )
+    for inner_attempt in range(1, max_retries + 2):
+        inner_result: dict[str, Any] = {
+            "done": False,
+            "status": 1,
+            "stdout": "",
+            "stderr": "",
+            "retryable": False,
+            "exceptionType": "",
+            "traceback": "",
+        }
 
-    elapsed = time.monotonic() - start
+        req = request.Request(
+            api_url,
+            data=payload_bytes,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+
+        def do_request() -> None:
+            try:
+                with request.urlopen(req, timeout=timeout_seconds) as response:
+                    body = response.read().decode("utf-8", errors="replace")
+                    parsed = json.loads(body)
+                    text = _extract_hf_text(parsed)
+                    if not text:
+                        inner_result["status"] = 1
+                        inner_result["stderr"] = (
+                            "Hugging Face response did not include usable text. "
+                            f"Raw body: {body[:1000]}"
+                        )
+                    else:
+                        inner_result["status"] = 0
+                        inner_result["stdout"] = text
+            except error.HTTPError as exc:
+                body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+                status = int(exc.code or 1)
+                inner_result["status"] = status
+                inner_result["retryable"] = _is_hf_retryable_http_status(status)
+                inner_result["exceptionType"] = type(exc).__name__
+                message, guidance = _extract_hf_error_details(body)
+                lines = [f"HTTP {status}: {message}"]
+                if status == 401:
+                    lines.append(
+                        "Authentication failed. Verify HF_API_TOKEN/HUGGINGFACE_API_TOKEN is valid and has inference access.",
+                    )
+                elif status == 402 and not guidance:
+                    lines.append(
+                        "Payment/credit issue from Hugging Face inference router. Check plan/credits.",
+                    )
+                if guidance:
+                    lines.append(f"Guidance: {guidance}")
+                inner_result["stderr"] = "\n".join(lines).strip()
+            except Exception as exc:
+                message = str(exc)
+                inner_result["status"] = 1
+                inner_result["retryable"] = _is_hf_retryable_exception_message(message)
+                inner_result["exceptionType"] = type(exc).__name__
+                inner_result["traceback"] = traceback.format_exc(limit=4)
+                inner_result["stderr"] = f"{type(exc).__name__}: {message}".strip()
+            finally:
+                inner_result["done"] = True
+
+        inner_start = time.monotonic()
+        thread = threading.Thread(target=do_request, daemon=True)
+        thread.start()
+
+        while thread.is_alive():
+            elapsed_inner = time.monotonic() - inner_start
+            if elapsed_inner >= timeout_seconds:
+                timed_out = True
+                break
+            wait = min(heartbeat_seconds, max(timeout_seconds - elapsed_inner, 0))
+            if wait > 0:
+                thread.join(timeout=wait)
+            if emit_live_output and thread.is_alive():
+                print(
+                    f"Attempt {attempt_index}.{inner_attempt}: waiting on Hugging Face model {model_name} "
+                    f"({int(time.monotonic() - inner_start)}s elapsed)...",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+        if timed_out:
+            break
+
+        stdout_text = str(inner_result.get("stdout", ""))
+        stderr_text = str(inner_result.get("stderr", ""))
+        return_code = int(inner_result.get("status", 1))
+        final_exception_type = str(inner_result.get("exceptionType", ""))
+
+        if return_code == 0 and stdout_text.strip():
+            break
+
+        retryable = bool(inner_result.get("retryable", False))
+        has_more_retries = inner_attempt <= max_retries
+        if retryable and has_more_retries:
+            retry_count += 1
+            backoff = initial_backoff_seconds * (2 ** (inner_attempt - 1))
+            if emit_live_output:
+                print(
+                    f"Attempt {attempt_index}.{inner_attempt}: transient Hugging Face failure; "
+                    f"retrying in {backoff}s. Error: {stderr_text[:240]}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            time.sleep(backoff)
+            continue
+
+        break
+
+    elapsed = time.monotonic() - total_start
     if timed_out:
         stderr_text = f"Timed out waiting for Hugging Face response after {timeout_seconds}s."
         _write_attempt_log(
@@ -492,6 +623,9 @@ def run_huggingface_attempt(
                 f"elapsed_seconds={elapsed:.2f}",
                 "timed_out=True",
                 f"api_url={api_url}",
+                f"prompt_chars={prompt_chars}",
+                f"payload_bytes={payload_size_bytes}",
+                f"retries_used={retry_count}",
                 "--- STDOUT ---",
                 "",
                 "--- STDERR ---",
@@ -509,10 +643,6 @@ def run_huggingface_attempt(
             timed_out=True,
         )
 
-    stdout_text = str(result_box.get("stdout", ""))
-    stderr_text = str(result_box.get("stderr", ""))
-    return_code = int(result_box.get("status", 1))
-
     _write_attempt_log(
         log_path,
         [
@@ -523,6 +653,10 @@ def run_huggingface_attempt(
             f"elapsed_seconds={elapsed:.2f}",
             "timed_out=False",
             f"api_url={api_url}",
+            f"prompt_chars={prompt_chars}",
+            f"payload_bytes={payload_size_bytes}",
+            f"retries_used={retry_count}",
+            f"exception_type={final_exception_type or 'none'}",
             "--- STDOUT ---",
             stdout_text,
             "--- STDERR ---",
@@ -539,4 +673,10 @@ def run_huggingface_attempt(
         elapsed_seconds=elapsed,
         log_path=log_path,
         timed_out=False,
+        metadata={
+            "promptChars": prompt_chars,
+            "payloadBytes": payload_size_bytes,
+            "retriesUsed": retry_count,
+            "exceptionType": final_exception_type,
+        },
     )

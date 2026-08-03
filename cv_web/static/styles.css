@@ -352,8 +352,12 @@ textarea {
 .research-output-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.45rem;
+}
+
+.research-output-head .icon-btn {
+  margin-left: auto;
 }
 
 .research-output-tabbar {
@@ -426,9 +430,30 @@ textarea[readonly] {
 
 .logs-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: 0.5rem;
+}
+
+.logs-header .btn {
+  margin-left: auto;
+}
+
+.autoscroll-indicator {
+  display: none;
+  border: 1px solid #facc15;
+  background: #fffbeb;
+  color: #854d0e;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.73rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.autoscroll-indicator.visible {
+  display: inline-flex;
+  align-items: center;
 }
 
 .logs-controls {

@@ -151,6 +151,12 @@
                         <div class="research-output-wrap">
                             <div class="research-output-head">
                                 <label for="researchOutput">Research Output</label>
+                                <span
+                                    id="researchAutoscrollIndicator"
+                                    class="autoscroll-indicator"
+                                    aria-live="polite"
+                                    aria-hidden="true"
+                                ></span>
                                 <button
                                     id="copyResearchOutputBtn"
                                     class="btn btn-secondary icon-btn"
@@ -262,6 +268,12 @@ No command yet. Run Research first.</textarea
                     <section id="tab-logs" class="tab-panel logs" role="tabpanel">
                         <div class="logs-header">
                             <strong>Logs</strong>
+                            <span
+                                id="logsAutoscrollIndicator"
+                                class="autoscroll-indicator"
+                                aria-live="polite"
+                                aria-hidden="true"
+                            ></span>
                             <button id="refreshLogsBtn" class="btn btn-secondary">
                                 Refresh Logs
                             </button>

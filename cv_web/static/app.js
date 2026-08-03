@@ -35,6 +35,7 @@ const els = {
     researchOutput: document.getElementById("researchOutput"),
     researchBuiltQueryOutput: document.getElementById("researchBuiltQueryOutput"),
     researchCommandOutput: document.getElementById("researchCommandOutput"),
+    researchAutoscrollIndicator: document.getElementById("researchAutoscrollIndicator"),
     jobspecEditor: document.getElementById("jobspecEditor"),
     envEditor: document.getElementById("envEditor"),
     tailoredViewer: document.getElementById("tailoredViewer"),
@@ -43,6 +44,7 @@ const els = {
     runLogOutput: document.getElementById("runLogOutput"),
     debugLogOutput: document.getElementById("debugLogOutput"),
     refreshLogsBtn: document.getElementById("refreshLogsBtn"),
+    logsAutoscrollIndicator: document.getElementById("logsAutoscrollIndicator"),
     logSelect: document.getElementById("logSelect"),
     pdfPreview: document.getElementById("pdfPreview"),
     pdfPlaceholder: document.getElementById("pdfPlaceholder"),
@@ -116,6 +118,105 @@ const LS_KEYS = {
     selected_provider: "cvweb.selected_provider",
     selected_model: "cvweb.selected_model",
 };
+
+const AUTO_SCROLL_BOTTOM_TOLERANCE_PX = 6;
+const autoScrollTrackerByEl = new WeakMap();
+
+function getAutoScrollTracker(el) {
+    if (!el) {
+        return null;
+    }
+    let tracker = autoScrollTrackerByEl.get(el);
+    if (tracker) {
+        return tracker;
+    }
+
+    tracker = { hasUserScrolled: false, programmaticScrollInProgress: false };
+    el.addEventListener("scroll", () => {
+        if (tracker.programmaticScrollInProgress) {
+            return;
+        }
+        tracker.hasUserScrolled = true;
+        updateAutoScrollIndicators();
+    });
+    autoScrollTrackerByEl.set(el, tracker);
+    return tracker;
+}
+
+function isAutoscrollPaused(el) {
+    const tracker = getAutoScrollTracker(el);
+    return Boolean(tracker && tracker.hasUserScrolled && !isAtBottom(el));
+}
+
+function setAutoscrollIndicator(el, paused) {
+    if (!el) {
+        return;
+    }
+    const nextText = paused ? "Auto-scroll paused" : "";
+    el.textContent = nextText;
+    el.classList.toggle("visible", paused);
+    el.setAttribute("aria-hidden", paused ? "false" : "true");
+}
+
+function getActiveResearchOutputElement() {
+    if (state.activeResearchOutputTab === "built_query") {
+        return els.researchBuiltQueryOutput;
+    }
+    if (state.activeResearchOutputTab === "command") {
+        return els.researchCommandOutput;
+    }
+    return els.researchOutput;
+}
+
+function getActiveLogElement() {
+    if (state.activeLogTab === "debug") {
+        return els.debugLogOutput;
+    }
+    return els.runLogOutput;
+}
+
+function updateAutoScrollIndicators() {
+    setAutoscrollIndicator(
+        els.researchAutoscrollIndicator,
+        isAutoscrollPaused(getActiveResearchOutputElement()),
+    );
+    setAutoscrollIndicator(els.logsAutoscrollIndicator, isAutoscrollPaused(getActiveLogElement()));
+}
+
+function isAtBottom(el) {
+    if (!el) {
+        return true;
+    }
+    const distanceFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop;
+    return distanceFromBottom <= AUTO_SCROLL_BOTTOM_TOLERANCE_PX;
+}
+
+function setOutputContentWithSmartAutoscroll(el, text, useValueProperty = false) {
+    if (!el) {
+        return;
+    }
+
+    const tracker = getAutoScrollTracker(el);
+    const shouldAutoscroll = !tracker || !tracker.hasUserScrolled || isAtBottom(el);
+
+    if (useValueProperty) {
+        el.value = text;
+    } else {
+        el.textContent = text;
+    }
+
+    if (!shouldAutoscroll || !tracker) {
+        updateAutoScrollIndicators();
+        return;
+    }
+
+    tracker.programmaticScrollInProgress = true;
+    el.scrollTop = el.scrollHeight;
+    requestAnimationFrame(() => {
+        tracker.programmaticScrollInProgress = false;
+        updateAutoScrollIndicators();
+    });
+}
 
 function setStatus(message, isError = false) {
     els.statusText.textContent = message;
@@ -503,8 +604,7 @@ function applyResearchOutputState(payload) {
 }
 
 function setRunLogOutput(text) {
-    els.runLogOutput.textContent = text;
-    els.runLogOutput.scrollTop = els.runLogOutput.scrollHeight;
+    setOutputContentWithSmartAutoscroll(els.runLogOutput, text);
 }
 
 function setResearchStatus(message, isError = false) {
@@ -519,16 +619,14 @@ function setResearchOutput(text) {
     if (!els.researchOutput) {
         return;
     }
-    els.researchOutput.textContent = text;
-    els.researchOutput.scrollTop = els.researchOutput.scrollHeight;
+    setOutputContentWithSmartAutoscroll(els.researchOutput, text);
 }
 
 function setResearchBuiltQueryOutput(text) {
     if (!els.researchBuiltQueryOutput) {
         return;
     }
-    els.researchBuiltQueryOutput.textContent = text;
-    els.researchBuiltQueryOutput.scrollTop = els.researchBuiltQueryOutput.scrollHeight;
+    setOutputContentWithSmartAutoscroll(els.researchBuiltQueryOutput, text);
 }
 
 function shellQuote(arg) {
@@ -555,8 +653,11 @@ function setResearchCommandOutput(command) {
     const rendered = Array.isArray(command)
         ? formatCommandForDisplay(command)
         : String(command || "");
-    els.researchCommandOutput.value = rendered || "No command yet. Run Research first.";
-    els.researchCommandOutput.scrollTop = els.researchCommandOutput.scrollHeight;
+    setOutputContentWithSmartAutoscroll(
+        els.researchCommandOutput,
+        rendered || "No command yet. Run Research first.",
+        true,
+    );
 }
 
 function formatTimestampToSecond(value) {
@@ -1074,9 +1175,15 @@ async function loadSelectedDebugLog() {
 
     try {
         const payload = await api(`/api/logs/content?name=${encodeURIComponent(name)}`);
-        els.debugLogOutput.textContent = payload.content || "(Empty log file)";
+        setOutputContentWithSmartAutoscroll(
+            els.debugLogOutput,
+            payload.content || "(Empty log file)",
+        );
     } catch (err) {
-        els.debugLogOutput.textContent = `Unable to load log file: ${err.message}`;
+        setOutputContentWithSmartAutoscroll(
+            els.debugLogOutput,
+            `Unable to load log file: ${err.message}`,
+        );
     }
 }
 
@@ -1207,6 +1314,8 @@ function setActiveLogTab(tabName) {
     Object.entries(els.logPanels).forEach(([name, panel]) => {
         panel.classList.toggle("active", name === tabName);
     });
+
+    updateAutoScrollIndicators();
 }
 
 function setActiveResearchOutputTab(tabName) {
@@ -1226,6 +1335,8 @@ function setActiveResearchOutputTab(tabName) {
     Object.entries(els.researchOutputPanels).forEach(([name, panel]) => {
         panel.classList.toggle("active", name === tabName);
     });
+
+    updateAutoScrollIndicators();
 }
 
 function updateSplitterPosition(clientX) {

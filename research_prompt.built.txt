@@ -3,8 +3,9 @@ You are a role research assistant.
 Your task is to synthesize role context and produce interview preparation notes for a candidate.
 
 Use these inputs:
-- Company Name: Test Co
-- URLs: - https://example.com
+- Company Name: A1/BJAK
+- URLs: - https://builtin.com/job/founding-ai-engineer/7869823
+- https://bjak.my/en
 - Job Spec: I'm reaching out about a permanent Senior iOS Developer opportunity with a cybersecurity company that builds hardware-level security for mobile, IoT, and digital finance for millions worldwide. Think Trusted Execution Environments (TEE) and secure device identity, the kind of tech that protects billions of smartphones and users globally.
 
 The company is on track to hit £100m revenue in the next 12 months. This is not just ambition, and you'll be joining at a moment your work will shape, and have real impact on that trajectory.
