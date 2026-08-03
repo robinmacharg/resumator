@@ -59,7 +59,7 @@ Formatting and structure requirements:
 
 Structure:
 
-The document will consist of several distinct sections:
+The document will consist of several distinct sections, in strict order:
 
 - Candidate information (name, title, phone, email, social links)
 - Professional Summary
@@ -67,10 +67,12 @@ The document will consist of several distinct sections:
 - Education and credentials
   - Include the user's degree education
   - Include the user's security clearance status and management experience if relevant to the role.
+  - Do NOT include any non-professional, unrelated, achievements (charity, scholl governor etc)
 - Selected Key Roles (previous roles that best match the job specification, selected from roles started in the last 10 years. Limit to no more than 5. These should be the most relevant roles for the job spec.)
 - Earlier Career Highlights (All other roles. This section MUST contain any roles not mentioned in the Selected Key roles section)
   - This section has an introductory line of the form: **Date range** Positions across INDUSTRY SECTOR OR TECHNOLOGIES.
   - Each role should be a single line of the form: **Role title** | _Company_ (compact list of highlight technologies used)
+  - Each role should be on a separate, bulleted line.
 - Open source contributions: 3-5 relevant open source contributions.
 - Technical Skills and Expertise
   - Summarised high-level grouped skills sets, e.g. Core Platforms and Languages, AI, Architecture. Included concrete examples (Swift, TypeScript, Gemini, Machine Learning, MVVM etc etc)

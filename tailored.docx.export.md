@@ -1,150 +1,149 @@
+```yaml
+---
+candidate:
+  name: "Robin Macharg"
+  title: "Senior / Principal iOS & Multi-Platform Software Engineer"
+  phone: "+44 (0)7377 719820"
+  email: "robin.macharg@gmail.com"
+  linkedin: "https://www.linkedin.com/in/robinmacharg"
+  github: "https://github.com/robinmacharg"
+  stackoverflow: "http://stackoverflow.com/users/2431627/robin-macharg"
+metadata:
+  target_roles:
+    - "Senior iOS Developer"
+  last_updated: "2026-08-03"
+semantic_tags:
+  candidate_name: "candidate_name"
+  candidate_title: "candidate_title"
+  candidate_contact: "candidate_contact"
+  section_heading: "section_heading"
+  role_heading: "role_heading"
+  date_range: "date_range"
+  keywords: "keywords"
+  bullet_primary: "bullet_primary"
+  bullet_secondary: "bullet_secondary"
+  project_item: "project_item"
+  education_item: "education_item"
+  summary_paragraph: "summary_paragraph"
+  role_requirements_heading: "role_requirements_heading"
+  role_requirements_item: "role_requirements_item"
+skills_raw:
+  status: "NEEDS_UPDATE"
+  languages_apis:
+    - "Objective-C", "Swift (SwiftUI, Combine, async/await)", "Python (FastAPI, Flask, Pylons)", "C/C++", "C#", "Kotlin (KMM)", "Java", "Perl", "TypeScript/JavaScript", "SQL", "Shell Scripting"
+  ios_mac_ecosystem:
+    - "CoreData", "RealmDB", "Alamofire", "ARKit", "Fastlane", "TestFlight", "xcodebuild", "Cocoapods", "Carthage", "SPM", "RxSwift", "PromiseKit", "XCFrameworks", "Xamarin.iOS"
+  gui_web_frameworks:
+    - "UIKit", "Winforms", "XAML", "Qt", "PyQt", "OpenGL", "Vue/TypeScript", "React Native", "Ionic", "HTML/CSS/SASS"
+  backend_devops_cloud:
+    - "AWS", "Google Cloud (Cloud Run, Firebase, Crashlytics)", "Docker", "Kubernetes", "PostgreSQL", "MongoDB", "NGinx", "JBoss", "Puppet", "Jenkins", "GitHub Actions", "RESTful APIs"
+  graphics_prototyping_hardware:
+    - "Figma", "Sketch", "Adobe CC (Photoshop, Illustrator)", "Blender", "3D Printing", "Parametric CAD (Fusion 360)", "Raspberry Pi", "Robotics/Electronics"
+---
+
 # Robin Macharg
 **Senior / Principal iOS & Multi-Platform Software Engineer**
-+44 (0)7377 719820
-[robin.macharg@gmail.com](mailto:robin.macharg@gmail.com)
-[LinkedIn](https://www.linkedin.com/in/robinmacharg) | [GitHub](https://github.com/robinmacharg) | [Stack Overflow](http://stackoverflow.com/users/2431627/robin-macharg)
-United Kingdom | Previous SC1 Security Clearance
++44 (0)7377 719820 - [robin.macharg@gmail.com](mailto:robin.macharg@gmail.com)
+[LinkedIn](https://www.linkedin.com/in/robinmacharg) | [GitHub](https://github.com/robinmacharg) | [StackOverflow](http://stackoverflow.com/users/2431627/robin-macharg)
 
 **Professional Summary**
 
-***Senior iOS Specialist** focusing on high-performance native Swift and Objective-C application development, with extensive experience shipping secure, consumer-facing apps to the App Store using modern architectures.*
+***Principal iOS Engineer** with extensive experience architecting secure, high-performance applications and SDKs using Swift, Objective-C, MVVM, and modern Clean Architecture patterns.*
 
-***Mobile Security & Encryption** experience highlighted by building custom VPN-secured enterprise clients for the UK Government, integrating MDM solutions, undergoing penetration testing, and holding previous SC1 Security Clearance.*
+***Security-focused developer** with previous SC clearance, experienced in designing VPN-secured enterprise communications and conducting penetration testing for government and enterprise clients.*
 
-***Scale & Performance Engineering** proven by maintaining core mobile SDKs at Sky serving over 25 million daily active users, optimizing app start-up times, and implementing low-level crash diagnostics for global enterprises.*
+***Performance and scale optimizer** who has built and maintained SDKs supporting over 25 million daily users, driving improvements in memory usage, application startup time, and network efficiency.*
 
-***Digital Finance & IoT** exposure including developing modern SwiftUI features for Floww's private investment market platform and working with low-level network communications, raw sockets, and embedded platforms.*
-
-
-**Secure iOS & Performance Highlights**
+***Agile delivery champion** and Certified Scrum Master with hands-on experience automating deployment pipelines using Fastlane, GitHub Actions, and custom CI/CD scripting to reduce business risk.*
 
 
-- **Government-Grade Security:** Engineered a custom VPN-secured Exchange client for the UK Government's Foxhound project at Amiosec, reverse-engineering SSL traffic and implementing secure MVVM architectures.
-- **Enterprise Compliance & Penetration Testing:** Delivered Dyson's first greenfield B2B iPad app in 8 weeks, managing secure enterprise MDM deployment (AirWatch) and successfully passing rigorous penetration testing.
-- **High-Scale SDK Performance:** Maintained core video SDKs and reference apps at Sky supporting over 25 million daily active users, prioritizing optimization, analytics, and low-latency delivery.
-- **Fintech App Store Delivery:** Developed Composable Architecture (TCA) features on SwiftUI for Floww's App Store-released private investment platform, introducing performance and compile-time monitoring.
-- **Low-Level & C++ Crash Analysis:** Analyzed complex stack traces and low-level crash diagnostics across macOS, iOS, watchOS, and tvOS at Bugsnag, ensuring exceptional stability for major enterprise clients.
+**Security & Performance Highlights**
 
-**Current & Recent Experience**
+- **Enterprise Security Implementations:** Directed security testing and integrated enterprise-level MDM deployment (AirWatch) for Dyson's professional iOS deployment.
+- **High-Concurrency SDK Architecture:** Maintained core video streaming delivery and telemetry SDKs serving 25M+ active users at Sky, integrating Conviva analytics and Freewheel.
+- **Deployment Automation:** Re-architected mapping and deployment SDK pipelines, converting manual multi-hour releases to 10-minute automated commands at Living Map.
+- **Low-Level Crash Diagnostics:** Managed multi-platform Apple libraries at Bugsnag, resolving complex C++ and Objective-C stack trace and memory crash logs.
+- **Academic & Agile Foundations:** Joint BSc (Hons) in Artificial Intelligence & Computer Science, plus Scrum Master (CSM) certification, reinforcing agile delivery best practices.
 
-**Senior Developer | Floww Ltd.**
-May 2023 – September 2023
-Keywords: [iOS, SwiftUI, TCA, Redux, GitHub Actions, CI/CD, Mentoring, Shell Scripting]
+**Education, Certifications & Credentials**
 
+- **BSc (Hons) Artificial Intelligence and Computer Science (Joint)** — University of Edinburgh
+- **Certified Scrum Master (CSM)** — Scrum Alliance
+- **Security Clearance:** Previous SC1 Security Clearance and 6 concurrent DBS (highly relevant to cybersecurity environments)
+- **Engineering Management:** Proven leadership experience as Lead Mobile Developer and Head of Mobile Development across agile multi-functional teams
 
-- Developed features for a secure private investment market platform using SwiftUI and Redux-like Composable Architecture (TCA).
-- Promoted engineering best practices: componentization, API debugging, app startup optimization, and compile-time performance monitoring.
-- Maintained robust automation CI/CD pipelines using GitHub Actions and custom automation shell scripting.
-- Mentored junior team members and conducted technical code reviews to maintain high quality and security standards.
-
-**Lead Mobile Developer | This One Ltd.**
-May 2022 – May 2023
-Keywords: [SwiftUI, Combine, Async/Await, Python, Flask, Fastlane, GCP, Firebase, ML]
-
-
-- Led greenfield-to-seed-round iOS development as founding mobile developer using SwiftUI, Combine, and async/await architecture.
-- Owned full deployment lifecycle, managing Apple Developer accounts, TestFlight distributions, and automated Fastlane pipelines.
-- Created a locally deployable mock Python Flask server to decouple backend dependencies and accelerate offline API testing.
-- Contributed to core operations including product discovery, UX feasibility, and data modeling for machine learning integrations.
+**Selected Key Roles**
 
 **Senior iOS Developer | Sky**
 October 2021 – April 2022
 Keywords: [Swift, Kotlin Multiplatform, SwiftUI, Video Streaming, Analytics, Agile]
 
-
-- Served as Senior Developer on the Core Video Mobile SDK team supporting apps used daily by over 25 million customers worldwide.
-- Maintained hybrid Swift and Kotlin Multiplatform Mobile (KMM) SDKs under tight performance and optimization constraints.
-- Rewrote the internal SDK reference app in SwiftUI to showcase modern UI architectures and clean coding patterns.
-- Managed bi-weekly release cycles, automated SDK integrations, and implemented repository auto-assign hooks to accelerate Agile workflows.
-
-**Senior Developer | Living Map Ltd.**
-June 2020 – September 2021
-Keywords: [iOS, Mapping SDK, XCFrameworks, CocoaPods, Carthage, Background Location, UX]
-
-
-- Senior developer for flagship iOS Mapping SDKs, overseeing deployment to launch customer Singapore Airlines.
-- Re-architected the SDK to support secure background location updates, offline caching, and modern XCFramework packaging.
-- Overhauled legacy deployment pipelines, reducing manual release overhead from 3 hours to a single 10-minute automated command.
-- Provided technical liaison to client engineering teams to ensure seamless integration into multi-component host apps.
-
-**Senior Apple Engineer | Bugsnag Inc.**
-January 2020 – June 2020
-Keywords: [Objective-C, C++, iOS, macOS, watchOS, tvOS, Open Source, Crash Reporting]
-
-
-- Maintained open-source crash reporting libraries in Objective-C, C++, and Swift for multi-platform Apple ecosystems.
-- Provided 3rd-line support handling complex crash log analysis, stack traces, and low-level root cause isolation for enterprise clients.
-- Managed high-scale dependency packaging and distribution across CocoaPods, Carthage, Swift Package Manager (SPM), and manual installs.
-- Ensured continuous reliability and performance through automated testing pipelines using Travis and Buildkite.
+- Served as Senior Developer on the Core Video Mobile SDK team supporting Sky, NowTV, Peacock, and Comcast mobile applications.
+- Maintained a hybrid Swift and Kotlin Multiplatform Mobile (KMM) SDK and reference apps used daily by over 25 million customers.
+- Integrated analytics platforms (Conviva, Adobe) and video streaming delivery technologies (Freewheel, YoSpace, Smooth Stream, DASH) to optimize performance.
+- Rewrote the internal reference app in SwiftUI and managed bi-weekly automated release cycles.
+- Developed custom Probot/Octokit GitHub tools, auto-assign integrations, and repository hooks to improve team workflows.
 
 **Principal iOS Developer | Amiosec Ltd. (Contract)**
 March 2019 – December 2019
 Keywords: [Xamarin, Visual Studio, C#, Objective-C/Swift Interop, EWS, ReactiveUI, Security]
 
+- Served as Senior iOS developer on a custom VPN-secured Exchange client for the UK Government's secure Foxhound project.
+- Built high-performance cross-language interoperability between Xamarin/C# and Objective-C/Swift using .NET Embedding.
+- Architected and implemented a reactive MVVM pattern utilizing ReactiveUI, DynamicData, Realm.NET, and Polly.
+- Reverse-engineered Exchange Web Services (EWS) via SSL Man-in-the-Middle (MiM) proxying using Charles Proxy to verify secure communications.
 
-- Engineered a custom VPN-secured Exchange client for the UK Government's Foxhound project under stringent security protocols.
-- Built seamless, secure interoperability between Xamarin/C# and native Objective-C/Swift codebases via .NET Embedding.
-- Reversed-engineered secure Exchange Web Services (EWS) using Charles Proxy SSL MiM decryption for API verification.
-- Architected reactive MVVM patterns using ReactiveUI and Realm.NET to manage complex offline states and secure local storage.
+**Senior Apple Engineer | Bugsnag Inc.**
+January 2020 – June 2020
+Keywords: [Objective-C, C++, iOS, macOS, watchOS, tvOS, Open Source, Crash Reporting]
+
+- Senior Cocoa and C++ Developer for multi-platform Apple ecosystems (iOS, macOS, watchOS, tvOS) serving enterprise clients.
+- Maintained open-source Bugsnag libraries for Cocoa and C/C++ alongside automated CI testing via Travis and Buildkite.
+- Provided specialized 3rd line engineering support handling complex stack traces, crash log analysis, and root cause isolation.
+- Managed safe packaging and distribution of SDK components across CocoaPods, Carthage, Manual Install, and Swift Package Manager (SPM).
 
 **Principal iOS Developer | Dyson Ltd. (Contract)**
 June 2017 – January 2020
 Keywords: [iOS, Greenfield, Enterprise MDM, ARKit, RealmDB, Swift, Unit Testing]
 
+- Sole developer on Dyson's first B2B sales iPad app ('Hero'), delivering the initial production build from greenfield to field test in 8 weeks (~13k lines).
+- Managed end-to-end security integration, including enterprise MDM deployment (AirWatch) and rigorous penetration testing.
+- Integrated ARKit, Vuforia/Unity AR, multithreaded RealmDB, PromiseKit, and custom Xcode project templates.
+- Achieved >80% UI and Unit Test coverage to ensure long-term stability and code quality.
 
-- Sole developer on Dyson's first B2B iPad app ('Hero'), delivering a production-ready build in 8 weeks with >80% unit/UI test coverage.
-- Guided the app through enterprise-grade security penetration testing and MDM deployment using AirWatch.
-- Scaled and maintained the application to 23k lines of Swift code, supporting hundreds of worldwide B2B sales representatives.
-- Integrated multithreaded RealmDB, custom Xcode templates, and interactive experiences leveraging ARKit and PromiseKit.
+**Senior Developer | Floww Ltd.**
+May 2023 – September 2023
+Keywords: [iOS, SwiftUI, TCA, Redux, GitHub Actions, CI/CD, Mentoring, Shell Scripting]
 
-**Earlier Experience (Summary View)**
+- Senior iOS developer for a private investment market platform, implementing features using Redux-like Composable Architecture (TCA) on SwiftUI.
+- Promoted engineering best practices: introduced componentization, app startup time improvements, compile-time monitoring, and code review templates.
+- Maintained robust CI pipelines utilizing GitHub Actions, custom shell scripting, and git push lint hooks.
+- Mentored junior engineering team members and assisted in Angular frontend components debugging.
 
-**Head of Mobile Development | Actual Experience Ltd.**
-March 2014 – June 2017
-Keywords: [iOS, Objective-C, Swift, CoreData, Realm, Jenkins, Vagrant, Networking]
+**Earlier Career Highlights**
 
+**1996 – 2023** Positions across Mobile Development, Geospatial SDKs, Telemetry, Network Analytics, and Full-Stack Systems.
 
-- Led mobile development for a greenfield B2B QoS network analytics dashboard.
-- Handled ObjC-to-Swift refactoring, CoreData/Realm persistence, low-level ICMP ECHO/TCP networking, and Jenkins CI setup.
-
-**Principal Mobile Developer | Accident Exchange Group (Contract)**
-May 2013 – March 2014
-Keywords: [iOS, CoreData, CoreLocation, MapKit, REST, RestKit]
-
-
-- Developed greenfield consumer iOS app for vehicle telemetry, incorporating CoreLocation and MapKit.
-- Implemented CoreData, custom protocols, RestKit integration, and Apple account deployment.
-
-**Senior Middleware & DevOps Developer | MySpace**
-March 2012 – May 2013
-Keywords: [Java, Python, Middleware, DevOps, JBoss, Puppet, Scrum]
-
-
-- Managed Java/Python middleware development and DevOps infrastructure utilizing JBoss, Puppet, and RPM packaging.
-- Developed Objective-C second-screen IPTV features and achieved Scrum Master certification.
-
-**Earlier Engineering Roles**
-1996 – 2012
-Keywords: [Python, PostgreSQL, OpenGL, PyQt, Linux, Embedded, Java, Perl, Web]
-
-
-- **Senior Developer | RMS Services Ltd.** (Apr 2009 – Mar 2012): Engineered agentless asset discovery using cross-platform RESTful Python and PostgreSQL.
-- **Aerodynamics & Mass Properties Engineer | Airbus UK Ltd.** (Feb 2005 – Feb 2009): Developed 2D/3D wing design and structural analysis tools using Python/PyQt, Perl, and OpenGL.
-- **Server & Embedded Developer | Sift / Appliance Studio / Obtree / Circle.com / Glaxo Wellcome** (1996 – 2004): Developed embedded Java/Perl appliances, search infrastructure, and web technologies on Linux.
+* **Lead Mobile Developer** | _This One Ltd._ (SwiftUI, Combine, Async/Await, Python, Flask, Fastlane, GCP, Firebase, ML)
+* **Senior Developer** | _Living Map Ltd._ (iOS, Mapping SDK, XCFrameworks, CocoaPods, Carthage, Background Location, UX)
+* **Head of Mobile Development** | _Actual Experience Ltd._ (Objective-C, Swift, CoreData, Realm, ICMP, TCP, Jenkins)
+* **Principal Mobile Developer** | _Accident Exchange Group_ (iOS, CoreData, CoreLocation, MapKit, RestKit)
+* **Senior Middleware & DevOps Developer** | _MySpace_ (Java, Python, Middleware, JBoss, Drools, Puppet, Maven, Objective-C)
+* **Senior Developer** | _RMS Services Ltd._ (Python, PostgreSQL, RESTful APIs, Asset Discovery)
+* **Aerodynamics & Mass Properties Engineer** | _Airbus UK Ltd._ (Python, PyQt, Perl, PDL, OpenGL)
+* **Server & Embedded Developer** | _Sift Ltd. / The Appliance Studio / Obtree / Circle.com / Glaxo Wellcome_ (Linux, Java, Perl, Embedded Appliances, Web)
 
 **Open Source & Key Projects**
 
-- **Coding Exercises:** Interview algorithms & solutions ([GitHub](https://github.com/robinmacharg/CodingExercises)).
-- **React Native Input Spinner:** Open-source contributor ([GitHub](https://github.com/marcocesarato/react-native-input-spinner)).
-- **3D Gear Generator:** Custom 2D and spherical gear design tool built using Vue, TypeScript, and Sass.
-- **Bricksmith:** SourceForge award-winning LEGO CAD software for macOS using Objective-C and C ([Link](http://bricksmith.sourceforge.net/)).
-- **Pycel / Excel Formula Parser:** Python-based Excel dependency graph and formula parser ([GitHub](https://github.com/dgorissen/pycel)).
-- **RMHelpfulLabel & Photoshop Scripts:** Custom iOS UI components and batch Photoshop export scripts.
-- **Thingiverse Designs:** Parametric 3D CAD models and physical design prints ([Designs](https://www.thingiverse.com/robinmacharg/designs)).
+- **Bricksmith:** SourceForge award-winning LEGO CAD software for macOS (ObjC, C) ([Link](http://bricksmith.sourceforge.net/))
+- **React Native Input Spinner:** Open-source contributor to interactive mobile UI components ([GitHub](https://github.com/marcocesarato/react-native-input-spinner))
+- **Pycel / Excel Formula Parser:** Python-based Excel dependency graph and formula parser ([GitHub](https://github.com/dgorissen/pycel))
+- **Coding Exercises:** Interview algorithms & solutions ([GitHub](https://github.com/robinmacharg/CodingExercises))
 
-**Education, Certifications & Governance**
+**Technical Skills & Expertise**
 
-- **BSc (Hons) Artificial Intelligence and Computer Science (Joint)** — University of Edinburgh
-- **Certified Scrum Master (CSM)**
-- **Parent Governor** — Wyedean Academy and Sixth Form Centre (2016–2020, 2021–Present): Advising on IT infrastructure, Applied Learning, and school financing.
-- **Charity Coordinator** — Chepstow Gold Senior Touch Rugby
+* **Core Platforms & Languages:** Swift (SwiftUI, Combine, async/await), Objective-C, Python (FastAPI, Flask), C/C++, Kotlin (KMM), C#, TypeScript, JavaScript, SQL, Shell Scripting (Bash/Zsh)
+* **Security & Mobile Architecture:** MVVM, Clean Architecture, Composable Architecture (TCA), Redux, ReactiveUI, Enterprise MDM (AirWatch), VPN Security, Penetration Testing, SSL MiM Proxying (Charles Proxy)
+* **Ecosystem & Tools:** iOS SDK, Xcode, TestFlight, App Store Connect, Fastlane, SPM, CocoaPods, Carthage, XCFrameworks, RealmDB, CoreData
+* **Cloud & DevOps:** GitHub Actions, Jenkins, Travis, Buildkite, AWS, Google Cloud Run, Firebase, Docker, Kubernetes, PostgreSQL
+```

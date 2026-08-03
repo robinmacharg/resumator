@@ -4,6 +4,9 @@ const state = {
     activeLogTab: "run",
     isDraggingSplitter: false,
     diskFiles: {},
+    runStatusTimerId: null,
+    runStatusStartMs: 0,
+    runStatusMessage: "",
 };
 
 const els = {
@@ -61,6 +64,29 @@ const LS_KEYS = {
 function setStatus(message, isError = false) {
     els.statusText.textContent = message;
     els.statusText.style.color = isError ? "#b42318" : "#1f1f1f";
+}
+
+function startRunStatusTimer(message) {
+    stopRunStatusTimer();
+    state.runStatusMessage = message;
+    state.runStatusStartMs = Date.now();
+
+    const render = () => {
+        const elapsedSeconds = Math.floor((Date.now() - state.runStatusStartMs) / 1000);
+        setStatus(`${state.runStatusMessage} [${elapsedSeconds}s]`);
+    };
+
+    render();
+    state.runStatusTimerId = window.setInterval(render, 1000);
+}
+
+function stopRunStatusTimer() {
+    if (state.runStatusTimerId !== null) {
+        clearInterval(state.runStatusTimerId);
+        state.runStatusTimerId = null;
+    }
+    state.runStatusStartMs = 0;
+    state.runStatusMessage = "";
 }
 
 function setRunning(running) {
@@ -349,7 +375,7 @@ async function saveToDisk() {
 
 async function runPipeline(kind) {
     setRunning(true);
-    setStatus(kind === "full" ? "Running full pipeline..." : "Running formatting only...");
+    startRunStatusTimer(kind === "full" ? "Running full pipeline..." : "Running formatting only...");
 
     try {
         writeDraftToLocalStorage();
@@ -367,15 +393,18 @@ async function runPipeline(kind) {
         await refreshTailoredOutput();
         await refreshLogs();
 
+        stopRunStatusTimer();
         if (run && run.success) {
             setStatus(`Run complete (${run.elapsedSeconds}s).`);
         } else {
             setStatus("Run failed. Open logs for details.", true);
         }
     } catch (err) {
+        stopRunStatusTimer();
         setStatus(`Run failed: ${err.message}`, true);
         els.runLogOutput.textContent = err.stack || err.message;
     } finally {
+        stopRunStatusTimer();
         setRunning(false);
     }
 }
