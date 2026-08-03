@@ -1,90 +1,164 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CV Wrapper</title>
-    <link rel="stylesheet" href="/static/styles.css" />
-  </head>
-  <body>
-    <header class="topbar">
-      <div class="title-wrap">
-        <h1>CV Wrapper</h1>
-        <p>Edit sources, run generation or formatting, and preview PDF output.</p>
-      </div>
-      <div class="actions">
-        <button id="refreshDiskBtn" class="btn btn-secondary">Reload from Disk</button>
-        <button id="saveBtn" class="btn btn-secondary">Save Files</button>
-        <button id="runFormatBtn" class="btn btn-primary">Run Formatting Only</button>
-        <button id="runFullBtn" class="btn btn-primary">Run Full Pipeline</button>
-      </div>
-    </header>
-
-    <main class="layout">
-      <section class="editor-pane">
-        <div class="status-row">
-          <span id="statusText">Loading...</span>
-        </div>
-
-        <div class="tabbar" role="tablist" aria-label="Editor tabs">
-          <button class="tab-btn active" data-tab="cv" role="tab" aria-selected="true">CV</button>
-          <button class="tab-btn" data-tab="prompt" role="tab" aria-selected="false">Prompt</button>
-          <button class="tab-btn" data-tab="jobspec" role="tab" aria-selected="false">Job Spec</button>
-          <button class="tab-btn" data-tab="logs" role="tab" aria-selected="false">Logs</button>
-        </div>
-
-        <div class="tab-panels">
-          <section id="tab-cv" class="tab-panel active" role="tabpanel">
-            <label for="cvEditor">CV.md</label>
-            <textarea id="cvEditor" spellcheck="false"></textarea>
-          </section>
-
-          <section id="tab-prompt" class="tab-panel" role="tabpanel">
-            <label for="promptEditor">prompt.md</label>
-            <textarea id="promptEditor" spellcheck="false"></textarea>
-          </section>
-
-          <section id="tab-jobspec" class="tab-panel" role="tabpanel">
-            <label for="jobspecEditor">jobspec.txt</label>
-            <textarea id="jobspecEditor" spellcheck="false"></textarea>
-          </section>
-
-          <section id="tab-logs" class="tab-panel logs" role="tabpanel">
-            <div class="logs-header">
-              <strong>Logs</strong>
-              <button id="refreshLogsBtn" class="btn btn-secondary">Refresh Logs</button>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Resumator</title>
+        <link rel="stylesheet" href="/static/styles.css" />
+    </head>
+    <body>
+        <header class="topbar">
+            <div class="title-wrap">
+                <h1>Resumator</h1>
+                <p>Tailor your CV to a role in one click</p>
             </div>
-
-            <div class="logs-tabbar" role="tablist" aria-label="Log tabs">
-              <button class="log-tab-btn active" data-log-tab="run" role="tab" aria-selected="true">Run Log</button>
-              <button class="log-tab-btn" data-log-tab="debug" role="tab" aria-selected="false">Debug Log</button>
+            <div class="actions">
+                <button id="runFormatBtn" class="btn btn-primary">Run Formatting Only</button>
+                <button id="runFullBtn" class="btn btn-primary">Run Full Pipeline</button>
             </div>
+        </header>
 
-            <section id="log-panel-run" class="log-panel active" role="tabpanel">
-              <pre id="runLogOutput">No logs yet.</pre>
+        <main class="layout">
+            <section class="editor-pane">
+                <div class="status-row">
+                    <span id="statusText">Loading...</span>
+                </div>
+
+                <div class="tabbar" role="tablist" aria-label="Editor tabs">
+                    <button class="tab-btn active" data-tab="cv" role="tab" aria-selected="true">
+                        <span class="tab-label" data-label-for="cv">CV</span>
+                    </button>
+                    <button class="tab-btn" data-tab="prompt" role="tab" aria-selected="false">
+                        <span class="tab-label" data-label-for="prompt">Prompt</span>
+                    </button>
+                    <button class="tab-btn" data-tab="jobspec" role="tab" aria-selected="false">
+                        <span class="tab-label" data-label-for="jobspec">Job Spec</span>
+                    </button>
+                    <button class="tab-btn" data-tab="env" role="tab" aria-selected="false">
+                        <span class="tab-label" data-label-for="env">Env</span>
+                    </button>
+                    <button class="tab-btn" data-tab="tailored" role="tab" aria-selected="false">
+                        Tailored
+                    </button>
+                    <button class="tab-btn" data-tab="logs" role="tab" aria-selected="false">
+                        Logs
+                    </button>
+                </div>
+
+                <div class="tab-panels">
+                    <section id="tab-cv" class="tab-panel active" role="tabpanel">
+                        <div class="editor-head">
+                            <label id="cvTitle" for="cvEditor">CV</label>
+                            <div class="file-actions">
+                                <button class="btn btn-secondary file-load-btn" data-file="cv">Load from Disk</button>
+                                <button class="btn btn-secondary file-save-btn" data-file="cv">Save</button>
+                            </div>
+                        </div>
+                        <textarea id="cvEditor" spellcheck="false"></textarea>
+                    </section>
+
+                    <section id="tab-prompt" class="tab-panel" role="tabpanel">
+                        <div class="editor-head">
+                            <label id="promptTitle" for="promptEditor">Prompt</label>
+                            <div class="file-actions">
+                                <button class="btn btn-secondary file-load-btn" data-file="prompt">Load from Disk</button>
+                                <button class="btn btn-secondary file-save-btn" data-file="prompt">Save</button>
+                            </div>
+                        </div>
+                        <textarea id="promptEditor" spellcheck="false"></textarea>
+                    </section>
+
+                    <section id="tab-jobspec" class="tab-panel" role="tabpanel">
+                        <div class="editor-head">
+                            <label id="jobspecTitle" for="jobspecEditor">Job Spec</label>
+                            <div class="file-actions">
+                                <button class="btn btn-secondary file-load-btn" data-file="jobspec">Load from Disk</button>
+                                <button class="btn btn-secondary file-save-btn" data-file="jobspec">Save</button>
+                            </div>
+                        </div>
+                        <textarea id="jobspecEditor" spellcheck="false"></textarea>
+                    </section>
+
+                    <section id="tab-env" class="tab-panel" role="tabpanel">
+                        <div class="editor-head">
+                            <label id="envTitle" for="envEditor">Env</label>
+                            <div class="file-actions">
+                                <button class="btn btn-secondary file-load-btn" data-file="env">Load from Disk</button>
+                                <button class="btn btn-secondary file-save-btn" data-file="env">Save</button>
+                            </div>
+                        </div>
+                        <textarea id="envEditor" spellcheck="false"></textarea>
+                    </section>
+
+                    <section id="tab-tailored" class="tab-panel" role="tabpanel">
+                        <label for="tailoredViewer">tailored.md (read-only)</label>
+                        <textarea id="tailoredViewer" spellcheck="false" readonly></textarea>
+                    </section>
+
+                    <section id="tab-logs" class="tab-panel logs" role="tabpanel">
+                        <div class="logs-header">
+                            <strong>Logs</strong>
+                            <button id="refreshLogsBtn" class="btn btn-secondary">
+                                Refresh Logs
+                            </button>
+                        </div>
+
+                        <div class="logs-tabbar" role="tablist" aria-label="Log tabs">
+                            <button
+                                class="log-tab-btn active"
+                                data-log-tab="run"
+                                role="tab"
+                                aria-selected="true"
+                            >
+                                Run Log
+                            </button>
+                            <button
+                                class="log-tab-btn"
+                                data-log-tab="debug"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                Debug Log
+                            </button>
+                        </div>
+
+                        <section id="log-panel-run" class="log-panel active" role="tabpanel">
+                            <pre id="runLogOutput">No logs yet.</pre>
+                        </section>
+
+                        <section id="log-panel-debug" class="log-panel" role="tabpanel">
+                            <div class="logs-controls">
+                                <select id="logSelect">
+                                    <option value="">Select debug log...</option>
+                                </select>
+                            </div>
+                            <pre id="debugLogOutput">Select a debug log to view its content.</pre>
+                        </section>
+                    </section>
+                </div>
             </section>
 
-            <section id="log-panel-debug" class="log-panel" role="tabpanel">
-              <div class="logs-controls">
-                <select id="logSelect">
-                  <option value="">Select debug log...</option>
-                </select>
-              </div>
-              <pre id="debugLogOutput">Select a debug log to view its content.</pre>
-            </section>
-          </section>
-        </div>
-      </section>
+            <div
+                id="paneSplitter"
+                class="pane-splitter"
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize editor and preview panes"
+            >
+                <div class="splitter-grip" aria-hidden="true"></div>
+            </div>
 
-      <aside class="preview-pane">
-        <div class="preview-header">
-          <strong>PDF Preview</strong>
-          <a href="/output/tailored_dev.pdf" target="_blank" rel="noopener">Open in New Tab</a>
-        </div>
-        <iframe id="pdfPreview" title="PDF Preview" src="/output/tailored_dev.pdf"></iframe>
-      </aside>
-    </main>
+            <aside class="preview-pane">
+                <div class="preview-header">
+                    <strong>PDF Preview</strong>
+                    <a href="/output/tailored_dev.pdf" target="_blank" rel="noopener"
+                        >Open in New Tab</a
+                    >
+                </div>
+                <iframe id="pdfPreview" title="PDF Preview" src="/output/tailored_dev.pdf"></iframe>
+            </aside>
+        </main>
 
-    <script src="/static/app.js" defer></script>
-  </body>
+        <script src="/static/app.js" defer></script>
+    </body>
 </html>

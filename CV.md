@@ -3,7 +3,7 @@ candidate:
   name: "Robin Macharg"
   title: "Senior / Principal iOS & Multi-Platform Software Engineer"
   location: "United Kingdom"
-  phone: "+44 (0)1594 528167 / +44 (0)7377 719820"
+  phone: "+44 (0)7377 719820"
   email: "robin.macharg@gmail.com"
   linkedin: "https://www.linkedin.com/in/robinmacharg"
   github: "https://github.com/robinmacharg"

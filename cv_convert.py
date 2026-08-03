@@ -79,6 +79,35 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         cleaned = cleaned.replace("`", "")
         return re.sub(r"\s+", " ", cleaned).strip()
 
+    def normalize_date_text(text: str) -> str:
+        """Normalize date_range text to date values only (no 'Dates' label)."""
+        cleaned = normalize_plain_text_markdown(text)
+        cleaned = re.sub(r"^dates\s*[:\-]?\s*", "", cleaned, flags=re.IGNORECASE)
+        return cleaned.strip()
+
+    def normalize_education_item_text(text: str) -> str:
+        """Format education entries as bold title + normal detail text.
+
+        Expected pattern: <title> - <detail> or <title> — <detail>
+        Only the left title portion is bolded.
+        """
+        cleaned = text.strip()
+        if not cleaned:
+            return cleaned
+
+        if cleaned.startswith("**"):
+            return cleaned
+
+        if " — " in cleaned:
+            left, right = cleaned.split(" — ", 1)
+            return f"**{left.strip()}** — {right.strip()}"
+
+        if " - " in cleaned:
+            left, right = cleaned.split(" - ", 1)
+            return f"**{left.strip()}** - {right.strip()}"
+
+        return cleaned
+
     def normalize_tel_url(url: str) -> str:
         phone = url[4:]
         phone = phone.replace("%2B", "+").replace("%2b", "+")
@@ -108,14 +137,24 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         return pattern.sub(repl, text)
 
     def extract_tag_payload(line_text: str, tag: str) -> str | None:
-        """Extract payload for semantic tags, allowing optional list markers."""
-        match = re.match(rf"^(?:[-*+]\s+)?\[{re.escape(tag)}\]\s*(.*)$", line_text)
+        """Extract payload for semantic tags, allowing common prefix variants."""
+        match = re.match(rf"^(?:#+\s+)?(?:[-*+]\s+)?\[{re.escape(tag)}\]\s*(.*)$", line_text)
         if not match:
             return None
 
         payload = match.group(1).strip()
         payload = re.sub(r"^[-*+]\s+", "", payload).strip()
         return payload
+
+    def extract_first_tag_payload(line_text: str, tags: list[str]) -> str | None:
+        for tag in tags:
+            payload = extract_tag_payload(line_text, tag)
+            if payload is not None:
+                return payload
+        return None
+
+    def strip_heading_markers(text: str) -> str:
+        return re.sub(r"^#+\s*", "", text).strip()
 
     def emit_pdf_centered_with_links(tag: str, text: str) -> list[str]:
         style = pdf_tag_styles[tag]
@@ -271,35 +310,35 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
     for line in markdown_text.splitlines():
         stripped = line.strip()
 
-        if stripped.startswith("[candidate_name]"):
-            name_text = stripped[len("[candidate_name]") :].strip()
+        name_text = extract_first_tag_payload(stripped, ["candidate_name", "name"])
+        if name_text is not None:
             if name_text:
                 if target == "pdf":
                     transformed_lines.extend(emit_pdf_centered("candidate_name", name_text))
                 else:
                     transformed_lines.append(f"# {name_text}")
-                continue
+            continue
 
-        if stripped.startswith("[candidate_title]"):
-            title_text = stripped[len("[candidate_title]") :].strip()
+        title_text = extract_first_tag_payload(stripped, ["candidate_title", "title"])
+        if title_text is not None:
             if title_text:
                 if target == "pdf":
                     transformed_lines.extend(emit_pdf_centered("candidate_title", title_text))
                 else:
                     transformed_lines.append(f"**{title_text}**")
-                continue
+            continue
 
-        if stripped.startswith("[candidate_contact]"):
-            contact_text = stripped[len("[candidate_contact]") :].strip()
+        contact_text = extract_first_tag_payload(stripped, ["candidate_contact", "contact"])
+        if contact_text is not None:
             if contact_text:
                 contact_text = normalize_candidate_contact_text(contact_text)
                 if target == "pdf":
                     transformed_lines.extend(emit_pdf_centered_with_links("candidate_contact", contact_text))
                 else:
                     transformed_lines.append(contact_text)
-                continue
+            continue
 
-        keywords_text = extract_tag_payload(stripped, "keywords")
+        keywords_text = extract_first_tag_payload(stripped, ["keywords", "keyword"])
         if keywords_text is not None:
             keywords_text = normalize_plain_text_markdown(keywords_text)
             transformed_lines.append(keywords_text)
@@ -323,39 +362,40 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
 
         education_item_text = extract_tag_payload(stripped, "education_item")
         if education_item_text is not None:
-            transformed_lines.append(f"- {education_item_text}")
+            transformed_lines.append(f"- {normalize_education_item_text(education_item_text)}")
             continue
 
-        section_match = re.match(r"^#+\s+\[section_heading\]\s*(.+)$", stripped)
-        if section_match:
-            heading_text = section_match.group(1).strip()
+        section_text = extract_first_tag_payload(stripped, ["section_heading", "section"])
+
+        if section_text is not None:
+            heading_text = strip_heading_markers(section_text)
             if target == "pdf":
                 transformed_lines.extend(emit_pdf_section_heading(heading_text))
             else:
                 transformed_lines.append(f"**{heading_text}**")
             continue
 
-        role_match = re.match(r"^##\s+\[role_heading\]\s*(.+)$", stripped)
-        if role_match:
-            role_text = role_match.group(1).strip()
+        role_text = extract_first_tag_payload(stripped, ["role_heading", "role"])
+        if role_text is not None:
+            role_text = strip_heading_markers(role_text)
             if target == "pdf":
                 transformed_lines.extend(emit_pdf_role_heading(role_text))
             else:
                 transformed_lines.append(f"**{role_text}**")
             continue
 
-        date_match = re.match(r"^\[date_range\]\s*(.+)$", stripped)
-        if date_match:
-            date_text = normalize_plain_text_markdown(date_match.group(1).strip())
+        date_text = extract_first_tag_payload(stripped, ["date_range", "date"])
+        if date_text is not None:
+            date_text = normalize_date_text(date_text)
             if target == "pdf":
                 transformed_lines.extend(emit_pdf_date_range(date_text))
             else:
                 transformed_lines.append(date_text)
             continue
 
-        summary_match = re.match(r"^\[summary_paragraph\]\s*(.+)$", stripped)
-        if summary_match:
-            summary_text = normalize_summary_markdown(summary_match.group(1).strip())
+        summary_text = extract_first_tag_payload(stripped, ["summary_paragraph", "summary"])
+        if summary_text is not None:
+            summary_text = normalize_summary_markdown(summary_text)
             if target == "pdf":
                 transformed_lines.extend(emit_pdf_summary_paragraph(summary_text))
             else:
@@ -363,9 +403,12 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
                 transformed_lines.append("")
             continue
 
-        requirements_heading_match = re.match(r"^\[role_requirements_heading\]\s*(.+)$", stripped)
-        if requirements_heading_match:
-            heading_text = re.sub(r"^#+\s*", "", requirements_heading_match.group(1).strip())
+        requirements_heading_text = extract_first_tag_payload(
+            stripped,
+            ["role_requirements_heading", "requirements_heading"],
+        )
+        if requirements_heading_text is not None:
+            heading_text = re.sub(r"^#+\s*", "", requirements_heading_text)
             if target == "pdf":
                 transformed_lines.extend(emit_pdf_role_requirements_heading(heading_text))
             else:
@@ -373,9 +416,8 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
                 transformed_lines.append("")
             continue
 
-        requirements_item_match = re.match(r"^\[role_requirements_item\]\s*(.+)$", stripped)
-        if requirements_item_match:
-            item_text = requirements_item_match.group(1).strip()
+        item_text = extract_first_tag_payload(stripped, ["role_requirements_item", "requirements_item"])
+        if item_text is not None:
             if target == "pdf":
                 transformed_lines.extend(emit_pdf_role_requirements_item(item_text))
             elif item_text.startswith("-"):

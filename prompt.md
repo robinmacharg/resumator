@@ -57,18 +57,40 @@ Use the following inline tag prefixes exactly where appropriate:
 
 Formatting and structure requirements:
 
+Structure:
+
+The document will consist of several distinct sections:
+
+- Candidate information (name, title, phone, email, social links)
+- Professional Summary
+  - Relevant career highlights
+- Education and credentials
+  - Include the user's degree education
+  - Include the user's security clearance status and management experience if relevant to the role.
+- Selected Key Roles (previous roles that best match the job specification, selected from roles started in the last 10 years. Limit to no more than 5. These should be the most relevant roles for the job spec.)
+- Earlier Career Highlights (All other roles. This section MUST contain any roles not mentioned in the Selected Key roles section)
+  - This section has an introductory line of the form: **Date range** Positions across INDUSTRY SECTOR OR TECHNOLOGIES.
+  - Each role should be a single line of the form: **Role title** | _Company_ (compact list of highlight technologies used)
+- Open source contributions: 3-5 relevant open source contributions.
+- Technical Skills and Expertise
+  - Summarised high-level grouped skills sets, e.g. Core Platforms and Languages, AI, Architecture. Included concrete examples (Swift, TypeScript, Gemini, Machine Learning, MVVM etc etc)
+
+Formatting:
+
 1. Candidate name line first in body: [candidate_name] ...
 2. Candidate title line second in body: [candidate_title] ...
 3. Contact lines tagged with [candidate_contact].
 	Contact hyperlinks MUST use standard markdown links in parseable form.
 	Phone numbers MUST be explicit plain text and must NOT be hyperlinks.
 	Email MUST be visible and linked using mailto.
+        Phone number and email MUST be on the same line, separated by a hyphen.
 	Required contact link examples:
 	[candidate_contact] +44 (0)1234 567890
 	[candidate_contact] [person@example.com](mailto:person@example.com)
 	[candidate_contact] [LinkedIn](https://www.linkedin.com/in/username) | [GitHub](https://github.com/username)
 	Plain URLs without markdown link syntax are not allowed for contact links.
 	Do NOT emit [Phone](tel:...) links.
+        Do NOT emit location or security clearance.
 4. Every H1 section heading must include [section_heading].
 5. Every role H2 heading must include [role_heading].
 6. Every role must include one [date_range] line and one [keywords] line.
@@ -85,9 +107,10 @@ Formatting and structure requirements:
 17. The [role_requirements_heading] value MUST be dynamic and directly reflect the job specification priorities (example for this role: AI / Leadership Highlights).
 18. Each [role_requirements_item] must be a markdown bullet point beginning with a bold front-loaded phrase, for example: [role_requirements_item] - **Academic AI Foundation:** ...
 19. Role-targeted highlight bullets must be grounded in CV evidence and explicitly aligned to role requirements.
-20. Do NOT hardcode the example heading or bullet content unless it is genuinely supported by the input CV and job specification.
-21. Required placement order in body: all [summary_paragraph] lines first, then [role_requirements_heading], then [role_requirements_item] lines.
-22. If job requirements emphasize AI and leadership, prefer a heading in the form "AI / Leadership Highlights".
-23. Do not emit this subsection as plain markdown without semantic tags; you must use [role_requirements_heading] and [role_requirements_item].
+20. Role-targeted highlight items should not repeat any of the points made in Professional Summary.
+21. Do NOT hardcode the example heading or bullet content unless it is genuinely supported by the input CV and job specification.
+22. Required placement order in body: all [summary_paragraph] lines first, then [role_requirements_heading], then [role_requirements_item] lines.
+23. If job requirements emphasize AI and leadership, prefer a heading in the form "AI / Leadership Highlights".
+24. Do not emit this subsection as plain markdown without semantic tags; you must use [role_requirements_heading] and [role_requirements_item].
 
 Do not output explanations or analysis. Return only the final markdown document.

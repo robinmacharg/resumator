@@ -95,9 +95,11 @@ body {
 }
 
 .layout {
+  --left-pane-width: 58%;
+  --splitter-width: 4px;
   display: grid;
-  grid-template-columns: 58% 42%;
-  gap: 1rem;
+  grid-template-columns: minmax(360px, var(--left-pane-width)) var(--splitter-width) minmax(320px, 1fr);
+  gap: 0.75rem;
   padding: 1rem;
   min-height: 0;
   flex: 1;
@@ -110,6 +112,34 @@ body {
   border-radius: 0.8rem;
   background: var(--panel);
   overflow: hidden;
+}
+
+.pane-splitter {
+  position: relative;
+  width: var(--splitter-width);
+  min-height: 0;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  border-radius: 999px;
+  background: transparent;
+  border: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.splitter-grip {
+  width: 6px;
+  height: 52px;
+  border-radius: 999px;
+  background-image: radial-gradient(circle, rgba(31, 31, 31, 0.5) 1px, transparent 1px);
+  background-size: 6px 6px;
+  background-position: center;
+}
+
+.pane-splitter.dragging {
+  background: transparent;
 }
 
 .editor-pane {
@@ -176,7 +206,9 @@ body {
 
 #tab-cv,
 #tab-prompt,
-#tab-jobspec {
+#tab-jobspec,
+#tab-env,
+#tab-tailored {
   padding: 0.75rem;
   grid-template-rows: auto minmax(260px, 1fr);
   gap: 0.4rem;
@@ -186,6 +218,25 @@ body {
 .tab-panel label {
   font-weight: 600;
   color: var(--muted);
+}
+
+.editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.file-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.file-actions .btn {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
 }
 
 textarea {
@@ -200,6 +251,10 @@ textarea {
   font-family: "SF Mono", "Menlo", "Consolas", monospace;
   font-size: 0.84rem;
   line-height: 1.35;
+}
+
+textarea[readonly] {
+  background: #f8f7f4;
 }
 
 .logs {
@@ -229,7 +284,7 @@ textarea {
   display: flex;
   gap: 0.35rem;
   border-bottom: 1px solid var(--line);
-  padding-bottom: 0.35rem;
+  padding-bottom: 0;
 }
 
 .log-tab-btn {
@@ -323,6 +378,10 @@ pre {
 @media (max-width: 1100px) {
   .layout {
     grid-template-columns: 1fr;
+  }
+
+  .pane-splitter {
+    display: none;
   }
 
   .preview-pane {

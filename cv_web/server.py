@@ -24,6 +24,7 @@ EDITOR_FILES = {
     "cv": ROOT_DIR / "CV.md",
     "prompt": ROOT_DIR / "prompt.md",
     "jobspec": ROOT_DIR / "jobspec.txt",
+    "env": ROOT_DIR / ".env",
 }
 
 ALLOWED_OUTPUT_FILES = {

@@ -1,39 +1,57 @@
-Mobile Engineer | iOS or Android (Remote - UK)
+I'm reaching out about a permanent Senior iOS Developer opportunity with a cybersecurity company that builds hardware-level security for mobile, IoT, and digital finance for millions worldwide. Think Trusted Execution Environments (TEE) and secure device identity, the kind of tech that protects billions of smartphones and users globally.
 
-Mobile Engineer | iOS or Android
-AI Product | Early Stage Incubator
-Remote First - London Office
-Competitive, flexible salary dependent on experience
-We're partnering with an ambitious AI startup, a new spin off from a larger, successful global brand building a next-generation consumer product that combines intelligent automation, conversational AI and modern mobile experiences.
+The company is on track to hit £100m revenue in the next 12 months. This is not just ambition, and you'll be joining at a moment your work will shape, and have real impact on that trajectory.
 
-Following continued global growth, they're looking to hire multiple Mobile Engineers, specialising in either iOS or Android to help shape the next generation of their mobile platform.
+What you'll be doing
 
-This is a genuine opportunity to join a small, high-calibre engineering team where mobile isn't an afterthought, it's at the heart of the product. You'll work alongside backend and machine learning engineers to build AI-powered experiences used by real customers, helping define how intelligent software feels on modern mobile devices.
+·        Build products with real social impact, used at scale across global markets
 
-If you enjoy solving challenging engineering problems, shipping polished products and working in an environment where you can influence technical direction, this is the sort of opportunity that's difficult to find.
+·        Collaborate with talented international teams in a highly collaborative engineering culture
 
+·        Own features end-to-end. Your work will be visible and your impact felt from day one
 
-The Role
+What you will get
 
-You'll take ownership of native mobile features from design through to production, helping build applications that are fast, reliable and intuitive to use.
+Benefit
 
-You'll be involved in initiatives such as:
+Detail
 
-Building and maintaining native mobile applications using either Swift or Kotlin
-Delivering AI-powered features including conversational experiences, intelligent workflows and real-time interactions
-Collaborating with backend and ML engineers to build scalable product features
-Improving application performance, responsiveness and reliability
-Designing resilient user experiences that handle latency, streaming responses and partial failures gracefully
-Contributing to product decisions within a collaborative engineering team
+Flexibility
 
-What You'll Bring
+Primarily remote — occasional visits to offices near Reading
 
-Commercial experience developing native iOS or Android applications
-Strong experience with Swift/SwiftUI or Kotlin
-Experience shipping production mobile applications
-Experience integrating backend APIs
-A strong appreciation for performance, usability and product quality
-Interest in AI-powered products and emerging technologies
-Confidence working autonomously whilst collaborating closely with engineers across multiple disciplines
-Experience with mobile machine learning, AI integrations or modern mobile architectures also beneficial
-If you're a Mobile Engineer looking to build AI-first products alongside an exceptional engineering team, we'd love to hear from you.
+Time off
+
+Unlimited holiday
+
+Health
+
+Private healthcare (you and your family)
+
+Growth
+
+Excellent career development, upskilling, + genuine influence on product direction
+
+Package
+
+£70-90k base + 10% bonus + comprehensive benefits
+
+ 
+
+Tech Stack and Experience
+
+They're looking for someone who can hit the ground running with:
+
+·        Native iOS — Swift and/or Objective-C
+
+·        Shipping experience — apps live on the Apple App Store
+
+·        Tooling — iOS SDK, Xcode, TestFlight, App Store Connect
+
+·        Architecture — MVVM, Clean Architecture, or similar modern patterns
+
+·        Performance — Security, optimisation, and scalable development
+
+·        Delivery — Git, Agile practices, collaborative workflows
+
+This is not only an opportunity to build and ship a real world app using iOS 27. It's a chance to join a business in a significant growth phase, influence product direction, and deliver features that make a tangible difference to users around the world.
