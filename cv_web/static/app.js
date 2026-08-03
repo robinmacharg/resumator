@@ -8,6 +8,8 @@ const state = {
     runStatusTimerId: null,
     runStatusStartMs: 0,
     runStatusMessage: "",
+    cvPdfExists: false,
+    researchPdfExists: false,
 };
 
 const els = {
@@ -19,6 +21,7 @@ const els = {
     researchUrlsInput: document.getElementById("researchUrlsInput"),
     researchDryRunCheckbox: document.getElementById("researchDryRunCheckbox"),
     runResearchBtn: document.getElementById("runResearchBtn"),
+    formatResearchBtn: document.getElementById("formatResearchBtn"),
     resetResearchPromptBtn: document.getElementById("resetResearchPromptBtn"),
     copyResearchOutputBtn: document.getElementById("copyResearchOutputBtn"),
     researchStatusText: document.getElementById("researchStatusText"),
@@ -33,6 +36,9 @@ const els = {
     refreshLogsBtn: document.getElementById("refreshLogsBtn"),
     logSelect: document.getElementById("logSelect"),
     pdfPreview: document.getElementById("pdfPreview"),
+    pdfPlaceholder: document.getElementById("pdfPlaceholder"),
+    pdfPreviewTitle: document.getElementById("pdfPreviewTitle"),
+    pdfPreviewOpenLink: document.getElementById("pdfPreviewOpenLink"),
     layout: document.querySelector(".layout"),
     paneSplitter: document.getElementById("paneSplitter"),
     tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
@@ -128,6 +134,7 @@ function applyControlDisabledState() {
         ...els.fileLoadButtons,
         ...els.fileSaveButtons,
         els.runResearchBtn,
+        els.formatResearchBtn,
         els.resetResearchPromptBtn,
         els.copyResearchOutputBtn,
         els.researchCompanyInput,
@@ -280,8 +287,46 @@ async function fetchText(path) {
 }
 
 function updatePreviewCacheBuster() {
-    const ts = Date.now();
-    els.pdfPreview.src = `/output/tailored_dev.pdf?ts=${ts}`;
+    const isResearchTab = state.activeTab === "research";
+    const isResearchDoc = isResearchTab;
+    const targetName = isResearchDoc ? "research_output.formatted.pdf" : "tailored_dev.pdf";
+    const exists = isResearchDoc ? state.researchPdfExists : state.cvPdfExists;
+    const targetLabel = isResearchDoc ? "Research" : "CV";
+
+    if (els.pdfPreviewTitle) {
+        els.pdfPreviewTitle.textContent = `PDF Preview (${targetLabel})`;
+    }
+
+    if (els.pdfPreviewOpenLink) {
+        els.pdfPreviewOpenLink.href = `/output/${targetName}`;
+        els.pdfPreviewOpenLink.style.pointerEvents = exists ? "auto" : "none";
+        els.pdfPreviewOpenLink.style.opacity = exists ? "1" : "0.45";
+    }
+
+    if (exists) {
+        const ts = Date.now();
+        els.pdfPreview.classList.remove("hidden");
+        if (els.pdfPlaceholder) {
+            els.pdfPlaceholder.classList.remove("visible");
+        }
+        els.pdfPreview.src = `/output/${targetName}?ts=${ts}`;
+    } else {
+        els.pdfPreview.classList.add("hidden");
+        if (els.pdfPlaceholder) {
+            els.pdfPlaceholder.classList.add("visible");
+            els.pdfPlaceholder.textContent = "No document availabel";
+        }
+    }
+}
+
+function applyCvOutputState(payload) {
+    const outputs = (payload && payload.outputs) || {};
+    state.cvPdfExists = Boolean(outputs.pdfExists);
+}
+
+function applyResearchOutputState(payload) {
+    const output = (payload && payload.output) || {};
+    state.researchPdfExists = Boolean(output.formattedPdfExists);
 }
 
 function setRunLogOutput(text) {
@@ -364,8 +409,12 @@ function summarizeResearchOutput(run) {
             : `${run.elapsedSeconds}s`;
     const exit = run.exitCode === null || run.exitCode === undefined ? "running" : run.exitCode;
 
+    const operation = run.kind === "research_format" ? "format" : "research";
+    const company = run.kind === "research_format" ? "(n/a)" : run.companyName || "(unknown)";
+
     const lines = [
-        `Company: ${run.companyName || "(unknown)"}`,
+        `Operation: ${operation}`,
+        `Company: ${company}`,
         `Status: ${status}`,
         `Exit: ${exit}`,
         `Elapsed: ${elapsed}`,
@@ -380,6 +429,8 @@ function renderResearchState(payload) {
     if (!payload || typeof payload !== "object") {
         return;
     }
+
+    applyResearchOutputState(payload);
 
     if (typeof payload.companyName === "string") {
         els.researchCompanyInput.value = payload.companyName;
@@ -615,10 +666,45 @@ async function runResearch() {
 
         const refreshed = await api("/api/research/state");
         renderResearchState(refreshed);
+        updatePreviewCacheBuster();
     } catch (err) {
         setResearchStatus(`Research run failed: ${err.message}`, true);
         setResearchOutput(err.stack || err.message);
         setStatus(`Research run failed: ${err.message}`, true);
+    } finally {
+        setResearchRunning(false);
+    }
+}
+
+async function formatResearchPdf() {
+    setResearchRunning(true);
+    setResearchStatus("Formatting research PDF...");
+
+    try {
+        const kickoff = await api("/api/research/format", {
+            method: "POST",
+            body: JSON.stringify({}),
+        });
+
+        if (kickoff.run) {
+            setResearchOutput(summarizeResearchOutput(kickoff.run));
+        }
+
+        const run = await waitForResearchCompletion();
+        if (run && run.success) {
+            setResearchStatus(`Research PDF formatted (${run.elapsedSeconds}s).`);
+            setStatus("Research PDF formatting complete.");
+        } else {
+            setResearchStatus("Research PDF formatting failed.", true);
+            setStatus("Research PDF formatting failed. See Research Output.", true);
+        }
+
+        const refreshed = await api("/api/research/state");
+        renderResearchState(refreshed);
+        updatePreviewCacheBuster();
+    } catch (err) {
+        setResearchStatus(`Research PDF formatting failed: ${err.message}`, true);
+        setStatus(`Research PDF formatting failed: ${err.message}`, true);
     } finally {
         setResearchRunning(false);
     }
@@ -745,6 +831,7 @@ async function runPipeline(kind) {
         if (refreshedState.files) {
             updateDiskSnapshot(refreshedState.files);
         }
+        applyCvOutputState(refreshedState);
 
         updatePreviewCacheBuster();
         await refreshTailoredOutput();
@@ -774,6 +861,7 @@ async function reloadFromDisk() {
         const payload = await api("/api/state");
         applyFilesToEditors(payload.files || {});
         updateDiskSnapshot(payload.files || {});
+        applyCvOutputState(payload);
         writeDraftToLocalStorage();
         updatePreviewCacheBuster();
         await refreshTailoredOutput();
@@ -806,6 +894,8 @@ function setActiveTab(tabName) {
     } else if (tabName === "tailored") {
         refreshTailoredOutput();
     }
+
+    updatePreviewCacheBuster();
 }
 
 function setActiveLogTab(tabName) {
@@ -875,6 +965,7 @@ async function initialize() {
         const payload = await api("/api/state");
         applyFilesToEditors(payload.files || {});
         updateDiskSnapshot(payload.files || {});
+        applyCvOutputState(payload);
         const researchPayload = await api("/api/research/state");
         renderResearchState(researchPayload);
 
@@ -932,6 +1023,9 @@ els.runFormatBtn.addEventListener("click", () => runPipeline("format"));
 els.runFullBtn.addEventListener("click", () => runPipeline("full"));
 if (els.runResearchBtn) {
     els.runResearchBtn.addEventListener("click", runResearch);
+}
+if (els.formatResearchBtn) {
+    els.formatResearchBtn.addEventListener("click", formatResearchPdf);
 }
 if (els.resetResearchPromptBtn) {
     els.resetResearchPromptBtn.addEventListener("click", resetResearchPrompt);

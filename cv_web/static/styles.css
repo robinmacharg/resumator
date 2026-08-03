@@ -468,6 +468,25 @@ pre {
   background: #fff;
 }
 
+.pdf-placeholder {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  padding: 1rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+  background: #fffcf7;
+}
+
+.pdf-placeholder.visible {
+  display: flex;
+}
+
+#pdfPreview.hidden {
+  display: none;
+}
+
 @media (max-width: 1100px) {
   .layout {
     grid-template-columns: 1fr;

@@ -21,6 +21,8 @@ RESEARCH_URLS_FILE = ROOT_DIR / "research_urls.txt"
 RESEARCH_PROMPT_DEFAULT_FILE = ROOT_DIR / "research_prompt.default.md"
 RESEARCH_OUTPUT_MD = ROOT_DIR / "research_output.md"
 RESEARCH_OUTPUT_JSON = ROOT_DIR / "research_output.json"
+RESEARCH_FORMATTED_MD = ROOT_DIR / "research_output.formatted.md"
+RESEARCH_FORMATTED_PDF = ROOT_DIR / "research_output.formatted.pdf"
 
 HOST = "127.0.0.1"
 PORT = 8765
@@ -39,6 +41,8 @@ ALLOWED_OUTPUT_FILES = {
     "tailored.md",
     "tailored.export.md",
     "tailored.docx.export.md",
+    "research_output.formatted.md",
+    "research_output.formatted.pdf",
 }
 
 RUN_LOCK = threading.Lock()
@@ -105,6 +109,8 @@ def build_research_state() -> dict[str, Any]:
     company_name = read_text(RESEARCH_COMPANY_FILE).strip()
     output_md_mtime = file_mtime(RESEARCH_OUTPUT_MD)
     output_json_mtime = file_mtime(RESEARCH_OUTPUT_JSON)
+    formatted_md_mtime = file_mtime(RESEARCH_FORMATTED_MD)
+    formatted_pdf_mtime = file_mtime(RESEARCH_FORMATTED_PDF)
 
     return {
         "companyName": company_name,
@@ -114,6 +120,10 @@ def build_research_state() -> dict[str, Any]:
             "json": read_text(RESEARCH_OUTPUT_JSON),
             "markdownMtime": output_md_mtime,
             "jsonMtime": output_json_mtime,
+            "formattedMarkdownExists": RESEARCH_FORMATTED_MD.exists(),
+            "formattedPdfExists": RESEARCH_FORMATTED_PDF.exists(),
+            "formattedMarkdownMtime": formatted_md_mtime,
+            "formattedPdfMtime": formatted_pdf_mtime,
         },
         "lastRun": LAST_RESEARCH_RUN,
     }
@@ -440,6 +450,61 @@ def run_research_subprocess_streaming(company_name: str, urls: list[str], dry_ru
     return run_result
 
 
+def run_research_format_subprocess_streaming() -> dict[str, Any]:
+    command = [
+        sys.executable,
+        str(ROOT_DIR / "research_format.py"),
+    ]
+
+    started_at = utc_now_iso()
+    started_monotonic = time.monotonic()
+    set_current_research_run(
+        {
+            "kind": "research_format",
+            "command": command,
+            "companyName": "",
+            "urls": [],
+            "dryRun": False,
+            "exitCode": None,
+            "startedAt": started_at,
+            "finishedAt": None,
+            "elapsedSeconds": 0.0,
+            "success": None,
+            "running": True,
+            "output": "",
+            "formattedPdfMtime": file_mtime(RESEARCH_FORMATTED_PDF),
+            "_startedMonotonic": started_monotonic,
+        }
+    )
+
+    proc = subprocess.Popen(
+        command,
+        cwd=ROOT_DIR,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
+
+    stdout_thread = threading.Thread(target=stream_pipe_research, args=(proc.stdout,), daemon=True)
+    stderr_thread = threading.Thread(target=stream_pipe_research, args=(proc.stderr, "[stderr] "), daemon=True)
+    stdout_thread.start()
+    stderr_thread.start()
+
+    return_code = proc.wait()
+    stdout_thread.join()
+    stderr_thread.join()
+
+    run_result = finalize_current_research_run(return_code)
+    if run_result is None:
+        raise RuntimeError("Research format completed but no run state was available.")
+
+    run_result["formattedPdfMtime"] = file_mtime(RESEARCH_FORMATTED_PDF)
+    LAST_RESEARCH_RUN.clear()
+    LAST_RESEARCH_RUN.update(run_result)
+    return run_result
+
+
 def run_research_subprocess_async(company_name: str, urls: list[str], dry_run: bool) -> None:
     try:
         run_research_subprocess_streaming(company_name=company_name, urls=urls, dry_run=dry_run)
@@ -458,6 +523,37 @@ def run_research_subprocess_async(company_name: str, urls: list[str], dry_run: b
                 "success": False,
                 "running": False,
                 "output": f"Wrapper failed to execute research run: {exc}",
+            }
+        )
+        snapshot = get_current_research_run_snapshot()
+        if snapshot is not None:
+            LAST_RESEARCH_RUN.clear()
+            LAST_RESEARCH_RUN.update(snapshot)
+            with RESEARCH_STATE_LOCK:
+                CURRENT_RESEARCH_RUN.clear()
+    finally:
+        RESEARCH_RUN_LOCK.release()
+
+
+def run_research_format_subprocess_async() -> None:
+    try:
+        run_research_format_subprocess_streaming()
+    except Exception as exc:
+        set_current_research_run(
+            {
+                "kind": "research_format",
+                "command": [sys.executable, str(ROOT_DIR / "research_format.py")],
+                "companyName": "",
+                "urls": [],
+                "dryRun": False,
+                "exitCode": 1,
+                "startedAt": utc_now_iso(),
+                "finishedAt": utc_now_iso(),
+                "elapsedSeconds": 0.0,
+                "success": False,
+                "running": False,
+                "output": f"Wrapper failed to execute research format: {exc}",
+                "formattedPdfMtime": file_mtime(RESEARCH_FORMATTED_PDF),
             }
         )
         snapshot = get_current_research_run_snapshot()
@@ -719,6 +815,29 @@ class CVWebHandler(BaseHTTPRequestHandler):
             except Exception as exc:
                 RESEARCH_RUN_LOCK.release()
                 self._json_response({"error": f"Failed to start research run: {exc}"}, status=500)
+                return
+
+            self._json_response(
+                {
+                    "success": True,
+                    "running": True,
+                    "run": get_current_research_run_snapshot(),
+                    "state": build_research_state(),
+                }
+            )
+            return
+
+        if route == "/api/research/format":
+            if not RESEARCH_RUN_LOCK.acquire(blocking=False):
+                self._json_response({"error": "A research operation is already in progress"}, status=409)
+                return
+
+            try:
+                thread = threading.Thread(target=run_research_format_subprocess_async, daemon=True)
+                thread.start()
+            except Exception as exc:
+                RESEARCH_RUN_LOCK.release()
+                self._json_response({"error": f"Failed to start research format: {exc}"}, status=500)
                 return
 
             self._json_response(

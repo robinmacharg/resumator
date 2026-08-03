@@ -126,6 +126,9 @@
                                 <button id="runResearchBtn" class="btn btn-primary">
                                     Run Research
                                 </button>
+                                <button id="formatResearchBtn" class="btn btn-secondary">
+                                    Format Research PDF
+                                </button>
                                 <button id="resetResearchPromptBtn" class="btn btn-secondary">
                                     Reset Prompt to Default
                                 </button>
@@ -245,11 +248,12 @@
 
             <aside class="preview-pane">
                 <div class="preview-header">
-                    <strong>PDF Preview</strong>
-                    <a href="/output/tailored_dev.pdf" target="_blank" rel="noopener"
+                    <strong id="pdfPreviewTitle">PDF Preview (CV)</strong>
+                    <a id="pdfPreviewOpenLink" href="/output/tailored_dev.pdf" target="_blank" rel="noopener"
                         >Open in New Tab</a
                     >
                 </div>
+                <div id="pdfPlaceholder" class="pdf-placeholder">No document availabel</div>
                 <iframe id="pdfPreview" title="PDF Preview" src="/output/tailored_dev.pdf"></iframe>
             </aside>
         </main>
