@@ -43,6 +43,31 @@ Extensive commercial experience in modern OO architecture (MVVM, MVC, Redux/TCA)
 
 # Current & Recent Experience
 
+## Lead Mobile Developer | Boostworks Ltd.
+**Dates:** November 2023 - Present
+**App Store:** `https://apps.apple.com/gb/app/boostworks/id6468470839`
+**Keywords:** `[React Native, TypeScript, iOS/Android, Cross-Platform Architecture, AI-Assisted Engineering (Copilot/GenAI), CI/CD (Fastlane/Azure), OpenAPI, Apple/Google Pay, SSO, White-Label Scaling]`
+
+* Lead mobile developer for a global employee perks provider.
+* Commercial Ownership & Scale: Sole maintainer of a 60K-line multi-tenant codebase driving £30M+ annual
+revenue (70% of company turnover) across 13 white-label iOS/Android applications for flagship enterprise clients
+including Costa, BMW, EasyJet, Heathrow, and GWR.
+* Engineering Cost & Capability Transformation: Reduced mobile engineering costs by >50% by successfully
+insourcing the entire 13-app catalog from an external agency, leading architecture migrations including porting
+20K lines of JS to TypeScript and converting legacy Flutter platforms to React Native.
+* Automation & CI/CD Efficiency: Built end-to-end automation pipelines (Fastlane, Azure Pipelines,
+OpenAPI/Swagger, Python/Textual TUIs), slashing new app creation, deployment, and API model generation
+times by 90%.
+* AI Champion & Modern Engineering Practices: Spearheaded AI-assisted (GitHub Copilot, conversational Claude,
+Gemini and ChatGPT) development practices across the organization, deploying GenAI tooling and workflows
+that accelerated feature delivery, automated documentation, and streamlined developer onboarding.
+* Platform Security & Enterprise Payments: Led native component wrapping (Swift/Kotlin) for native Apple Pay
+and Google Pay integrations, executed penetration testing remediations, and integrated enterprise SSO.
+* Cross-Functional DX & Operations: Automated store review scraping via Microsoft Teams webhooks to give
+* Customer Relations real-time sentiment feedback, while establishing robust Git workflows, Figma design
+synchronization, and direct client consultation.
+
+
 ## Senior Developer | Floww Ltd.
 **Dates:** May 2023 – September 2023  
 **App Store:** https://apps.apple.com/gb/app/floww-private-markets/id1629021357  
