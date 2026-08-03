@@ -20,6 +20,7 @@ const els = {
     researchDryRunCheckbox: document.getElementById("researchDryRunCheckbox"),
     runResearchBtn: document.getElementById("runResearchBtn"),
     resetResearchPromptBtn: document.getElementById("resetResearchPromptBtn"),
+    copyResearchOutputBtn: document.getElementById("copyResearchOutputBtn"),
     researchStatusText: document.getElementById("researchStatusText"),
     researchOutput: document.getElementById("researchOutput"),
     jobspecEditor: document.getElementById("jobspecEditor"),
@@ -128,6 +129,7 @@ function applyControlDisabledState() {
         ...els.fileSaveButtons,
         els.runResearchBtn,
         els.resetResearchPromptBtn,
+        els.copyResearchOutputBtn,
         els.researchCompanyInput,
         els.researchUrlsInput,
         els.researchDryRunCheckbox,
@@ -564,6 +566,14 @@ async function runResearch() {
         return;
     }
 
+    const researchPrompt = (els.researchPromptEditor.value || "").trim();
+    if (!researchPrompt) {
+        setStatus("Research prompt is empty. Reset prompt or add content before running.", true);
+        setResearchStatus("Research prompt is empty.", true);
+        setResearchOutput("Research prompt is empty. Use 'Reset Prompt to Default' or enter a custom prompt.");
+        return;
+    }
+
     const urls = parseResearchUrlsInput(els.researchUrlsInput.value || "");
 
     setResearchRunning(true);
@@ -640,6 +650,33 @@ async function resetResearchPrompt() {
         setStatus(`Research prompt reset failed: ${err.message}`, true);
     } finally {
         setResearchRunning(false);
+    }
+}
+
+async function copyResearchOutputToClipboard() {
+    const text = (els.researchOutput && els.researchOutput.textContent ? els.researchOutput.textContent : "").trim();
+    if (!text) {
+        setResearchStatus("No research output to copy.", true);
+        return;
+    }
+
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.setAttribute("readonly", "");
+            ta.style.position = "absolute";
+            ta.style.left = "-9999px";
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+        }
+        setResearchStatus("Research output copied to clipboard.");
+    } catch (err) {
+        setResearchStatus(`Copy failed: ${err.message}`, true);
     }
 }
 
@@ -886,6 +923,9 @@ if (els.runResearchBtn) {
 }
 if (els.resetResearchPromptBtn) {
     els.resetResearchPromptBtn.addEventListener("click", resetResearchPrompt);
+}
+if (els.copyResearchOutputBtn) {
+    els.copyResearchOutputBtn.addEventListener("click", copyResearchOutputToClipboard);
 }
 els.refreshLogsBtn.addEventListener("click", refreshLogs);
 els.logSelect.addEventListener("change", loadSelectedDebugLog);

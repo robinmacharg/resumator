@@ -655,6 +655,25 @@ class CVWebHandler(BaseHTTPRequestHandler):
                 self._json_response({"error": str(exc)}, status=400)
                 return
 
+            prompt_text = read_text(EDITOR_FILES["research_prompt"]).strip()
+            if not prompt_text and RESEARCH_PROMPT_DEFAULT_FILE.exists():
+                default_prompt_text = read_text(RESEARCH_PROMPT_DEFAULT_FILE)
+                if default_prompt_text.strip():
+                    write_text(EDITOR_FILES["research_prompt"], default_prompt_text)
+                    prompt_text = default_prompt_text.strip()
+
+            if not prompt_text:
+                self._json_response(
+                    {
+                        "error": (
+                            "Research prompt is empty. Reset prompt from default or save prompt content "
+                            "before running research."
+                        )
+                    },
+                    status=400,
+                )
+                return
+
             company_name = str(payload.get("companyName", "")).strip()
             if not company_name:
                 self._json_response({"error": "companyName is required"}, status=400)

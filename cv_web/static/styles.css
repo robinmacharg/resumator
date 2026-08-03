@@ -319,6 +319,28 @@ textarea {
   gap: 0.35rem;
 }
 
+.research-output-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.icon-btn {
+  border-radius: 0.45rem;
+  padding: 0.28rem;
+  min-width: 2rem;
+  min-height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 #researchOutput {
   max-height: none;
   height: 100%;

@@ -118,7 +118,23 @@
                         </div>
                         <textarea id="researchPromptEditor" spellcheck="false"></textarea>
                         <div class="research-output-wrap">
-                            <label for="researchOutput">Research Output</label>
+                            <div class="research-output-head">
+                                <label for="researchOutput">Research Output</label>
+                                <button
+                                    id="copyResearchOutputBtn"
+                                    class="btn btn-secondary icon-btn"
+                                    type="button"
+                                    title="Copy research output"
+                                    aria-label="Copy research output"
+                                >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path
+                                            d="M9 9h11v11H9zM4 4h11v2H6v9H4z"
+                                            fill="currentColor"
+                                        />
+                                    </svg>
+                                </button>
+                            </div>
                             <pre id="researchOutput">No research output yet.</pre>
                         </div>
                     </section>
