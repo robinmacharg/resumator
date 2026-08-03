@@ -513,12 +513,19 @@ class CVWebHandler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             raise ValueError("Invalid JSON body")
 
-    def _save_editor_payload(self, payload: dict[str, Any]) -> None:
+    def _save_editor_payload(
+        self,
+        payload: dict[str, Any],
+        *,
+        allowed_keys: set[str] | None = None,
+    ) -> None:
         files = payload.get("files", {})
         if not isinstance(files, dict):
             raise ValueError("'files' must be an object")
 
         for key, path in EDITOR_FILES.items():
+            if allowed_keys is not None and key not in allowed_keys:
+                continue
             if key in files:
                 value = files[key]
                 if not isinstance(value, str):
@@ -650,7 +657,10 @@ class CVWebHandler(BaseHTTPRequestHandler):
 
         if route == "/api/research/run":
             try:
-                self._save_editor_payload(payload)
+                self._save_editor_payload(
+                    payload,
+                    allowed_keys={"cv", "prompt", "research_prompt", "jobspec"},
+                )
             except ValueError as exc:
                 self._json_response({"error": str(exc)}, status=400)
                 return
@@ -723,7 +733,10 @@ class CVWebHandler(BaseHTTPRequestHandler):
 
         if route in {"/api/run/full", "/api/run/format"}:
             try:
-                self._save_editor_payload(payload)
+                self._save_editor_payload(
+                    payload,
+                    allowed_keys={"cv", "prompt", "research_prompt", "jobspec"},
+                )
             except ValueError as exc:
                 self._json_response({"error": str(exc)}, status=400)
                 return

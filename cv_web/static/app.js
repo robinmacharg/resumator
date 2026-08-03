@@ -426,7 +426,13 @@ function bindAutosave() {
         }, 300);
     };
 
-    [els.cvEditor, els.promptEditor, els.researchPromptEditor, els.jobspecEditor, els.envEditor].forEach((editor) => {
+    [
+        els.cvEditor,
+        els.promptEditor,
+        els.researchPromptEditor,
+        els.jobspecEditor,
+        els.envEditor,
+    ].forEach((editor) => {
         editor.addEventListener("input", schedule);
         editor.addEventListener("input", syncDirtyIndicators);
     });
@@ -570,7 +576,9 @@ async function runResearch() {
     if (!researchPrompt) {
         setStatus("Research prompt is empty. Reset prompt or add content before running.", true);
         setResearchStatus("Research prompt is empty.", true);
-        setResearchOutput("Research prompt is empty. Use 'Reset Prompt to Default' or enter a custom prompt.");
+        setResearchOutput(
+            "Research prompt is empty. Use 'Reset Prompt to Default' or enter a custom prompt.",
+        );
         return;
     }
 
@@ -654,7 +662,9 @@ async function resetResearchPrompt() {
 }
 
 async function copyResearchOutputToClipboard() {
-    const text = (els.researchOutput && els.researchOutput.textContent ? els.researchOutput.textContent : "").trim();
+    const text = (
+        els.researchOutput && els.researchOutput.textContent ? els.researchOutput.textContent : ""
+    ).trim();
     if (!text) {
         setResearchStatus("No research output to copy.", true);
         return;
@@ -903,7 +913,9 @@ async function initialize() {
                         setResearchRunning(false);
                     });
             } else {
-                setResearchStatus(currentResearch.run.success ? "Last run succeeded." : "Last run failed.");
+                setResearchStatus(
+                    currentResearch.run.success ? "Last run succeeded." : "Last run failed.",
+                );
             }
         } else {
             setResearchStatus("Idle.");

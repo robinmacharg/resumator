@@ -32,7 +32,9 @@
                         <span class="tab-label" data-label-for="prompt">CV Prompt</span>
                     </button>
                     <button class="tab-btn" data-tab="research" role="tab" aria-selected="false">
-                        <span class="tab-label" data-label-for="research_prompt">Research Role</span>
+                        <span class="tab-label" data-label-for="research_prompt"
+                            >Research Role</span
+                        >
                     </button>
                     <button class="tab-btn" data-tab="jobspec" role="tab" aria-selected="false">
                         <span class="tab-label" data-label-for="jobspec">Job Spec</span>
@@ -81,12 +83,20 @@
 
                     <section id="tab-research" class="tab-panel" role="tabpanel">
                         <div class="editor-head">
-                            <label id="researchPromptTitle" for="researchPromptEditor">Research Role</label>
+                            <label id="researchPromptTitle" for="researchPromptEditor"
+                                >Research Role</label
+                            >
                             <div class="file-actions">
-                                <button class="btn btn-secondary file-load-btn" data-file="research_prompt">
+                                <button
+                                    class="btn btn-secondary file-load-btn"
+                                    data-file="research_prompt"
+                                >
                                     Load from Disk
                                 </button>
-                                <button class="btn btn-secondary file-save-btn" data-file="research_prompt">
+                                <button
+                                    class="btn btn-secondary file-save-btn"
+                                    data-file="research_prompt"
+                                >
                                     Save
                                 </button>
                             </div>
@@ -94,7 +104,11 @@
                         <div class="research-controls">
                             <div class="research-input-grid">
                                 <label for="researchCompanyInput">Company Name</label>
-                                <input id="researchCompanyInput" type="text" placeholder="e.g. Checkout.com" />
+                                <input
+                                    id="researchCompanyInput"
+                                    type="text"
+                                    placeholder="e.g. Checkout.com"
+                                />
 
                                 <label for="researchUrlsInput">Role URLs (one per line)</label>
                                 <textarea
@@ -109,7 +123,9 @@
                                     <input id="researchDryRunCheckbox" type="checkbox" checked />
                                     Dry run
                                 </label>
-                                <button id="runResearchBtn" class="btn btn-primary">Run Research</button>
+                                <button id="runResearchBtn" class="btn btn-primary">
+                                    Run Research
+                                </button>
                                 <button id="resetResearchPromptBtn" class="btn btn-secondary">
                                     Reset Prompt to Default
                                 </button>
