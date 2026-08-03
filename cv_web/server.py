@@ -36,7 +36,9 @@ ALLOWED_OUTPUT_FILES = {
 }
 
 RUN_LOCK = threading.Lock()
+RUN_STATE_LOCK = threading.Lock()
 LAST_RUN: dict[str, Any] = {}
+CURRENT_RUN: dict[str, Any] = {}
 
 
 def utc_now_iso() -> str:
@@ -104,11 +106,11 @@ def read_log_file(name: str) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def run_subprocess(kind: str) -> dict[str, Any]:
+def make_command(kind: str) -> list[str]:
     if kind == "full":
-        command = [sys.executable, str(ROOT_DIR / "generate_cv.py")]
+        return [sys.executable, str(ROOT_DIR / "generate_cv.py")]
     elif kind == "format":
-        command = [
+        return [
             sys.executable,
             str(ROOT_DIR / "cv_convert.py"),
             "tailored.md",
@@ -117,36 +119,156 @@ def run_subprocess(kind: str) -> dict[str, Any]:
             "--docx",
             "tailored_dev.docx",
         ]
-    else:
-        raise ValueError(f"Unsupported run kind: {kind}")
+
+    raise ValueError(f"Unsupported run kind: {kind}")
+
+
+def get_current_run_snapshot() -> dict[str, Any] | None:
+    with RUN_STATE_LOCK:
+        if not CURRENT_RUN:
+            return None
+
+        snapshot = {
+            key: value
+            for key, value in CURRENT_RUN.items()
+            if not key.startswith("_")
+        }
+
+        started_monotonic = CURRENT_RUN.get("_startedMonotonic")
+        if isinstance(started_monotonic, float) and snapshot.get("running"):
+            snapshot["elapsedSeconds"] = round(time.monotonic() - started_monotonic, 2)
+
+        return snapshot
+
+
+def set_current_run(run_state: dict[str, Any]) -> None:
+    with RUN_STATE_LOCK:
+        CURRENT_RUN.clear()
+        CURRENT_RUN.update(run_state)
+
+
+def append_current_run_output(chunk: str) -> None:
+    if not chunk:
+        return
+
+    with RUN_STATE_LOCK:
+        if not CURRENT_RUN:
+            return
+
+        existing = CURRENT_RUN.get("output", "")
+        CURRENT_RUN["output"] = existing + chunk
+
+
+def finalize_current_run(return_code: int) -> dict[str, Any] | None:
+    with RUN_STATE_LOCK:
+        if not CURRENT_RUN:
+            return None
+
+        started_monotonic = CURRENT_RUN.get("_startedMonotonic")
+        elapsed = round(time.monotonic() - started_monotonic, 2) if isinstance(started_monotonic, float) else 0.0
+
+        CURRENT_RUN["running"] = False
+        CURRENT_RUN["exitCode"] = return_code
+        CURRENT_RUN["finishedAt"] = utc_now_iso()
+        CURRENT_RUN["elapsedSeconds"] = elapsed
+        CURRENT_RUN["success"] = return_code == 0
+        CURRENT_RUN["pdfMtime"] = file_mtime(ROOT_DIR / "tailored_dev.pdf")
+        CURRENT_RUN["docxMtime"] = file_mtime(ROOT_DIR / "tailored_dev.docx")
+
+        snapshot = {
+            key: value
+            for key, value in CURRENT_RUN.items()
+            if not key.startswith("_")
+        }
+        CURRENT_RUN.clear()
+
+    LAST_RUN.clear()
+    LAST_RUN.update(snapshot)
+    return snapshot
+
+
+def stream_pipe(pipe, prefix: str = "") -> None:
+    try:
+        for line in iter(pipe.readline, ""):
+            append_current_run_output(f"{prefix}{line}")
+    finally:
+        pipe.close()
+
+
+def run_subprocess_streaming(kind: str) -> dict[str, Any]:
+    command = make_command(kind)
 
     started_at = utc_now_iso()
-    start_time = time.time()
-
-    proc = subprocess.run(
-        command,
-        cwd=ROOT_DIR,
-        capture_output=True,
-        text=True,
+    started_monotonic = time.monotonic()
+    set_current_run(
+        {
+            "kind": kind,
+            "command": command,
+            "exitCode": None,
+            "startedAt": started_at,
+            "finishedAt": None,
+            "elapsedSeconds": 0.0,
+            "success": None,
+            "running": True,
+            "output": "",
+            "pdfMtime": file_mtime(ROOT_DIR / "tailored_dev.pdf"),
+            "docxMtime": file_mtime(ROOT_DIR / "tailored_dev.docx"),
+            "_startedMonotonic": started_monotonic,
+        }
     )
 
-    elapsed = round(time.time() - start_time, 2)
-    output = "\n".join(part for part in [proc.stdout, proc.stderr] if part).strip()
-    run_result = {
-        "kind": kind,
-        "command": command,
-        "exitCode": proc.returncode,
-        "startedAt": started_at,
-        "finishedAt": utc_now_iso(),
-        "elapsedSeconds": elapsed,
-        "success": proc.returncode == 0,
-        "output": output,
-        "pdfMtime": file_mtime(ROOT_DIR / "tailored_dev.pdf"),
-        "docxMtime": file_mtime(ROOT_DIR / "tailored_dev.docx"),
-    }
-    LAST_RUN.clear()
-    LAST_RUN.update(run_result)
+    proc = subprocess.Popen(
+        command,
+        cwd=ROOT_DIR,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
+
+    stdout_thread = threading.Thread(target=stream_pipe, args=(proc.stdout,), daemon=True)
+    stderr_thread = threading.Thread(target=stream_pipe, args=(proc.stderr, "[stderr] "), daemon=True)
+    stdout_thread.start()
+    stderr_thread.start()
+
+    return_code = proc.wait()
+    stdout_thread.join()
+    stderr_thread.join()
+
+    run_result = finalize_current_run(return_code)
+    if run_result is None:
+        raise RuntimeError("Run completed but no run state was available.")
+
     return run_result
+
+
+def run_subprocess_async(kind: str) -> None:
+    try:
+        run_subprocess_streaming(kind)
+    except Exception as exc:
+        set_current_run(
+            {
+                "kind": kind,
+                "command": make_command(kind),
+                "exitCode": 1,
+                "startedAt": utc_now_iso(),
+                "finishedAt": utc_now_iso(),
+                "elapsedSeconds": 0.0,
+                "success": False,
+                "running": False,
+                "output": f"Wrapper failed to execute run: {exc}",
+                "pdfMtime": file_mtime(ROOT_DIR / "tailored_dev.pdf"),
+                "docxMtime": file_mtime(ROOT_DIR / "tailored_dev.docx"),
+            }
+        )
+        snapshot = get_current_run_snapshot()
+        if snapshot is not None:
+            LAST_RUN.clear()
+            LAST_RUN.update(snapshot)
+            with RUN_STATE_LOCK:
+                CURRENT_RUN.clear()
+    finally:
+        RUN_LOCK.release()
 
 
 class CVWebHandler(BaseHTTPRequestHandler):
@@ -227,6 +349,17 @@ class CVWebHandler(BaseHTTPRequestHandler):
             self._json_response(build_state())
             return
 
+        if route == "/api/run/status":
+            current = get_current_run_snapshot()
+            run_payload = current if current is not None else (LAST_RUN if LAST_RUN else None)
+            self._json_response(
+                {
+                    "running": bool(current and current.get("running")),
+                    "run": run_payload,
+                }
+            )
+            return
+
         if route == "/api/logs":
             logs = collect_log_index()
             self._json_response({"logs": logs, "lastRun": LAST_RUN})
@@ -296,11 +429,20 @@ class CVWebHandler(BaseHTTPRequestHandler):
                 return
 
             try:
-                result = run_subprocess(kind)
-            finally:
+                thread = threading.Thread(target=run_subprocess_async, args=(kind,), daemon=True)
+                thread.start()
+            except Exception as exc:
                 RUN_LOCK.release()
-
-            self._json_response({"success": result["success"], "run": result, "state": build_state()})
+                self._json_response({"error": f"Failed to start run: {exc}"}, status=500)
+                return
+            self._json_response(
+                {
+                    "success": True,
+                    "running": True,
+                    "run": get_current_run_snapshot(),
+                    "state": build_state(),
+                }
+            )
             return
 
         self.send_error(HTTPStatus.NOT_FOUND, "Unknown route")

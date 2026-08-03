@@ -222,15 +222,30 @@ function updatePreviewCacheBuster() {
     els.pdfPreview.src = `/output/tailored_dev.pdf?ts=${ts}`;
 }
 
+function setRunLogOutput(text) {
+    els.runLogOutput.textContent = text;
+    els.runLogOutput.scrollTop = els.runLogOutput.scrollHeight;
+}
+
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function summarizeRun(run) {
     if (!run || typeof run !== "object") {
         return "No run output yet.";
     }
 
+    const isRunning = Boolean(run.running);
+    const exitDisplay = run.exitCode === null || run.exitCode === undefined ? "running" : run.exitCode;
+    const elapsedDisplay =
+        run.elapsedSeconds === null || run.elapsedSeconds === undefined ? "-" : `${run.elapsedSeconds}s`;
+
     const summary = [
         `Kind: ${run.kind}`,
-        `Exit: ${run.exitCode}`,
-        `Elapsed: ${run.elapsedSeconds}s`,
+        `Exit: ${exitDisplay}`,
+        `Elapsed: ${elapsedDisplay}`,
+        `Status: ${isRunning ? "running" : run.success ? "success" : "failed"}`,
         "",
     ];
 
@@ -343,10 +358,30 @@ async function refreshLogs() {
         });
 
         if (payload.lastRun) {
-            els.runLogOutput.textContent = summarizeRun(payload.lastRun);
+            setRunLogOutput(summarizeRun(payload.lastRun));
         }
     } catch (err) {
         els.debugLogOutput.textContent = `Unable to load logs: ${err.message}`;
+    }
+}
+
+async function fetchRunStatus() {
+    return api("/api/run/status");
+}
+
+async function waitForRunCompletion() {
+    while (true) {
+        const status = await fetchRunStatus();
+        const run = status.run || null;
+        if (run) {
+            setRunLogOutput(summarizeRun(run));
+        }
+
+        if (!status.running) {
+            return run;
+        }
+
+        await sleep(1000);
     }
 }
 
@@ -387,19 +422,25 @@ async function runPipeline(kind) {
     startRunStatusTimer(
         kind === "full" ? "Running full pipeline..." : "Running formatting only...",
     );
+    setRunLogOutput("Starting run...");
 
     try {
         writeDraftToLocalStorage();
-        const payload = await api(kind === "full" ? "/api/run/full" : "/api/run/format", {
+        const kickoff = await api(kind === "full" ? "/api/run/full" : "/api/run/format", {
             method: "POST",
             body: JSON.stringify({ files: currentFiles() }),
         });
-
-        const run = payload.run || null;
-        if (payload.state && payload.state.files) {
-            updateDiskSnapshot(payload.state.files);
+        if (kickoff.run) {
+            setRunLogOutput(summarizeRun(kickoff.run));
         }
-        els.runLogOutput.textContent = summarizeRun(run);
+
+        const run = await waitForRunCompletion();
+
+        const refreshedState = await api("/api/state");
+        if (refreshedState.files) {
+            updateDiskSnapshot(refreshedState.files);
+        }
+
         updatePreviewCacheBuster();
         await refreshTailoredOutput();
         await refreshLogs();
@@ -413,7 +454,7 @@ async function runPipeline(kind) {
     } catch (err) {
         stopRunStatusTimer();
         setStatus(`Run failed: ${err.message}`, true);
-        els.runLogOutput.textContent = err.stack || err.message;
+        setRunLogOutput(err.stack || err.message);
     } finally {
         stopRunStatusTimer();
         setRunning(false);
@@ -541,7 +582,7 @@ async function initialize() {
         }
 
         if (payload.lastRun) {
-            els.runLogOutput.textContent = summarizeRun(payload.lastRun);
+            setRunLogOutput(summarizeRun(payload.lastRun));
         }
 
         updatePreviewCacheBuster();
