@@ -31,19 +31,18 @@ HOST = "127.0.0.1"
 PORT = 8765
 ENV_FILE_PATH = ROOT_DIR / ".env"
 
-DEFAULT_CV_MODEL_ORDER = [
+DEFAULT_APP_MODEL_ORDER = [
+    "gemini-3.5-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
+    "gemini-2.0-flash-lite-001",
+    "gemini-2.0-flash-001",
     "gemini-2.5-pro",
-    "gemini-2.5-flash-lite",
-]
-
-DEFAULT_RESEARCH_MODEL_ORDER = [
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
     "gemini-1.5-flash",
-    "gemini-2.5-pro",
 ]
 
 EDITOR_FILES = {
@@ -141,14 +140,11 @@ def build_available_models() -> list[str]:
     env_models = [
         env.get("GEMINI_MODEL", "").strip(),
         *split_csv(env.get("GEMINI_MODEL_FALLBACKS", "")),
-        env.get("RESEARCH_GEMINI_MODEL", "").strip(),
-        *split_csv(env.get("RESEARCH_GEMINI_MODEL_FALLBACKS", "")),
     ]
     return dedupe_keep_order(
         [
             *env_models,
-            *DEFAULT_CV_MODEL_ORDER,
-            *DEFAULT_RESEARCH_MODEL_ORDER,
+            *DEFAULT_APP_MODEL_ORDER,
         ]
     )
 

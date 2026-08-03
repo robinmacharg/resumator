@@ -21,11 +21,16 @@ OUTPUT_JSON = Path("research_output.json")
 OUTPUT_PROMPT = Path("research_prompt.built.txt")
 DEFAULT_MODEL = "gemini-2.5-flash-lite"
 DEFAULT_FALLBACK_MODELS = [
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
+    "gemini-2.0-flash-lite-001",
+    "gemini-2.0-flash-001",
+    "gemini-2.5-pro",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
     "gemini-1.5-flash",
-    "gemini-2.5-pro",
 ]
 
 
@@ -70,15 +75,11 @@ def build_model_sequence(process_env: dict[str, str], explicit_model: str | None
     if explicit:
         return [explicit]
 
-    primary = process_env.get("RESEARCH_GEMINI_MODEL", "").strip()
-    if not primary:
-        primary = process_env.get("GEMINI_MODEL", "").strip()
+    primary = process_env.get("GEMINI_MODEL", "").strip()
     if not primary:
         primary = DEFAULT_MODEL
 
-    fallback_raw = process_env.get("RESEARCH_GEMINI_MODEL_FALLBACKS", "").strip()
-    if not fallback_raw:
-        fallback_raw = process_env.get("GEMINI_MODEL_FALLBACKS", "").strip()
+    fallback_raw = process_env.get("GEMINI_MODEL_FALLBACKS", "").strip()
 
     env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
 

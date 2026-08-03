@@ -24,11 +24,22 @@ OUTPUT_PDF = Path("tailored_dev.pdf")
 OUTPUT_DOCX = Path("tailored_dev.docx")
 GEMINI_TIMEOUT_SECONDS = 300
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
-DEFAULT_FALLBACK_MODELS = ["gemini-2.5-pro"]
+DEFAULT_FALLBACK_MODELS = [
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash-lite-001",
+    "gemini-2.0-flash-001",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-flash",
+]
 GEMINI_HEARTBEAT_SECONDS = 15
 DEBUG_LOG_DIR = Path("gemini_debug_logs")
 DEFAULT_FAST_MODEL = "gemini-2.5-flash-lite"
-DEFAULT_FAST_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.5-pro"]
+DEFAULT_FAST_FALLBACK_MODELS = DEFAULT_FALLBACK_MODELS
 MAX_FAST_CV_CHARS = 18000
 REQUIRED_SEMANTIC_TAG_KEYS = [
     "candidate_name",
