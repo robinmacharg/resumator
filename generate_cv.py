@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -25,6 +27,22 @@ DEBUG_LOG_DIR = Path("gemini_debug_logs")
 DEFAULT_FAST_MODEL = "gemini-2.5-flash-lite"
 DEFAULT_FAST_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.5-pro"]
 MAX_FAST_CV_CHARS = 18000
+REQUIRED_SEMANTIC_TAG_KEYS = [
+    "candidate_name",
+    "candidate_title",
+    "candidate_contact",
+    "section_heading",
+    "role_heading",
+    "date_range",
+    "keywords",
+    "bullet_primary",
+    "bullet_secondary",
+    "project_item",
+    "education_item",
+    "summary_paragraph",
+    "role_requirements_heading",
+    "role_requirements_item",
+]
 
 
 def is_high_load_error(stderr_text: str) -> bool:
@@ -214,6 +232,369 @@ def build_prompt(prompt_text: str, cv_content: str, jobspec_content: str) -> str
     )
 
 
+def extract_json_payload(raw_text: str) -> str:
+    """Extract a JSON object payload, tolerating optional fenced wrappers."""
+    stripped = raw_text.strip()
+    fence_match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", stripped, flags=re.DOTALL)
+    if fence_match:
+        return fence_match.group(1).strip()
+
+    first = stripped.find("{")
+    last = stripped.rfind("}")
+    if first == -1 or last == -1 or last <= first:
+        raise ValueError("Could not locate a JSON object in model output.")
+    return stripped[first : last + 1]
+
+
+def require_non_empty_string(value, field_name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string.")
+    return value.strip()
+
+
+def require_list_of_strings(value, field_name: str, *, min_items: int = 0, max_items: int | None = None) -> list[str]:
+    if not isinstance(value, list):
+        raise ValueError(f"{field_name} must be a list of strings.")
+    cleaned: list[str] = []
+    for idx, item in enumerate(value):
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(f"{field_name}[{idx}] must be a non-empty string.")
+        cleaned.append(item.strip())
+
+    if len(cleaned) < min_items:
+        raise ValueError(f"{field_name} must include at least {min_items} item(s).")
+    if max_items is not None and len(cleaned) > max_items:
+        raise ValueError(f"{field_name} must include at most {max_items} item(s).")
+    return cleaned
+
+
+def validate_and_normalize_payload(payload: dict) -> dict:
+    """Validate schema and normalize key sections for deterministic rendering."""
+    if not isinstance(payload, dict):
+        raise ValueError("Top-level JSON value must be an object.")
+
+    for key in ["candidate", "metadata", "semantic_tags", "skills_raw", "document"]:
+        if key not in payload:
+            raise ValueError(f"Missing required top-level key: {key}")
+
+    candidate = payload["candidate"]
+    if not isinstance(candidate, dict):
+        raise ValueError("candidate must be an object.")
+    candidate["name"] = require_non_empty_string(candidate.get("name"), "candidate.name")
+    candidate["title"] = require_non_empty_string(candidate.get("title"), "candidate.title")
+    candidate["phone"] = require_non_empty_string(candidate.get("phone"), "candidate.phone")
+    candidate["email"] = require_non_empty_string(candidate.get("email"), "candidate.email")
+
+    semantic_tags = payload["semantic_tags"]
+    if not isinstance(semantic_tags, dict):
+        raise ValueError("semantic_tags must be an object.")
+
+    if not isinstance(payload["metadata"], dict):
+        raise ValueError("metadata must be an object.")
+    if not isinstance(payload["skills_raw"], dict):
+        raise ValueError("skills_raw must be an object.")
+
+    missing_semantic_keys = [k for k in REQUIRED_SEMANTIC_TAG_KEYS if k not in semantic_tags]
+    if missing_semantic_keys:
+        raise ValueError(
+            "semantic_tags is missing required key(s): " + ", ".join(missing_semantic_keys)
+        )
+
+    for key in REQUIRED_SEMANTIC_TAG_KEYS:
+        value = require_non_empty_string(semantic_tags.get(key), f"semantic_tags.{key}")
+        if value != key:
+            raise ValueError(f"semantic_tags.{key} must equal '{key}'.")
+
+    document = payload["document"]
+    if not isinstance(document, dict):
+        raise ValueError("document must be an object.")
+
+    document["professional_summary"] = require_list_of_strings(
+        document.get("professional_summary"),
+        "document.professional_summary",
+        min_items=4,
+        max_items=5,
+    )
+
+    role_requirements = document.get("role_requirements")
+    if not isinstance(role_requirements, dict):
+        raise ValueError("document.role_requirements must be an object.")
+    role_requirements["heading"] = require_non_empty_string(
+        role_requirements.get("heading"),
+        "document.role_requirements.heading",
+    )
+    role_requirements["items"] = require_list_of_strings(
+        role_requirements.get("items"),
+        "document.role_requirements.items",
+        min_items=4,
+        max_items=6,
+    )
+
+    document["education_credentials"] = require_list_of_strings(
+        document.get("education_credentials"),
+        "document.education_credentials",
+        min_items=2,
+    )
+
+    selected_roles = document.get("selected_key_roles")
+    if not isinstance(selected_roles, list) or not selected_roles:
+        raise ValueError("document.selected_key_roles must be a non-empty list.")
+    if len(selected_roles) > 5:
+        raise ValueError("document.selected_key_roles must contain at most 5 roles.")
+    normalized_roles: list[dict] = []
+    for idx, role in enumerate(selected_roles):
+        if not isinstance(role, dict):
+            raise ValueError(f"document.selected_key_roles[{idx}] must be an object.")
+        heading = require_non_empty_string(role.get("heading"), f"document.selected_key_roles[{idx}].heading")
+        date_range = require_non_empty_string(
+            role.get("date_range"),
+            f"document.selected_key_roles[{idx}].date_range",
+        )
+        keywords = require_list_of_strings(
+            role.get("keywords"),
+            f"document.selected_key_roles[{idx}].keywords",
+            min_items=1,
+        )
+        bullet_primary = require_list_of_strings(
+            role.get("bullet_primary"),
+            f"document.selected_key_roles[{idx}].bullet_primary",
+            min_items=1,
+        )
+        bullet_secondary = require_list_of_strings(
+            role.get("bullet_secondary", []),
+            f"document.selected_key_roles[{idx}].bullet_secondary",
+        )
+        normalized_roles.append(
+            {
+                "heading": heading,
+                "date_range": date_range,
+                "keywords": keywords,
+                "bullet_primary": bullet_primary,
+                "bullet_secondary": bullet_secondary,
+            }
+        )
+    document["selected_key_roles"] = normalized_roles
+
+    earlier_career = document.get("earlier_career")
+    if not isinstance(earlier_career, dict):
+        raise ValueError("document.earlier_career must be an object.")
+    earlier_career["intro"] = require_non_empty_string(
+        earlier_career.get("intro"),
+        "document.earlier_career.intro",
+    )
+    earlier_items = earlier_career.get("items")
+    if not isinstance(earlier_items, list) or not earlier_items:
+        raise ValueError("document.earlier_career.items must be a non-empty list.")
+    normalized_earlier_items: list[dict] = []
+    for idx, item in enumerate(earlier_items):
+        if not isinstance(item, dict):
+            raise ValueError(f"document.earlier_career.items[{idx}] must be an object.")
+        role_title = require_non_empty_string(
+            item.get("role_title"),
+            f"document.earlier_career.items[{idx}].role_title",
+        )
+        company = require_non_empty_string(
+            item.get("company"),
+            f"document.earlier_career.items[{idx}].company",
+        )
+        technologies = require_list_of_strings(
+            item.get("technologies"),
+            f"document.earlier_career.items[{idx}].technologies",
+            min_items=1,
+        )
+        normalized_earlier_items.append(
+            {
+                "role_title": role_title,
+                "company": company,
+                "technologies": technologies,
+            }
+        )
+    earlier_career["items"] = normalized_earlier_items
+
+    document["open_source_contributions"] = require_list_of_strings(
+        document.get("open_source_contributions"),
+        "document.open_source_contributions",
+        min_items=3,
+        max_items=5,
+    )
+
+    technical_skills = document.get("technical_skills")
+    if not isinstance(technical_skills, list) or not technical_skills:
+        raise ValueError("document.technical_skills must be a non-empty list.")
+    normalized_skills: list[dict] = []
+    for idx, group in enumerate(technical_skills):
+        if not isinstance(group, dict):
+            raise ValueError(f"document.technical_skills[{idx}] must be an object.")
+        group_name = require_non_empty_string(group.get("group"), f"document.technical_skills[{idx}].group")
+        items = require_list_of_strings(
+            group.get("items"),
+            f"document.technical_skills[{idx}].items",
+            min_items=1,
+        )
+        normalized_skills.append({"group": group_name, "items": items})
+    document["technical_skills"] = normalized_skills
+
+    if "candidate_contact_lines" in document:
+        document["candidate_contact_lines"] = require_list_of_strings(
+            document.get("candidate_contact_lines"),
+            "document.candidate_contact_lines",
+        )
+
+    return payload
+
+
+def parse_and_validate_json_output(raw_text: str) -> dict:
+    payload_text = extract_json_payload(raw_text)
+    try:
+        payload = json.loads(payload_text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Model output JSON parsing failed: {exc}") from exc
+    return validate_and_normalize_payload(payload)
+
+
+def yaml_scalar(value) -> str:
+    if value is None:
+        return '""'
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+    raise ValueError(f"Unsupported YAML scalar type: {type(value)}")
+
+
+def render_yaml_block(value, indent: int) -> list[str]:
+    space = " " * indent
+    lines: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if isinstance(item, (dict, list)):
+                lines.append(f"{space}{key}:")
+                lines.extend(render_yaml_block(item, indent + 2))
+            else:
+                lines.append(f"{space}{key}: {yaml_scalar(item)}")
+        return lines
+
+    if isinstance(value, list):
+        if not value:
+            lines.append(f"{space}[]")
+            return lines
+        for item in value:
+            if isinstance(item, (dict, list)):
+                lines.append(f"{space}-")
+                lines.extend(render_yaml_block(item, indent + 2))
+            else:
+                lines.append(f"{space}- {yaml_scalar(item)}")
+        return lines
+
+    lines.append(f"{space}{yaml_scalar(value)}")
+    return lines
+
+
+def clean_bullet_text(text: str) -> str:
+    cleaned = text.strip()
+    if cleaned.startswith("- ") or cleaned.startswith("* "):
+        return cleaned[2:].strip()
+    return cleaned
+
+
+def render_tagged_markdown(payload: dict) -> str:
+    candidate = payload["candidate"]
+    document = payload["document"]
+
+    frontmatter_keys = ["candidate", "metadata", "semantic_tags", "skills_raw"]
+    frontmatter_lines = ["---"]
+    for key in frontmatter_keys:
+        value = payload[key]
+        if isinstance(value, (dict, list)):
+            frontmatter_lines.append(f"{key}:")
+            frontmatter_lines.extend(render_yaml_block(value, 2))
+        else:
+            frontmatter_lines.append(f"{key}: {yaml_scalar(value)}")
+    frontmatter_lines.append("---")
+
+    lines: list[str] = [*frontmatter_lines, ""]
+    lines.append(f"[candidate_name] {candidate['name']}")
+    lines.append(f"[candidate_title] {candidate['title']}")
+
+    phone = candidate.get("phone", "").strip()
+    email = candidate.get("email", "").strip()
+    if phone and email:
+        lines.append(f"[candidate_contact] {phone} - [{email}](mailto:{email})")
+
+    social_parts: list[str] = []
+    if candidate.get("linkedin"):
+        social_parts.append(f"[LinkedIn]({candidate['linkedin']})")
+    if candidate.get("github"):
+        social_parts.append(f"[GitHub]({candidate['github']})")
+    if candidate.get("stackoverflow"):
+        social_parts.append(f"[StackOverflow]({candidate['stackoverflow']})")
+    if social_parts:
+        lines.append("[candidate_contact] " + " | ".join(social_parts))
+
+    for extra_contact_line in document.get("candidate_contact_lines", []):
+        contact_line = require_non_empty_string(extra_contact_line, "document.candidate_contact_lines[]")
+        lines.append(f"[candidate_contact] {contact_line}")
+
+    lines.append("")
+    lines.append("[section_heading] # Professional Summary")
+    lines.append("")
+    for item in document["professional_summary"]:
+        lines.append(f"[summary_paragraph] {item}")
+
+    lines.append("")
+    lines.append(f"[role_requirements_heading] ### {document['role_requirements']['heading']}")
+    for item in document["role_requirements"]["items"]:
+        bullet = item if item.strip().startswith("-") else f"- {item}"
+        lines.append(f"[role_requirements_item] {bullet}")
+
+    lines.append("")
+    lines.append("[section_heading] # Education, Certifications & Credentials")
+    lines.append("")
+    for item in document["education_credentials"]:
+        lines.append(f"[education_item] * {clean_bullet_text(item)}")
+
+    lines.append("")
+    lines.append("[section_heading] # Selected Key Roles")
+    lines.append("")
+    for role in document["selected_key_roles"]:
+        lines.append(f"[role_heading] ## {role['heading']}")
+        lines.append(f"[date_range] **Dates:** {role['date_range']}")
+        keywords_text = ", ".join(role["keywords"])
+        lines.append(f"[keywords] **Keywords:** `[{keywords_text}]`")
+        for item in role["bullet_primary"]:
+            lines.append(f"[bullet_primary] * {clean_bullet_text(item)}")
+        for item in role["bullet_secondary"]:
+            lines.append(f"[bullet_secondary] * {clean_bullet_text(item)}")
+        lines.append("")
+
+    lines.append("[section_heading] # Earlier Career Highlights")
+    lines.append("")
+    lines.append(document["earlier_career"]["intro"])
+    lines.append("")
+    for item in document["earlier_career"]["items"]:
+        tech_text = ", ".join(item["technologies"])
+        lines.append(f"* **{item['role_title']}** | _{item['company']}_ ({tech_text})")
+
+    lines.append("")
+    lines.append("[section_heading] # Open Source Contributions")
+    lines.append("")
+    for item in document["open_source_contributions"]:
+        lines.append(f"[project_item] * {clean_bullet_text(item)}")
+
+    lines.append("")
+    lines.append("[section_heading] # Technical Skills and Expertise")
+    lines.append("")
+    for group in document["technical_skills"]:
+        lines.append(f"**{group['group']}**")
+        lines.append(f"- {', '.join(group['items'])}")
+        lines.append("")
+
+    return "\n".join(lines).strip() + "\n"
+
+
 def is_fast_mode_enabled(process_env: dict) -> bool:
     return process_env.get("CV_FAST_MODE", "false").strip().lower() in {
         "1",
@@ -242,9 +623,9 @@ def apply_fast_mode_prompt_rules(full_prompt: str, fast_mode: bool) -> str:
     fast_instructions = (
         "\n\n=== FAST MODE INSTRUCTIONS ===\n"
         "You are in FAST MODE for formatting iteration.\n"
-        "Prioritize speed and deterministic structure over prose richness.\n"
+        "Prioritize speed and deterministic JSON structure over prose richness.\n"
         "Keep bullets concise and avoid unnecessary verbosity.\n"
-        "Still obey all semantic tag and markdown output contract requirements.\n"
+        "Still obey the full JSON output contract exactly.\n"
     )
     return full_prompt + fast_instructions
 
@@ -379,12 +760,20 @@ def main() -> None:
         )
         sys.exit(1)
 
-    tailored_markdown = (process.stdout or "").strip()
-    if not tailored_markdown:
+    raw_model_output = (process.stdout or "").strip()
+    if not raw_model_output:
         print("Gemini CLI returned empty output.", file=sys.stderr)
         sys.exit(1)
 
-    TAILORED_MD.write_text(tailored_markdown + "\n", encoding="utf-8")
+    try:
+        structured_payload = parse_and_validate_json_output(raw_model_output)
+    except ValueError as exc:
+        print(f"Generated output failed JSON contract validation: {exc}", file=sys.stderr)
+        print("Inspect gemini_debug_logs for the raw model output.", file=sys.stderr)
+        sys.exit(1)
+
+    tailored_markdown = render_tagged_markdown(structured_payload)
+    TAILORED_MD.write_text(tailored_markdown, encoding="utf-8")
     print(f"Generated intermediate markdown: {TAILORED_MD}")
 
     # 5. Compile markdown outputs

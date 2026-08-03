@@ -46,9 +46,21 @@ const els = {
 
 const EDITABLE_FILES = {
     cv: { tabLabel: "CV", title: document.getElementById("cvTitle"), editor: () => els.cvEditor },
-    prompt: { tabLabel: "Prompt", title: document.getElementById("promptTitle"), editor: () => els.promptEditor },
-    jobspec: { tabLabel: "Job Spec", title: document.getElementById("jobspecTitle"), editor: () => els.jobspecEditor },
-    env: { tabLabel: "Env", title: document.getElementById("envTitle"), editor: () => els.envEditor },
+    prompt: {
+        tabLabel: "Prompt",
+        title: document.getElementById("promptTitle"),
+        editor: () => els.promptEditor,
+    },
+    jobspec: {
+        tabLabel: "Job Spec",
+        title: document.getElementById("jobspecTitle"),
+        editor: () => els.jobspecEditor,
+    },
+    env: {
+        tabLabel: "Env",
+        title: document.getElementById("envTitle"),
+        editor: () => els.envEditor,
+    },
 };
 
 const SPLITTER_MIN_LEFT_PX = 360;
@@ -91,17 +103,14 @@ function stopRunStatusTimer() {
 
 function setRunning(running) {
     state.isRunning = running;
-    [
-        els.runFormatBtn,
-        els.runFullBtn,
-        ...els.fileLoadButtons,
-        ...els.fileSaveButtons,
-    ].forEach((btn) => {
-        if (!btn) {
-            return;
-        }
-        btn.disabled = running;
-    });
+    [els.runFormatBtn, els.runFullBtn, ...els.fileLoadButtons, ...els.fileSaveButtons].forEach(
+        (btn) => {
+            if (!btn) {
+                return;
+            }
+            btn.disabled = running;
+        },
+    );
 }
 
 function currentFiles() {
@@ -375,7 +384,9 @@ async function saveToDisk() {
 
 async function runPipeline(kind) {
     setRunning(true);
-    startRunStatusTimer(kind === "full" ? "Running full pipeline..." : "Running formatting only...");
+    startRunStatusTimer(
+        kind === "full" ? "Running full pipeline..." : "Running formatting only...",
+    );
 
     try {
         writeDraftToLocalStorage();
