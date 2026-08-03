@@ -279,6 +279,18 @@ def normalize_optional_http_url(value, field_name: str) -> str | None:
     return url
 
 
+def normalize_month_year_range(value, field_name: str) -> str:
+    """Validate date ranges that should include month/year boundaries."""
+    date_range = require_non_empty_string(value, field_name)
+    has_year = re.search(r"\b(19|20)\d{2}\b", date_range) is not None
+    has_separator = "-" in date_range or "to" in date_range.lower()
+    if not has_year or not has_separator:
+        raise ValueError(
+            f"{field_name} must include a month/year range, for example 'Jan 2019 - Mar 2021'."
+        )
+    return date_range
+
+
 def validate_and_normalize_payload(payload: dict) -> dict:
     """Validate schema and normalize key sections for deterministic rendering."""
     if not isinstance(payload, dict):
@@ -357,7 +369,7 @@ def validate_and_normalize_payload(payload: dict) -> dict:
         if not isinstance(role, dict):
             raise ValueError(f"document.selected_key_roles[{idx}] must be an object.")
         heading = require_non_empty_string(role.get("heading"), f"document.selected_key_roles[{idx}].heading")
-        date_range = require_non_empty_string(
+        date_range = normalize_month_year_range(
             role.get("date_range"),
             f"document.selected_key_roles[{idx}].date_range",
         )
@@ -417,11 +429,16 @@ def validate_and_normalize_payload(payload: dict) -> dict:
             f"document.earlier_career.items[{idx}].technologies",
             min_items=1,
         )
+        date_range = normalize_month_year_range(
+            item.get("date_range"),
+            f"document.earlier_career.items[{idx}].date_range",
+        )
         normalized_earlier_items.append(
             {
                 "role_title": role_title,
                 "company": company,
                 "technologies": technologies,
+                "date_range": date_range,
             }
         )
     earlier_career["items"] = normalized_earlier_items
@@ -595,7 +612,9 @@ def render_tagged_markdown(payload: dict) -> str:
     lines.append("")
     for item in document["earlier_career"]["items"]:
         tech_text = ", ".join(item["technologies"])
-        lines.append(f"* **{item['role_title']}** | _{item['company']}_ ({tech_text})")
+        lines.append(
+            f"* **{item['role_title']}** | _{item['company']}_ ({tech_text}) - {item['date_range']}"
+        )
 
     lines.append("")
     lines.append("[section_heading] # Open Source Contributions")

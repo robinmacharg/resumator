@@ -108,7 +108,8 @@ JSON schema to follow:
         {
           "role_title": "Role title",
           "company": "Company",
-          "technologies": ["tech1", "tech2"]
+          "technologies": ["tech1", "tech2"],
+          "date_range": "Month YYYY - Month YYYY"
         }
       ]
     },
@@ -142,11 +143,14 @@ Section/content rules to enforce in JSON values:
 13. If no App Store link exists for a selected role in the source input, set app_store_url to null for that role.
 14. Do not place App Store links inside date_range, heading, or bullets when app_store_url is available.
 15. earlier_career must include roles not listed in selected_key_roles.
-16. open_source_contributions must contain 3 to 5 relevant items.
-17. technical_skills must be grouped, concise, and concrete.
-18. Do not include non-professional unrelated achievements.
-19. Do not include location in contact content.
-20. Mention security clearance and management experience only where role-relevant, and place in role-appropriate sections.
+16. Every earlier_career.items entry must include date_range in month/year range form (for example: "Jan 2016 - Mar 2018" or "Jun 2020 - Present").
+17. If multiple roles are conflated into one earlier_career item, date_range must cover the full combined span across those roles.
+18. earlier_career rendered line intent is: role/company, then technologies, then date_range at end of line.
+19. open_source_contributions must contain 3 to 5 relevant items.
+20. technical_skills must be grouped, concise, and concrete.
+21. Do not include non-professional unrelated achievements.
+22. Do not include location in contact content.
+23. Mention security clearance and management experience only where role-relevant, and place in role-appropriate sections.
 
 Critical output rules:
 - Return JSON only.
