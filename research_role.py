@@ -3,9 +3,11 @@ import argparse
 import json
 import os
 import re
+import signal
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +25,10 @@ OUTPUT_PROMPT = Path("research_prompt.built.txt")
 DEBUG_LOG_DIR = Path("gemini_debug_logs")
 RESEARCH_GEMINI_TIMEOUT_SECONDS = 300
 RESEARCH_HEARTBEAT_SECONDS = 15
+RESEARCH_MAX_429_LINES_BEFORE_FALLBACK = 3
+RESEARCH_429_GRACE_SECONDS = 20
+RESEARCH_MAX_RETRY_AFTER_SECONDS_BEFORE_FALLBACK = 10
+RESEARCH_MAX_CONSECUTIVE_HARD_QUOTA_MODELS = 3
 DEFAULT_MODEL = "gemini-2.5-flash-lite"
 DEFAULT_FALLBACK_MODELS = [
     "gemini-3.5-flash",
@@ -42,6 +48,10 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def local_now_to_second() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
 def is_retryable_model_error(stderr_text: str) -> bool:
     lowered = stderr_text.lower()
     return (
@@ -54,6 +64,27 @@ def is_retryable_model_error(stderr_text: str) -> bool:
         or "modelnotfounderror" in lowered
         or "model is not found" in lowered
         or "no longer available" in lowered
+    )
+
+
+def extract_retry_after_seconds(text: str) -> int | None:
+    match = re.search(r"please retry in\s+([0-9]+(?:\.[0-9]+)?)s", text, flags=re.IGNORECASE)
+    if not match:
+        return None
+    try:
+        return int(float(match.group(1)))
+    except ValueError:
+        return None
+
+
+def is_hard_quota_exhausted_message(text: str) -> bool:
+    lowered = text.lower()
+    return (
+        "terminalquotaerror" in lowered
+        or "daily quota" in lowered
+        or "limit: 0" in lowered
+        or "generate_content_free_tier_input_token_count, limit: 0" in lowered
+        or "generate_content_free_tier_requests, limit: 0" in lowered
     )
 
 
@@ -100,6 +131,9 @@ def run_gemini_with_diagnostics(
     heartbeat_seconds: int,
     model_name: str,
     attempt_index: int,
+    max_429_lines_before_fallback: int,
+    rate_limit_grace_seconds: int,
+    max_retry_after_seconds_before_fallback: int,
 ) -> tuple[subprocess.CompletedProcess[str], float, Path]:
     DEBUG_LOG_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -112,46 +146,197 @@ def run_gemini_with_diagnostics(
         stderr=subprocess.PIPE,
         stdin=subprocess.DEVNULL,
         text=True,
+        bufsize=1,
         env=env,
+        start_new_session=True,
     )
 
-    stdout_text = ""
-    stderr_text = ""
-    timed_out = False
+    if process.stdout is None or process.stderr is None:
+        raise RuntimeError("Failed to capture Gemini subprocess output pipes.")
 
-    while True:
-        elapsed = time.monotonic() - start
-        remaining = timeout_seconds - elapsed
-        if remaining <= 0:
-            timed_out = True
-            process.kill()
-            stdout_text, stderr_text = process.communicate()
-            break
+    stdout_chunks: list[str] = []
+    stderr_chunks: list[str] = []
+    stream_lock = threading.Lock()
+    stream_stats = {
+        "stdout_lines": 0,
+        "stderr_lines": 0,
+        "rate_limit_events": 0,
+        "hard_quota_events": 0,
+        "max_retry_after_seconds": None,
+        "last_output_at": None,
+    }
 
+    def stream_reader(
+        pipe,
+        sink: list[str],
+        sink_name: str,
+        emit_stream,
+        stat_key: str,
+    ) -> None:
         try:
-            stdout_text, stderr_text = process.communicate(
-                timeout=min(heartbeat_seconds, remaining)
-            )
-            break
-        except subprocess.TimeoutExpired:
+            for line in iter(pipe.readline, ""):
+                with stream_lock:
+                    sink.append(line)
+                    stream_stats[stat_key] = int(stream_stats[stat_key]) + 1
+                    lowered = line.lower()
+                    if (
+                        "status 429" in lowered
+                        or "\"code\":429" in lowered
+                        or "resource_exhausted" in lowered
+                        or "quota exceeded" in lowered
+                    ):
+                        stream_stats["rate_limit_events"] = int(stream_stats["rate_limit_events"]) + 1
+                    if is_hard_quota_exhausted_message(lowered):
+                        stream_stats["hard_quota_events"] = int(stream_stats["hard_quota_events"]) + 1
+                    retry_after = extract_retry_after_seconds(line)
+                    if retry_after is not None:
+                        previous = stream_stats["max_retry_after_seconds"]
+                        if previous is None or retry_after > int(previous):
+                            stream_stats["max_retry_after_seconds"] = retry_after
+                    stream_stats["last_output_at"] = time.monotonic()
+
+                # Relay raw subprocess output immediately so hangs/failures are visible in real time.
+                emit_stream.write(f"[{sink_name}] {line}")
+                emit_stream.flush()
+        finally:
+            try:
+                pipe.close()
+            except OSError:
+                pass
+
+    stdout_thread = threading.Thread(
+        target=stream_reader,
+        args=(process.stdout, stdout_chunks, "gemini stdout", sys.stdout, "stdout_lines"),
+        daemon=True,
+    )
+    stderr_thread = threading.Thread(
+        target=stream_reader,
+        args=(process.stderr, stderr_chunks, "gemini stderr", sys.stderr, "stderr_lines"),
+        daemon=True,
+    )
+    stdout_thread.start()
+    stderr_thread.start()
+
+    timed_out = False
+    aborted_for_rate_limit = False
+    print(
+        f"Attempt {attempt_index}: launched Gemini PID {process.pid} for model {model_name}",
+        file=sys.stderr,
+        flush=True,
+    )
+
+    while process.poll() is None:
+        elapsed = time.monotonic() - start
+        if elapsed >= timeout_seconds:
+            timed_out = True
             print(
-                f"Attempt {attempt_index}: waiting on Gemini model "
-                f"{model_name} ({int(elapsed)}s elapsed)...",
+                f"Attempt {attempt_index}: timeout reached ({timeout_seconds}s). Killing process group for PID {process.pid}.",
                 file=sys.stderr,
                 flush=True,
             )
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except OSError:
+                process.kill()
+            break
+
+        wait_seconds = min(heartbeat_seconds, max(timeout_seconds - elapsed, 0))
+        if wait_seconds > 0:
+            time.sleep(wait_seconds)
+
+        elapsed = time.monotonic() - start
+        with stream_lock:
+            stdout_lines = int(stream_stats["stdout_lines"])
+            stderr_lines = int(stream_stats["stderr_lines"])
+            rate_limit_events = int(stream_stats["rate_limit_events"])
+            hard_quota_events = int(stream_stats["hard_quota_events"])
+            max_retry_after_seconds = stream_stats["max_retry_after_seconds"]
+            last_output_at = stream_stats["last_output_at"]
+
+        if last_output_at is None:
+            activity = "no output yet"
+        else:
+            quiet_for = int(time.monotonic() - float(last_output_at))
+            activity = f"last output {quiet_for}s ago"
+
+        print(
+            f"Attempt {attempt_index}: waiting on Gemini model {model_name} "
+            f"({int(elapsed)}s elapsed, stdout lines: {stdout_lines}, stderr lines: {stderr_lines}, "
+            f"rate-limit events: {rate_limit_events}, hard-quota events: {hard_quota_events}, {activity})...",
+            file=sys.stderr,
+            flush=True,
+        )
+
+        if (
+            elapsed >= rate_limit_grace_seconds
+            and rate_limit_events >= max_429_lines_before_fallback
+            and stdout_lines == 0
+            and process.poll() is None
+        ):
+            aborted_for_rate_limit = True
+            print(
+                f"Attempt {attempt_index}: detected repeated rate-limit errors ({rate_limit_events}) "
+                f"with no stdout after {int(elapsed)}s. Aborting this model attempt to trigger fallback.",
+                file=sys.stderr,
+                flush=True,
+            )
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except OSError:
+                process.kill()
+            break
+
+        if (
+            max_retry_after_seconds is not None
+            and int(max_retry_after_seconds) > max_retry_after_seconds_before_fallback
+            and stdout_lines == 0
+            and process.poll() is None
+        ):
+            aborted_for_rate_limit = True
+            print(
+                f"Attempt {attempt_index}: provider asked to retry in {int(max_retry_after_seconds)}s "
+                f"(threshold: {max_retry_after_seconds_before_fallback}s). Aborting this model attempt to trigger fallback.",
+                file=sys.stderr,
+                flush=True,
+            )
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except OSError:
+                process.kill()
+            break
+
+    return_code = process.wait()
+    stdout_thread.join(timeout=2)
+    stderr_thread.join(timeout=2)
+
+    stdout_text = "".join(stdout_chunks)
+    stderr_text = "".join(stderr_chunks)
+    if aborted_for_rate_limit:
+        stderr_text = (
+            f"{stderr_text}\n"
+            "[wrapper] aborted attempt after repeated 429/quota errors to allow model fallback.\n"
+        )
 
     end_elapsed = time.monotonic() - start
-    return_code = process.returncode if process.returncode is not None else 1
+    if return_code is None:
+        return_code = 1
 
     log_path.write_text(
         "\n".join(
             [
                 f"model={model_name}",
                 f"attempt={attempt_index}",
+                f"pid={process.pid}",
+                f"command={' '.join(command[:4])} <prompt elided>",
                 f"return_code={return_code}",
                 f"elapsed_seconds={end_elapsed:.2f}",
                 f"timed_out={timed_out}",
+                f"aborted_for_rate_limit={aborted_for_rate_limit}",
+                f"stdout_lines={stream_stats['stdout_lines']}",
+                f"stderr_lines={stream_stats['stderr_lines']}",
+                f"rate_limit_events={stream_stats['rate_limit_events']}",
+                f"hard_quota_events={stream_stats['hard_quota_events']}",
+                f"max_retry_after_seconds={stream_stats['max_retry_after_seconds']}",
                 "--- STDOUT ---",
                 stdout_text,
                 "--- STDERR ---",
@@ -415,6 +600,26 @@ def main() -> None:
         "RESEARCH_GEMINI_HEARTBEAT_SECONDS",
         RESEARCH_HEARTBEAT_SECONDS,
     )
+    max_429_lines_before_fallback = parse_positive_int(
+        process_env,
+        "RESEARCH_GEMINI_MAX_429_LINES_BEFORE_FALLBACK",
+        RESEARCH_MAX_429_LINES_BEFORE_FALLBACK,
+    )
+    rate_limit_grace_seconds = parse_positive_int(
+        process_env,
+        "RESEARCH_GEMINI_429_GRACE_SECONDS",
+        RESEARCH_429_GRACE_SECONDS,
+    )
+    max_retry_after_seconds_before_fallback = parse_positive_int(
+        process_env,
+        "RESEARCH_GEMINI_MAX_RETRY_AFTER_SECONDS_BEFORE_FALLBACK",
+        RESEARCH_MAX_RETRY_AFTER_SECONDS_BEFORE_FALLBACK,
+    )
+    max_consecutive_hard_quota_models = parse_positive_int(
+        process_env,
+        "RESEARCH_GEMINI_MAX_CONSECUTIVE_HARD_QUOTA_MODELS",
+        RESEARCH_MAX_CONSECUTIVE_HARD_QUOTA_MODELS,
+    )
     model_sequence = build_model_sequence(process_env, explicit_model=args.model)
 
     envelope: dict[str, object] = {
@@ -446,11 +651,27 @@ def main() -> None:
         f"Research Gemini timeout: {timeout_seconds}s (heartbeat every {heartbeat_seconds}s)",
         flush=True,
     )
+    print(
+        "Rate-limit fallback trigger: "
+        f">= {max_429_lines_before_fallback} detected 429/quota lines after {rate_limit_grace_seconds}s",
+        flush=True,
+    )
+    print(
+        "Retry-after fallback trigger: "
+        f"> {max_retry_after_seconds_before_fallback}s requested backoff with no stdout",
+        flush=True,
+    )
+    print(
+        "Hard quota circuit-breaker: "
+        f"stop after {max_consecutive_hard_quota_models} consecutive hard quota models",
+        flush=True,
+    )
 
     model_attempts: list[dict[str, object]] = []
     proc: subprocess.CompletedProcess[str] | None = None
     selected_model: str | None = None
     attempt_results: list[tuple[str, str]] = []
+    consecutive_hard_quota_models = 0
 
     for idx, model_name in enumerate(model_sequence, start=1):
         print(f"Invoking Gemini model ({idx}/{len(model_sequence)}): {model_name}", flush=True)
@@ -472,6 +693,9 @@ def main() -> None:
                 heartbeat_seconds=heartbeat_seconds,
                 model_name=model_name,
                 attempt_index=idx,
+                max_429_lines_before_fallback=max_429_lines_before_fallback,
+                rate_limit_grace_seconds=rate_limit_grace_seconds,
+                max_retry_after_seconds_before_fallback=max_retry_after_seconds_before_fallback,
             )
             print(
                 f"Attempt {idx} completed in {elapsed_seconds:.1f}s. Debug log: {log_path}",
@@ -506,11 +730,16 @@ def main() -> None:
 
         stderr_text = (proc.stderr or "").strip()
         stdout_text = (proc.stdout or "").strip()
+        if is_hard_quota_exhausted_message(stderr_text):
+            consecutive_hard_quota_models += 1
+        else:
+            consecutive_hard_quota_models = 0
         model_attempts.append(
             {
                 "model": model_name,
                 "exitCode": proc.returncode,
                 "retryable": bool(proc.returncode != 0 and is_retryable_model_error(stderr_text)),
+                "hardQuota": is_hard_quota_exhausted_message(stderr_text),
             }
         )
 
@@ -526,6 +755,23 @@ def main() -> None:
                 file=sys.stderr,
                 flush=True,
             )
+            if consecutive_hard_quota_models >= max_consecutive_hard_quota_models:
+                print(
+                    "Detected consecutive hard quota failures across models. "
+                    "Stopping early instead of trying additional models.",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                envelope["model"] = model_name
+                envelope["modelAttempts"] = model_attempts
+                envelope["output"] = ""
+                envelope["stderr"] = (
+                    "Aborted remaining model attempts after consecutive hard quota failures. "
+                    "Check billing/quota, then retry later."
+                )
+                output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
+                print_attempt_summary(attempt_results, sys.stderr)
+                sys.exit(1)
             continue
 
         attempt_results.append((model_name, "fatal error"))
@@ -575,10 +821,13 @@ def main() -> None:
         sys.exit(1)
 
     print("Gemini completed. Writing research outputs...", flush=True)
-    output_md.write_text(output_text + "\n", encoding="utf-8")
+    generated_at = local_now_to_second()
+    stamped_output = f"Generated At: {generated_at}\n\n{output_text.strip()}\n"
+    output_md.write_text(stamped_output, encoding="utf-8")
     envelope["model"] = selected_model or model_sequence[0]
     envelope["modelAttempts"] = model_attempts
     envelope["output"] = output_text
+    envelope["generatedAt"] = generated_at
     output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
 
     print(f"Research markdown written to: {output_md.resolve()}")

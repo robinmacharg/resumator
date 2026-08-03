@@ -485,6 +485,21 @@ function setResearchCommandOutput(command) {
     els.researchCommandOutput.scrollTop = els.researchCommandOutput.scrollHeight;
 }
 
+function formatTimestampToSecond(value) {
+    const date = value ? new Date(value) : new Date();
+    if (Number.isNaN(date.getTime())) {
+        return new Date().toLocaleString();
+    }
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const year = date.getFullYear();
+    const month = pad2(date.getMonth() + 1);
+    const day = pad2(date.getDate());
+    const hours = pad2(date.getHours());
+    const mins = pad2(date.getMinutes());
+    const secs = pad2(date.getSeconds());
+    return `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
+}
+
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -560,9 +575,10 @@ function summarizeResearchOutput(run) {
         `Exit: ${exit}`,
         `Elapsed: ${elapsed}`,
         `Dry Run: ${run.dryRun ? "yes" : "no"}`,
+        run.success ? `Generated At: ${formatTimestampToSecond(run.finishedAt || run.startedAt)}` : null,
         "",
         run.output || "(No process output)",
-    ];
+    ].filter((line) => line !== null);
     return lines.join("\n");
 }
 

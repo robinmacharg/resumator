@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 import argparse
+import os
 import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+from cv_convert import choose_font
 
 
 def normalize_markdown(text: str) -> str:
@@ -37,13 +40,29 @@ def ensure_heading(text: str, heading: str) -> str:
     return f"# {heading}\n\n{text}" if text else f"# {heading}\n"
 
 
-def compile_pdf(markdown_file: Path, output_pdf: Path) -> None:
+def resolve_research_pdf_font() -> str:
+    preferred_font_raw = os.environ.get("CV_FONT_PRIORITY", "Calibri,Arial,Helvetica")
+    preferred_fonts = [item.strip() for item in preferred_font_raw.split(",") if item.strip()]
+    if not preferred_fonts:
+        preferred_fonts = ["Calibri", "Arial", "Helvetica"]
+    return choose_font(preferred_fonts)
+
+
+def compile_pdf(markdown_file: Path, output_pdf: Path, font_name: str) -> None:
     if not shutil.which("pandoc"):
         raise RuntimeError("pandoc is required to generate research PDF")
 
     cmd = ["pandoc", str(markdown_file), "-o", str(output_pdf)]
     if shutil.which("typst"):
-        cmd.append("--pdf-engine=typst")
+        cmd.extend(
+            [
+                "--pdf-engine=typst",
+                "-V",
+                f"mainfont={font_name}",
+                "-V",
+                f"sansfont={font_name}",
+            ]
+        )
 
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
@@ -73,8 +92,11 @@ def run(input_md: Path, output_md: Path, output_pdf: Path, heading: str) -> int:
     output_md.write_text(processed + "\n", encoding="utf-8")
     print(f"Wrote formatted markdown: {output_md}")
 
+    font_name = resolve_research_pdf_font()
+    print(f"Using research PDF font: {font_name}")
+
     try:
-        compile_pdf(output_md, output_pdf)
+        compile_pdf(output_md, output_pdf, font_name)
     except RuntimeError as exc:
         print(str(exc))
         return 1
