@@ -20,6 +20,8 @@ const state = {
     runStatusMessage: "",
     cvPdfExists: false,
     researchPdfExists: false,
+    cvPdfMtime: null,
+    researchPdfMtime: null,
 };
 
 const els = {
@@ -692,9 +694,11 @@ function updatePreviewCacheBuster() {
     const targetName = isResearchDoc ? "research_output.formatted.pdf" : "tailored_dev.pdf";
     const exists = isResearchDoc ? state.researchPdfExists : state.cvPdfExists;
     const targetLabel = isResearchDoc ? "Research" : "CV";
+    const targetMtime = isResearchDoc ? state.researchPdfMtime : state.cvPdfMtime;
 
     if (els.pdfPreviewTitle) {
-        els.pdfPreviewTitle.textContent = `PDF Preview (${targetLabel})`;
+        const generatedText = formatMtimeForPreview(targetMtime);
+        els.pdfPreviewTitle.textContent = `PDF Preview (${targetLabel}, Generated: ${generatedText})`;
     }
 
     if (els.pdfPreviewOpenLink) {
@@ -719,14 +723,42 @@ function updatePreviewCacheBuster() {
     }
 }
 
+function formatMtimeForPreview(mtimeSeconds) {
+    if (typeof mtimeSeconds !== "number" || !Number.isFinite(mtimeSeconds) || mtimeSeconds <= 0) {
+        return "-";
+    }
+
+    const date = new Date(mtimeSeconds * 1000);
+    if (Number.isNaN(date.getTime())) {
+        return "-";
+    }
+
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const day = pad2(date.getDate());
+    const month = pad2(date.getMonth() + 1);
+    const year = date.getFullYear();
+    const hours = pad2(date.getHours());
+    const mins = pad2(date.getMinutes());
+    const secs = pad2(date.getSeconds());
+    return `${day}/${month}/${year} - ${hours}:${mins}:${secs}`;
+}
+
 function applyCvOutputState(payload) {
     const outputs = (payload && payload.outputs) || {};
     state.cvPdfExists = Boolean(outputs.pdfExists);
+    state.cvPdfMtime =
+        typeof outputs.pdfMtime === "number" && Number.isFinite(outputs.pdfMtime)
+            ? outputs.pdfMtime
+            : null;
 }
 
 function applyResearchOutputState(payload) {
     const output = (payload && payload.output) || {};
     state.researchPdfExists = Boolean(output.formattedPdfExists);
+    state.researchPdfMtime =
+        typeof output.formattedPdfMtime === "number" && Number.isFinite(output.formattedPdfMtime)
+            ? output.formattedPdfMtime
+            : null;
 }
 
 function setRunLogOutput(text) {
