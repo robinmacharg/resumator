@@ -1,4 +1,4 @@
-import { pollUntilDone } from "./async-workflow-utils.js";
+import { pollUntilDone, runWithStatusOperation } from "./async-workflow-utils.js";
 import { parseResearchUrlsInput } from "./app-utils.js";
 
 /**
@@ -209,37 +209,42 @@ export function createResearchFeature(ctx) {
      */
     async function formatResearchPdf() {
         setResearchRunning(true);
-        setResearchStatus("Formatting research PDF...");
 
-        try {
-            const kickoff = await api("/api/research/format", {
-                method: "POST",
-                body: JSON.stringify({}),
-            });
+        await runWithStatusOperation({
+            setStatus: setResearchStatus,
+            startMessage: "Formatting research PDF...",
+            errorPrefix: "Research PDF formatting failed",
+            operation: async () => {
+                const kickoff = await api("/api/research/format", {
+                    method: "POST",
+                    body: JSON.stringify({}),
+                });
 
-            if (kickoff.run) {
-                setResearchOutput(summarizeResearchOutput(kickoff.run));
-                setResearchCommandOutput(kickoff.run.command || []);
-            }
+                if (kickoff.run) {
+                    setResearchOutput(summarizeResearchOutput(kickoff.run));
+                    setResearchCommandOutput(kickoff.run.command || []);
+                }
 
-            const run = await waitForResearchCompletion();
-            if (run && run.success) {
-                setResearchStatus(`Research PDF formatted (${run.elapsedSeconds}s).`);
-                setStatus("Research PDF formatting complete.");
-            } else {
-                setResearchStatus("Research PDF formatting failed.", true);
-                setStatus("Research PDF formatting failed. See Research Output.", true);
-            }
+                const run = await waitForResearchCompletion();
+                if (run && run.success) {
+                    setResearchStatus(`Research PDF formatted (${run.elapsedSeconds}s).`);
+                    setStatus("Research PDF formatting complete.");
+                } else {
+                    setResearchStatus("Research PDF formatting failed.", true);
+                    setStatus("Research PDF formatting failed. See Research Output.", true);
+                }
 
-            const refreshed = await api("/api/research/state");
-            renderResearchState(refreshed);
-            updatePreviewCacheBuster();
-        } catch (err) {
-            setResearchStatus(`Research PDF formatting failed: ${err.message}`, true);
-            setStatus(`Research PDF formatting failed: ${err.message}`, true);
-        } finally {
-            setResearchRunning(false);
-        }
+                const refreshed = await api("/api/research/state");
+                renderResearchState(refreshed);
+                updatePreviewCacheBuster();
+            },
+            onError: (err) => {
+                setStatus(`Research PDF formatting failed: ${err.message}`, true);
+            },
+            onFinally: () => {
+                setResearchRunning(false);
+            },
+        });
     }
 
     /**
@@ -255,32 +260,37 @@ export function createResearchFeature(ctx) {
         }
 
         setResearchRunning(true);
-        setResearchStatus("Resetting prompt to default...");
 
-        try {
-            await api("/api/research/reset-prompt", {
-                method: "POST",
-                body: JSON.stringify({}),
-            });
+        await runWithStatusOperation({
+            setStatus: setResearchStatus,
+            startMessage: "Resetting prompt to default...",
+            errorPrefix: "Reset failed",
+            operation: async () => {
+                await api("/api/research/reset-prompt", {
+                    method: "POST",
+                    body: JSON.stringify({}),
+                });
 
-            const disk = await api("/api/state");
-            const files = disk.files || {};
-            if (typeof files.research_prompt === "string") {
-                els.researchPromptEditor.value = files.research_prompt;
-                updateDiskSnapshot(files);
-                writeDraftToLocalStorage();
-            }
+                const disk = await api("/api/state");
+                const files = disk.files || {};
+                if (typeof files.research_prompt === "string") {
+                    els.researchPromptEditor.value = files.research_prompt;
+                    updateDiskSnapshot(files);
+                    writeDraftToLocalStorage();
+                }
 
-            const researchState = await api("/api/research/state");
-            renderResearchState(researchState);
-            setResearchStatus("Prompt reset to default.");
-            setStatus("Research prompt reset from default file.");
-        } catch (err) {
-            setResearchStatus(`Reset failed: ${err.message}`, true);
-            setStatus(`Research prompt reset failed: ${err.message}`, true);
-        } finally {
-            setResearchRunning(false);
-        }
+                const researchState = await api("/api/research/state");
+                renderResearchState(researchState);
+                setResearchStatus("Prompt reset to default.");
+                setStatus("Research prompt reset from default file.");
+            },
+            onError: (err) => {
+                setStatus(`Research prompt reset failed: ${err.message}`, true);
+            },
+            onFinally: () => {
+                setResearchRunning(false);
+            },
+        });
     }
 
     /**
