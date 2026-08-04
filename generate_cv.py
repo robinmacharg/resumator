@@ -16,6 +16,7 @@ from provider_clients import (
     AttemptResult,
     run_gemini_attempt,
     run_huggingface_attempt,
+    run_openai_attempt,
     run_swiftlet_attempt,
 )
 
@@ -31,6 +32,7 @@ OUTPUT_PDF = Path("tailored_dev.pdf")
 OUTPUT_DOCX = Path("tailored_dev.docx")
 GEMINI_TIMEOUT_SECONDS = 300
 HUGGINGFACE_TIMEOUT_SECONDS = 180
+OPENAI_TIMEOUT_SECONDS = 180
 SWIFTLET_TIMEOUT_SECONDS = 240
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_FALLBACK_MODELS = [
@@ -54,6 +56,11 @@ DEFAULT_HUGGINGFACE_FALLBACK_MODELS = [
     "Qwen/Qwen2.5-7B-Instruct",
     "mistralai/Mistral-7B-Instruct-v0.3",
     "google/gemma-2-9b-it",
+]
+DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
+DEFAULT_OPENAI_FALLBACK_MODELS = [
+    "gpt-4.1",
+    "gpt-4o-mini",
 ]
 DEFAULT_SWIFTLET_MODEL = "qwen3_5_moe_text"
 DEFAULT_SWIFTLET_FALLBACK_MODELS = []
@@ -106,6 +113,11 @@ def build_model_sequence(process_env: dict, provider: str, explicit_model: str =
         fallback_raw = process_env.get("HUGGINGFACE_MODEL_FALLBACKS", "")
         fallback_from_env = [item.strip() for item in fallback_raw.split(",") if item.strip()]
         fallback_defaults = DEFAULT_HUGGINGFACE_FALLBACK_MODELS
+    elif provider == "openai":
+        primary = process_env.get("OPENAI_MODEL", DEFAULT_OPENAI_MODEL).strip()
+        fallback_raw = process_env.get("OPENAI_MODEL_FALLBACKS", "")
+        fallback_from_env = [item.strip() for item in fallback_raw.split(",") if item.strip()]
+        fallback_defaults = DEFAULT_OPENAI_FALLBACK_MODELS
     elif provider == "swiftlet":
         primary = process_env.get("SWIFTLET_MODEL", DEFAULT_SWIFTLET_MODEL).strip()
         fallback_raw = process_env.get("SWIFTLET_MODEL_FALLBACKS", "")
@@ -128,7 +140,7 @@ def build_model_sequence(process_env: dict, provider: str, explicit_model: str =
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate a tailored CV via Gemini CLI")
-    parser.add_argument("--provider", default="", help="Model provider override (gemini, huggingface, or swiftlet)")
+    parser.add_argument("--provider", default="", help="Model provider override (gemini, huggingface, openai, or swiftlet)")
     parser.add_argument("--model", default="", help="Explicit model override")
     return parser.parse_args()
 
@@ -761,6 +773,12 @@ def main() -> None:
             print("Error: Missing HF_API_TOKEN for Hugging Face provider.", file=sys.stderr)
             sys.exit(1)
 
+    if selected_provider == "openai":
+        openai_token = (process_env.get("OPENAI_API_KEY") or process_env.get("OPENAI_TOKEN") or "").strip()
+        if not openai_token:
+            print("Error: Missing OPENAI_API_KEY for OpenAI provider.", file=sys.stderr)
+            sys.exit(1)
+
     # 4. Formulate prompt and invoke Gemini non-interactively via stdin/stdout
     fast_mode = is_fast_mode_enabled(process_env)
     if fast_mode:
@@ -788,6 +806,18 @@ def main() -> None:
                 prompt_text=full_prompt,
                 env=process_env,
                 timeout_seconds=HUGGINGFACE_TIMEOUT_SECONDS,
+                heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
+                attempt_index=index,
+                debug_log_dir=DEBUG_LOG_DIR,
+                log_prefix="cv-attempt",
+                emit_live_output=True,
+            )
+        elif selected_provider == "openai":
+            completed = run_openai_attempt(
+                model_name=model_name,
+                prompt_text=full_prompt,
+                env=process_env,
+                timeout_seconds=OPENAI_TIMEOUT_SECONDS,
                 heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
                 attempt_index=index,
                 debug_log_dir=DEBUG_LOG_DIR,

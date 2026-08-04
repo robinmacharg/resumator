@@ -17,6 +17,7 @@ from provider_clients import (
     AttemptResult,
     run_gemini_attempt,
     run_huggingface_attempt,
+    run_openai_attempt,
     run_swiftlet_attempt,
 )
 
@@ -57,9 +58,15 @@ DEFAULT_HUGGINGFACE_FALLBACK_MODELS = [
     "google/gemma-2-9b-it",
 ]
 HUGGINGFACE_TIMEOUT_SECONDS = 180
+OPENAI_TIMEOUT_SECONDS = 180
 DEFAULT_SWIFTLET_MODEL = "qwen3_5_moe_text"
 DEFAULT_SWIFTLET_FALLBACK_MODELS = []
 SWIFTLET_TIMEOUT_SECONDS = 240
+DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
+DEFAULT_OPENAI_FALLBACK_MODELS = [
+    "gpt-4.1",
+    "gpt-4o-mini",
+]
 
 
 def utc_now_iso() -> str:
@@ -390,6 +397,11 @@ def build_model_sequence(
         fallback_raw = process_env.get("HUGGINGFACE_MODEL_FALLBACKS", "").strip()
         env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
         defaults = DEFAULT_HUGGINGFACE_FALLBACK_MODELS
+    elif provider == "openai":
+        primary = process_env.get("OPENAI_MODEL", "").strip() or DEFAULT_OPENAI_MODEL
+        fallback_raw = process_env.get("OPENAI_MODEL_FALLBACKS", "").strip()
+        env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
+        defaults = DEFAULT_OPENAI_FALLBACK_MODELS
     elif provider == "swiftlet":
         primary = process_env.get("SWIFTLET_MODEL", "").strip() or DEFAULT_SWIFTLET_MODEL
         fallback_raw = process_env.get("SWIFTLET_MODEL_FALLBACKS", "").strip()
@@ -546,7 +558,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--url", action="append", default=[], help="Additional URL (repeatable)")
     parser.add_argument("--output-md", default=str(OUTPUT_MD), help="Markdown output path")
     parser.add_argument("--output-json", default=str(OUTPUT_JSON), help="JSON output path")
-    parser.add_argument("--provider", default="", help="Model provider override (gemini, huggingface, or swiftlet)")
+    parser.add_argument("--provider", default="", help="Model provider override (gemini, huggingface, openai, or swiftlet)")
     parser.add_argument("--model", default="", help="Model name (optional override)")
     parser.add_argument(
         "--dry-run",
@@ -689,6 +701,11 @@ def main() -> None:
         if not hf_token:
             print("HF_API_TOKEN (or HUGGINGFACE_API_TOKEN) is required for provider=huggingface.", file=sys.stderr)
             sys.exit(1)
+    if selected_provider == "openai":
+        openai_token = (process_env.get("OPENAI_API_KEY") or process_env.get("OPENAI_TOKEN") or "").strip()
+        if not openai_token:
+            print("OPENAI_API_KEY (or OPENAI_TOKEN) is required for provider=openai.", file=sys.stderr)
+            sys.exit(1)
 
     print(
         f"Diagnostics enabled. Per-attempt logs at: {DEBUG_LOG_DIR.resolve()}",
@@ -734,6 +751,18 @@ def main() -> None:
                     prompt_text=prompt_text,
                     env=process_env,
                     timeout_seconds=HUGGINGFACE_TIMEOUT_SECONDS,
+                    heartbeat_seconds=heartbeat_seconds,
+                    attempt_index=idx,
+                    debug_log_dir=DEBUG_LOG_DIR,
+                    log_prefix="research-attempt",
+                    emit_live_output=True,
+                )
+            elif selected_provider == "openai":
+                proc = run_openai_attempt(
+                    model_name=model_name,
+                    prompt_text=prompt_text,
+                    env=process_env,
+                    timeout_seconds=OPENAI_TIMEOUT_SECONDS,
                     heartbeat_seconds=heartbeat_seconds,
                     attempt_index=idx,
                     debug_log_dir=DEBUG_LOG_DIR,

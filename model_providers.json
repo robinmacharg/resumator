@@ -30,6 +30,16 @@
       ]
     },
     {
+      "id": "openai",
+      "label": "OpenAI",
+      "defaultModel": "gpt-4.1-mini",
+      "models": [
+        "gpt-4.1-mini",
+        "gpt-4.1",
+        "gpt-4o-mini"
+      ]
+    },
+    {
       "id": "swiftlet",
       "label": "Swiftlet",
       "defaultModel": "qwen3_5_moe_text",

@@ -162,6 +162,11 @@ def build_available_models(selected_provider: str) -> list[str]:
             env.get("HUGGINGFACE_MODEL", "").strip(),
             *split_csv(env.get("HUGGINGFACE_MODEL_FALLBACKS", "")),
         ]
+    elif provider_id == "openai":
+        env_models = [
+            env.get("OPENAI_MODEL", "").strip(),
+            *split_csv(env.get("OPENAI_MODEL_FALLBACKS", "")),
+        ]
     elif provider_id == "swiftlet":
         env_models = [
             env.get("SWIFTLET_MODEL", "").strip(),
