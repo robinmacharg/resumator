@@ -2,6 +2,7 @@ import { api, fetchText } from "./js/api-client.js";
 import { createCvPipelineFeature } from "./js/cv-pipeline-feature.js";
 import { createLogsFeature } from "./js/logs-feature.js";
 import { createPdfPreviewFeature } from "./js/pdf-preview-feature.js";
+import { createProviderModelFeature } from "./js/provider-model-feature.js";
 import { createResearchFeature } from "./js/research-feature.js";
 import { createUiLayoutFeature } from "./js/ui-layout-feature.js";
 import { formatCommandForDisplay, formatTimestampToSecond, sleep } from "./js/app-utils.js";
@@ -315,150 +316,6 @@ function setRunning(running) {
 function setResearchRunning(running) {
     state.isResearchRunning = running;
     applyControlDisabledState();
-}
-
-function selectedModelFromUi() {
-    if (!els.modelSelect) {
-        return "";
-    }
-    return (els.modelSelect.value || "").trim();
-}
-
-function selectedProviderFromUi() {
-    if (!els.providerSelect) {
-        return state.defaultProvider || "gemini";
-    }
-    return (els.providerSelect.value || state.defaultProvider || "gemini").trim();
-}
-
-function setSelectedProvider(provider) {
-    const next = (provider || state.defaultProvider || "gemini").trim();
-    state.selectedProvider = next;
-    localStorage.setItem(LS_KEYS.selected_provider, next);
-    if (els.providerSelect && els.providerSelect.value !== next) {
-        els.providerSelect.value = next;
-    }
-}
-
-function setSelectedModel(model) {
-    const next = (model || "").trim();
-    state.selectedModel = next;
-    localStorage.setItem(LS_KEYS.selected_model, next);
-    if (els.modelSelect && els.modelSelect.value !== next) {
-        els.modelSelect.value = next;
-    }
-}
-
-function getActiveModelOptions() {
-    const options = state.modelsByProvider[state.selectedProvider];
-    return Array.isArray(options) ? options : [];
-}
-
-function refreshModelSelectOptions() {
-    if (!els.modelSelect) {
-        return;
-    }
-
-    const defaultOptionValue = "";
-    const defaultOptionLabel = "Default order";
-    const modelOptions = getActiveModelOptions();
-
-    const deduped = [];
-    const seen = new Set();
-    modelOptions.forEach((item) => {
-        const cleaned = item.trim();
-        if (!cleaned || seen.has(cleaned)) {
-            return;
-        }
-        seen.add(cleaned);
-        deduped.push(cleaned);
-    });
-
-    els.modelSelect.innerHTML = "";
-
-    const defaultOpt = document.createElement("option");
-    defaultOpt.value = defaultOptionValue;
-    defaultOpt.textContent = defaultOptionLabel;
-    els.modelSelect.appendChild(defaultOpt);
-
-    deduped.forEach((modelName) => {
-        const opt = document.createElement("option");
-        opt.value = modelName;
-        opt.textContent = modelName;
-        els.modelSelect.appendChild(opt);
-    });
-
-    const savedSelection = (localStorage.getItem(LS_KEYS.selected_model) || "").trim();
-    const currentSelection = (state.selectedModel || "").trim();
-    const selectedCandidate = currentSelection || savedSelection;
-    const selected = deduped.includes(selectedCandidate) ? selectedCandidate : defaultOptionValue;
-    setSelectedModel(selected);
-}
-
-function populateProviderAndModelSelect(providersPayload, modelsPayload) {
-    const defaultProvider =
-        providersPayload && typeof providersPayload.defaultProvider === "string"
-            ? providersPayload.defaultProvider.trim() || "gemini"
-            : "gemini";
-    state.defaultProvider = defaultProvider;
-
-    const providerOptions =
-        providersPayload && Array.isArray(providersPayload.options)
-            ? providersPayload.options
-                  .filter(
-                      (item) =>
-                          item && typeof item.value === "string" && typeof item.label === "string",
-                  )
-                  .map((item) => ({
-                      value: item.value.trim(),
-                      label: item.label.trim(),
-                      enabled: item.enabled !== false,
-                      disabledReason:
-                          typeof item.disabledReason === "string" ? item.disabledReason.trim() : "",
-                  }))
-                  .filter((item) => item.value && item.label)
-            : [{ value: "gemini", label: "Gemini", enabled: true, disabledReason: "" }];
-
-    if (els.providerSelect) {
-        els.providerSelect.innerHTML = "";
-        providerOptions.forEach((item) => {
-            const opt = document.createElement("option");
-            opt.value = item.value;
-            opt.textContent = item.enabled ? item.label : `${item.label} (disabled)`;
-            opt.disabled = !item.enabled;
-            if (!item.enabled && item.disabledReason) {
-                opt.title = item.disabledReason;
-            }
-            els.providerSelect.appendChild(opt);
-        });
-    }
-
-    state.modelsByProvider =
-        modelsPayload && modelsPayload.byProvider && typeof modelsPayload.byProvider === "object"
-            ? Object.fromEntries(
-                  Object.entries(modelsPayload.byProvider).map(([provider, models]) => {
-                      const cleaned = Array.isArray(models)
-                          ? models
-                                .filter((item) => typeof item === "string" && item.trim())
-                                .map((item) => item.trim())
-                          : [];
-                      return [provider, cleaned];
-                  }),
-              )
-            : {};
-
-    const savedProvider = (localStorage.getItem(LS_KEYS.selected_provider) || "").trim();
-    const enabledProviders = providerOptions
-        .filter((item) => item.enabled)
-        .map((item) => item.value);
-    const fallbackProviders = providerOptions.map((item) => item.value);
-    const selectedProvider = enabledProviders.includes(savedProvider)
-        ? savedProvider
-        : enabledProviders.includes(defaultProvider)
-          ? defaultProvider
-          : enabledProviders[0] || fallbackProviders[0] || "gemini";
-    setSelectedProvider(selectedProvider);
-    refreshModelSelectOptions();
 }
 
 function syncResearchPrimaryButton() {
@@ -906,6 +763,12 @@ const uiLayoutFeature = createUiLayoutFeature({
     onTabsChanged: updateAutoScrollIndicators,
 });
 
+const providerModelFeature = createProviderModelFeature({
+    state,
+    els,
+    localStorageKeys: LS_KEYS,
+});
+
 const cvPipelineFeature = createCvPipelineFeature({
     api,
     currentFiles,
@@ -1003,7 +866,10 @@ async function initialize() {
     setStatus("Loading editor state...");
     try {
         const payload = await api("/api/state");
-        populateProviderAndModelSelect(payload.providers || null, payload.models || null);
+        providerModelFeature.populateProviderAndModelSelect(
+            payload.providers || null,
+            payload.models || null,
+        );
         applyFilesToEditors(payload.files || {});
         updateDiskSnapshot(payload.files || {});
         previewFeature.applyCvOutputState(payload);
@@ -1158,14 +1024,12 @@ els.researchSplitters.forEach((splitter) => {
 });
 if (els.modelSelect) {
     els.modelSelect.addEventListener("change", () => {
-        setSelectedModel(selectedModelFromUi());
+        providerModelFeature.handleModelSelectChanged();
     });
 }
 if (els.providerSelect) {
     els.providerSelect.addEventListener("change", () => {
-        setSelectedProvider(selectedProviderFromUi());
-        setSelectedModel("");
-        refreshModelSelectOptions();
+        providerModelFeature.handleProviderSelectChanged();
     });
 }
 
