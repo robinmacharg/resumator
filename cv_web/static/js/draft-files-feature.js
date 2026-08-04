@@ -1,3 +1,5 @@
+import { getStorageString, hasAnyStorageKeys, setStorageString } from "./storage-utils.js";
+
 /**
  * Architecture role:
  * - Layer: frontend feature module consumed by app bootstrap.
@@ -113,16 +115,13 @@ export function createDraftFilesFeature(ctx) {
      */
     function writeDraftToLocalStorage() {
         const files = currentFiles();
-        localStorage.setItem(localStorageKeys.cv, files.cv);
-        localStorage.setItem(localStorageKeys.prompt, files.prompt);
-        localStorage.setItem(localStorageKeys.research_prompt, files.research_prompt);
-        localStorage.setItem(
-            localStorageKeys.research_company,
-            els.researchCompanyInput.value || "",
-        );
-        localStorage.setItem(localStorageKeys.research_urls, els.researchUrlsInput.value || "");
-        localStorage.setItem(localStorageKeys.jobspec, files.jobspec);
-        localStorage.setItem(localStorageKeys.env, files.env);
+        setStorageString(localStorageKeys.cv, files.cv);
+        setStorageString(localStorageKeys.prompt, files.prompt);
+        setStorageString(localStorageKeys.research_prompt, files.research_prompt);
+        setStorageString(localStorageKeys.research_company, els.researchCompanyInput.value || "");
+        setStorageString(localStorageKeys.research_urls, els.researchUrlsInput.value || "");
+        setStorageString(localStorageKeys.jobspec, files.jobspec);
+        setStorageString(localStorageKeys.env, files.env);
     }
 
     /**
@@ -130,7 +129,7 @@ export function createDraftFilesFeature(ctx) {
      * @returns {boolean}
      */
     function hasLocalDraft() {
-        return [
+        return hasAnyStorageKeys([
             localStorageKeys.cv,
             localStorageKeys.prompt,
             localStorageKeys.research_prompt,
@@ -138,7 +137,7 @@ export function createDraftFilesFeature(ctx) {
             localStorageKeys.research_urls,
             localStorageKeys.jobspec,
             localStorageKeys.env,
-        ].some((key) => localStorage.getItem(key) !== null);
+        ]);
     }
 
     /**
@@ -147,13 +146,13 @@ export function createDraftFilesFeature(ctx) {
      * @returns {void}
      */
     function loadLocalDraft(diskFiles = {}) {
-        const cv = localStorage.getItem(localStorageKeys.cv);
-        const prompt = localStorage.getItem(localStorageKeys.prompt);
-        const researchPrompt = localStorage.getItem(localStorageKeys.research_prompt);
-        const researchCompany = localStorage.getItem(localStorageKeys.research_company);
-        const researchUrls = localStorage.getItem(localStorageKeys.research_urls);
-        const jobspec = localStorage.getItem(localStorageKeys.jobspec);
-        const env = localStorage.getItem(localStorageKeys.env);
+        const cv = getStorageString(localStorageKeys.cv);
+        const prompt = getStorageString(localStorageKeys.prompt);
+        const researchPrompt = getStorageString(localStorageKeys.research_prompt);
+        const researchCompany = getStorageString(localStorageKeys.research_company);
+        const researchUrls = getStorageString(localStorageKeys.research_urls);
+        const jobspec = getStorageString(localStorageKeys.jobspec);
+        const env = getStorageString(localStorageKeys.env);
 
         if (cv !== null) {
             els.cvEditor.value = cv;

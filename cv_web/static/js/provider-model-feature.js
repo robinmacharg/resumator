@@ -1,3 +1,5 @@
+import { getStorageString, setStorageString } from "./storage-utils.js";
+
 /**
  * Architecture role:
  * - Layer: configuration feature used by app bootstrap.
@@ -58,7 +60,7 @@ export function createProviderModelFeature(ctx) {
     function setSelectedProvider(provider) {
         const next = (provider || state.defaultProvider || "gemini").trim();
         state.selectedProvider = next;
-        localStorage.setItem(localStorageKeys.selected_provider, next);
+        setStorageString(localStorageKeys.selected_provider, next);
         if (els.providerSelect && els.providerSelect.value !== next) {
             els.providerSelect.value = next;
         }
@@ -72,7 +74,7 @@ export function createProviderModelFeature(ctx) {
     function setSelectedModel(model) {
         const next = (model || "").trim();
         state.selectedModel = next;
-        localStorage.setItem(localStorageKeys.selected_model, next);
+        setStorageString(localStorageKeys.selected_model, next);
         if (els.modelSelect && els.modelSelect.value !== next) {
             els.modelSelect.value = next;
         }
@@ -125,7 +127,7 @@ export function createProviderModelFeature(ctx) {
             els.modelSelect.appendChild(opt);
         });
 
-        const savedSelection = (localStorage.getItem(localStorageKeys.selected_model) || "").trim();
+        const savedSelection = (getStorageString(localStorageKeys.selected_model, "") || "").trim();
         const currentSelection = (state.selectedModel || "").trim();
         const selectedCandidate = currentSelection || savedSelection;
         const selected = deduped.includes(selectedCandidate)
@@ -199,7 +201,7 @@ export function createProviderModelFeature(ctx) {
                 : {};
 
         const savedProvider = (
-            localStorage.getItem(localStorageKeys.selected_provider) || ""
+            getStorageString(localStorageKeys.selected_provider, "") || ""
         ).trim();
         const enabledProviders = providerOptions
             .filter((item) => item.enabled)

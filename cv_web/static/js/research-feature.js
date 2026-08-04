@@ -1,4 +1,5 @@
-import { parseResearchUrlsInput, sleep } from "./app-utils.js";
+import { pollUntilDone } from "./async-workflow-utils.js";
+import { parseResearchUrlsInput } from "./app-utils.js";
 
 /**
  * Architecture role:
@@ -70,23 +71,23 @@ export function createResearchFeature(ctx) {
      * @returns {Promise<any>} Final research run payload.
      */
     async function waitForResearchCompletion() {
-        while (true) {
-            const status = await fetchResearchStatus();
-            const run = status.run || null;
-            if (run) {
-                setResearchOutput(summarizeResearchOutput(run));
-                setResearchCommandOutput(run.command || []);
-                if (status.running) {
-                    setResearchStatus(`Research running (${run.elapsedSeconds || 0}s)...`);
+        const finalStatus = await pollUntilDone({
+            fetchStatus: fetchResearchStatus,
+            isRunning: (status) => Boolean(status && status.running),
+            onTick: (status) => {
+                const run = status.run || null;
+                if (run) {
+                    setResearchOutput(summarizeResearchOutput(run));
+                    setResearchCommandOutput(run.command || []);
+                    if (status.running) {
+                        setResearchStatus(`Research running (${run.elapsedSeconds || 0}s)...`);
+                    }
                 }
-            }
+            },
+            intervalMs: 1000,
+        });
 
-            if (!status.running) {
-                return run;
-            }
-
-            await sleep(1000);
-        }
+        return finalStatus.run || null;
     }
 
     /**

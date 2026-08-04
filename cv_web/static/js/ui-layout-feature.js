@@ -1,3 +1,10 @@
+import {
+    getStorageJson,
+    getStorageString,
+    setStorageJson,
+    setStorageString,
+} from "./storage-utils.js";
+
 const SPLITTER_MIN_LEFT_PX = 360;
 const SPLITTER_MIN_RIGHT_PX = 320;
 const RESEARCH_SPLITTER_MIN_SECTION_PX = 140;
@@ -86,10 +93,7 @@ export function createUiLayoutFeature(ctx) {
         panel.style.setProperty("--research-bottom-size", `${(normalized[2] * 100).toFixed(4)}%`);
 
         if (persist) {
-            localStorage.setItem(
-                localStorageKeys.research_section_ratios,
-                JSON.stringify(normalized),
-            );
+            setStorageJson(localStorageKeys.research_section_ratios, normalized);
         }
     }
 
@@ -98,18 +102,12 @@ export function createUiLayoutFeature(ctx) {
      * @returns {void}
      */
     function initializeResearchSectionRatios() {
-        const savedRaw = localStorage.getItem(localStorageKeys.research_section_ratios);
-        if (!savedRaw) {
+        const savedRatios = getStorageJson(localStorageKeys.research_section_ratios, null);
+        if (!savedRatios) {
             applyResearchSectionRatios([1 / 3, 1 / 3, 1 / 3], false);
             return;
         }
-
-        try {
-            const parsed = JSON.parse(savedRaw);
-            applyResearchSectionRatios(parsed, false);
-        } catch (_err) {
-            applyResearchSectionRatios([1 / 3, 1 / 3, 1 / 3], false);
-        }
+        applyResearchSectionRatios(savedRatios, false);
     }
 
     /**
@@ -123,7 +121,7 @@ export function createUiLayoutFeature(ctx) {
         }
 
         state.activeTab = tabName;
-        localStorage.setItem(localStorageKeys.active_tab, tabName);
+        setStorageString(localStorageKeys.active_tab, tabName);
         els.tabButtons.forEach((button) => {
             const isActive = button.dataset.tab === tabName;
             button.classList.toggle("active", isActive);
@@ -152,7 +150,7 @@ export function createUiLayoutFeature(ctx) {
         }
 
         state.activeCvTab = tabName;
-        localStorage.setItem(localStorageKeys.active_cv_tab, tabName);
+        setStorageString(localStorageKeys.active_cv_tab, tabName);
 
         els.cvTabButtons.forEach((button) => {
             const isActive = button.dataset.cvTab === tabName;
@@ -180,7 +178,7 @@ export function createUiLayoutFeature(ctx) {
         }
 
         state.activeResearchInputTab = tabName;
-        localStorage.setItem(localStorageKeys.active_research_input_tab, tabName);
+        setStorageString(localStorageKeys.active_research_input_tab, tabName);
 
         els.researchInputTabButtons.forEach((button) => {
             const isActive = button.dataset.researchInputTab === tabName;
@@ -204,7 +202,7 @@ export function createUiLayoutFeature(ctx) {
         }
 
         state.activeLogTab = tabName;
-        localStorage.setItem(localStorageKeys.active_log_tab, tabName);
+        setStorageString(localStorageKeys.active_log_tab, tabName);
         els.logTabButtons.forEach((button) => {
             const isActive = button.dataset.logTab === tabName;
             button.classList.toggle("active", isActive);
@@ -229,7 +227,7 @@ export function createUiLayoutFeature(ctx) {
         }
 
         state.activeResearchOutputTab = tabName;
-        localStorage.setItem(localStorageKeys.research_output_tab, tabName);
+        setStorageString(localStorageKeys.research_output_tab, tabName);
 
         els.researchOutputTabButtons.forEach((button) => {
             const isActive = button.dataset.researchOutputTab === tabName;

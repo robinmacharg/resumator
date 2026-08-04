@@ -1,3 +1,5 @@
+import { getStorageString } from "./storage-utils.js";
+
 /**
  * Architecture role:
  * - Layer: orchestration feature used by app bootstrap.
@@ -77,37 +79,35 @@ export function createAppInitializationFeature(ctx) {
      * @returns {void}
      */
     function restoreSavedTabs() {
-        const savedTab = localStorage.getItem(localStorageKeys.active_tab);
+        const savedTab = getStorageString(localStorageKeys.active_tab);
         if (savedTab && els.tabPanels[savedTab]) {
             uiLayoutFeature.setActiveTab(savedTab);
         } else {
             uiLayoutFeature.setActiveTab("cv");
         }
 
-        const savedCvTab = localStorage.getItem(localStorageKeys.active_cv_tab);
+        const savedCvTab = getStorageString(localStorageKeys.active_cv_tab);
         if (savedCvTab && els.cvTabPanels[savedCvTab]) {
             uiLayoutFeature.setActiveCvTab(savedCvTab);
         } else {
             uiLayoutFeature.setActiveCvTab("cv");
         }
 
-        const savedResearchInputTab = localStorage.getItem(
-            localStorageKeys.active_research_input_tab,
-        );
+        const savedResearchInputTab = getStorageString(localStorageKeys.active_research_input_tab);
         if (savedResearchInputTab && els.researchInputPanels[savedResearchInputTab]) {
             uiLayoutFeature.setActiveResearchInputTab(savedResearchInputTab);
         } else {
             uiLayoutFeature.setActiveResearchInputTab("query");
         }
 
-        const savedLogTab = localStorage.getItem(localStorageKeys.active_log_tab);
+        const savedLogTab = getStorageString(localStorageKeys.active_log_tab);
         if (savedLogTab && els.logPanels[savedLogTab]) {
             uiLayoutFeature.setActiveLogTab(savedLogTab);
         } else {
             uiLayoutFeature.setActiveLogTab("run");
         }
 
-        const savedResearchOutputTab = localStorage.getItem(localStorageKeys.research_output_tab);
+        const savedResearchOutputTab = getStorageString(localStorageKeys.research_output_tab);
         if (savedResearchOutputTab && els.researchOutputPanels[savedResearchOutputTab]) {
             uiLayoutFeature.setActiveResearchOutputTab(savedResearchOutputTab);
         } else {

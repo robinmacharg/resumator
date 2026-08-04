@@ -1,4 +1,4 @@
-import { sleep } from "./app-utils.js";
+import { pollUntilDone } from "./async-workflow-utils.js";
 
 /**
  * Architecture role:
@@ -73,19 +73,19 @@ export function createCvPipelineFeature(ctx) {
      * @returns {Promise<any>} Final run payload.
      */
     async function waitForRunCompletion() {
-        while (true) {
-            const status = await fetchRunStatus();
-            const run = status.run || null;
-            if (run) {
-                setRunLogOutput(summarizeRun(run));
-            }
+        const finalStatus = await pollUntilDone({
+            fetchStatus: fetchRunStatus,
+            isRunning: (status) => Boolean(status && status.running),
+            onTick: (status) => {
+                const run = status.run || null;
+                if (run) {
+                    setRunLogOutput(summarizeRun(run));
+                }
+            },
+            intervalMs: 1000,
+        });
 
-            if (!status.running) {
-                return run;
-            }
-
-            await sleep(1000);
-        }
+        return finalStatus.run || null;
     }
 
     /**

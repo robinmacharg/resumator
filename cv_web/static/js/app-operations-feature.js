@@ -1,3 +1,5 @@
+import { runWithStatusOperation } from "./async-workflow-utils.js";
+
 /**
  * Architecture role:
  * - Layer: orchestration feature used by app bootstrap.
@@ -79,24 +81,25 @@ export function createAppOperationsFeature(ctx) {
 
         const payload = { files: { [fileKey]: currentFiles()[fileKey] } };
         setRunning(true);
-        setStatus(`Saving ${editableFiles[fileKey].tabLabel}...`);
-        try {
-            writeDraftToLocalStorage();
-            const result = await api("/api/save", {
-                method: "POST",
-                body: JSON.stringify(payload),
-            });
-            const files = (result.state && result.state.files) || {};
-            if (Object.keys(files).length > 0) {
-                updateDiskSnapshot(files);
-                applyFilesToEditors(files);
-            }
-            setStatus(`${editableFiles[fileKey].tabLabel} saved.`);
-        } catch (err) {
-            setStatus(`Save failed: ${err.message}`, true);
-        } finally {
-            setRunning(false);
-        }
+        await runWithStatusOperation({
+            setStatus,
+            startMessage: `Saving ${editableFiles[fileKey].tabLabel}...`,
+            successMessage: `${editableFiles[fileKey].tabLabel} saved.`,
+            errorPrefix: "Save failed",
+            operation: async () => {
+                writeDraftToLocalStorage();
+                const result = await api("/api/save", {
+                    method: "POST",
+                    body: JSON.stringify(payload),
+                });
+                const files = (result.state && result.state.files) || {};
+                if (Object.keys(files).length > 0) {
+                    updateDiskSnapshot(files);
+                    applyFilesToEditors(files);
+                }
+            },
+            onFinally: () => setRunning(false),
+        });
     }
 
     /**
@@ -110,20 +113,21 @@ export function createAppOperationsFeature(ctx) {
         }
 
         setRunning(true);
-        setStatus(`Loading ${editableFiles[fileKey].tabLabel} from disk...`);
-        try {
-            const result = await api("/api/state");
-            const files = result.files || {};
-            const editor = editableFiles[fileKey].editor();
-            editor.value = files[fileKey] || "";
-            writeDraftToLocalStorage();
-            updateDiskSnapshot(files);
-            setStatus(`${editableFiles[fileKey].tabLabel} loaded from disk.`);
-        } catch (err) {
-            setStatus(`Load failed: ${err.message}`, true);
-        } finally {
-            setRunning(false);
-        }
+        await runWithStatusOperation({
+            setStatus,
+            startMessage: `Loading ${editableFiles[fileKey].tabLabel} from disk...`,
+            successMessage: `${editableFiles[fileKey].tabLabel} loaded from disk.`,
+            errorPrefix: "Load failed",
+            operation: async () => {
+                const result = await api("/api/state");
+                const files = result.files || {};
+                const editor = editableFiles[fileKey].editor();
+                editor.value = files[fileKey] || "";
+                writeDraftToLocalStorage();
+                updateDiskSnapshot(files);
+            },
+            onFinally: () => setRunning(false),
+        });
     }
 
     /**
@@ -132,19 +136,20 @@ export function createAppOperationsFeature(ctx) {
      */
     async function saveToDisk() {
         setRunning(true);
-        setStatus("Saving files...");
-        try {
-            writeDraftToLocalStorage();
-            await api("/api/save", {
-                method: "POST",
-                body: JSON.stringify({ files: currentFiles() }),
-            });
-            setStatus("Saved to disk.");
-        } catch (err) {
-            setStatus(`Save failed: ${err.message}`, true);
-        } finally {
-            setRunning(false);
-        }
+        await runWithStatusOperation({
+            setStatus,
+            startMessage: "Saving files...",
+            successMessage: "Saved to disk.",
+            errorPrefix: "Save failed",
+            operation: async () => {
+                writeDraftToLocalStorage();
+                await api("/api/save", {
+                    method: "POST",
+                    body: JSON.stringify({ files: currentFiles() }),
+                });
+            },
+            onFinally: () => setRunning(false),
+        });
     }
 
     /**
@@ -153,22 +158,22 @@ export function createAppOperationsFeature(ctx) {
      */
     async function reloadFromDisk() {
         setRunning(true);
-        setStatus("Reloading from disk...");
-
-        try {
-            const payload = await api("/api/state");
-            applyFilesToEditors(payload.files || {});
-            updateDiskSnapshot(payload.files || {});
-            applyCvOutputState(payload);
-            writeDraftToLocalStorage();
-            updatePreview();
-            await refreshTailoredOutput();
-            setStatus("Reloaded from disk.");
-        } catch (err) {
-            setStatus(`Reload failed: ${err.message}`, true);
-        } finally {
-            setRunning(false);
-        }
+        await runWithStatusOperation({
+            setStatus,
+            startMessage: "Reloading from disk...",
+            successMessage: "Reloaded from disk.",
+            errorPrefix: "Reload failed",
+            operation: async () => {
+                const payload = await api("/api/state");
+                applyFilesToEditors(payload.files || {});
+                updateDiskSnapshot(payload.files || {});
+                applyCvOutputState(payload);
+                writeDraftToLocalStorage();
+                updatePreview();
+                await refreshTailoredOutput();
+            },
+            onFinally: () => setRunning(false),
+        });
     }
 
     /**
