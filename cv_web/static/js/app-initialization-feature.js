@@ -91,7 +91,9 @@ export function createAppInitializationFeature(ctx) {
             uiLayoutFeature.setActiveCvTab("cv");
         }
 
-        const savedResearchInputTab = localStorage.getItem(localStorageKeys.active_research_input_tab);
+        const savedResearchInputTab = localStorage.getItem(
+            localStorageKeys.active_research_input_tab,
+        );
         if (savedResearchInputTab && els.researchInputPanels[savedResearchInputTab]) {
             uiLayoutFeature.setActiveResearchInputTab(savedResearchInputTab);
         } else {
@@ -142,7 +144,9 @@ export function createAppInitializationFeature(ctx) {
                         setResearchRunning(false);
                     });
             } else {
-                setResearchStatus(currentResearch.run.success ? "Last run succeeded." : "Last run failed.");
+                setResearchStatus(
+                    currentResearch.run.success ? "Last run succeeded." : "Last run failed.",
+                );
             }
         } else {
             setResearchStatus("Idle.");

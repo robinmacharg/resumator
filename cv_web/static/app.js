@@ -8,6 +8,7 @@
  */
 
 import { api, fetchText } from "./js/api-client.js";
+import { createAppEventBindingsFeature } from "./js/app-event-bindings-feature.js";
 import { createAppInitializationFeature } from "./js/app-initialization-feature.js";
 import { createAppOperationsFeature } from "./js/app-operations-feature.js";
 import { createCvPipelineFeature } from "./js/cv-pipeline-feature.js";
@@ -236,14 +237,7 @@ const appOperationsFeature = createAppOperationsFeature({
     setStatus,
 });
 
-const {
-    refreshTailoredOutput,
-    saveSingleFile,
-    loadSingleFile,
-    saveToDisk,
-    reloadFromDisk,
-    restartServerFromWeb,
-} = appOperationsFeature;
+const { refreshTailoredOutput } = appOperationsFeature;
 
 const researchFeature = createResearchFeature({
     state,
@@ -333,73 +327,17 @@ const appInitializationFeature = createAppInitializationFeature({
 
 const { initialize } = appInitializationFeature;
 
-els.runFormatBtn.addEventListener("click", () => cvPipelineFeature.runPipeline("format"));
-els.runFullBtn.addEventListener("click", () => cvPipelineFeature.runPipeline("full"));
-if (els.restartServerBtn) {
-    els.restartServerBtn.addEventListener("click", restartServerFromWeb);
-}
-if (els.runResearchBtn) {
-    els.runResearchBtn.addEventListener("click", () => researchFeature.onResearchPrimaryAction());
-}
-if (els.formatResearchBtn) {
-    els.formatResearchBtn.addEventListener("click", () => researchFeature.formatResearchPdf());
-}
-if (els.resetResearchPromptBtn) {
-    els.resetResearchPromptBtn.addEventListener("click", () =>
-        researchFeature.resetResearchPrompt(),
-    );
-}
-if (els.copyResearchOutputBtn) {
-    els.copyResearchOutputBtn.addEventListener("click", () =>
-        researchFeature.copyResearchOutputToClipboard(),
-    );
-}
-els.refreshLogsBtn.addEventListener("click", () => logsFeature.refreshLogs());
-els.logSelect.addEventListener("change", () => logsFeature.loadSelectedDebugLog());
-els.tabButtons.forEach((button) => {
-    button.addEventListener("click", () => uiLayoutFeature.setActiveTab(button.dataset.tab));
+const appEventBindingsFeature = createAppEventBindingsFeature({
+    els,
+    cvPipelineFeature,
+    appOperationsFeature,
+    researchFeature,
+    logsFeature,
+    uiLayoutFeature,
+    providerModelFeature,
 });
-els.cvTabButtons.forEach((button) => {
-    button.addEventListener("click", () => uiLayoutFeature.setActiveCvTab(button.dataset.cvTab));
-});
-els.researchInputTabButtons.forEach((button) => {
-    button.addEventListener("click", () =>
-        uiLayoutFeature.setActiveResearchInputTab(button.dataset.researchInputTab),
-    );
-});
-els.logTabButtons.forEach((button) => {
-    button.addEventListener("click", () => uiLayoutFeature.setActiveLogTab(button.dataset.logTab));
-});
-els.researchOutputTabButtons.forEach((button) => {
-    button.addEventListener("click", () =>
-        uiLayoutFeature.setActiveResearchOutputTab(button.dataset.researchOutputTab),
-    );
-});
-els.fileSaveButtons.forEach((button) => {
-    button.addEventListener("click", () => saveSingleFile(button.dataset.file));
-});
-els.fileLoadButtons.forEach((button) => {
-    button.addEventListener("click", () => loadSingleFile(button.dataset.file));
-});
-if (els.paneSplitter) {
-    els.paneSplitter.addEventListener("pointerdown", uiLayoutFeature.onSplitterPointerDown);
-    window.addEventListener("pointermove", uiLayoutFeature.onSplitterPointerMove);
-    window.addEventListener("pointerup", uiLayoutFeature.onSplitterPointerUp);
-    window.addEventListener("pointercancel", uiLayoutFeature.onSplitterPointerUp);
-}
-els.researchSplitters.forEach((splitter) => {
-    splitter.addEventListener("pointerdown", uiLayoutFeature.onResearchSplitterPointerDown);
-});
-if (els.modelSelect) {
-    els.modelSelect.addEventListener("change", () => {
-        providerModelFeature.handleModelSelectChanged();
-    });
-}
-if (els.providerSelect) {
-    els.providerSelect.addEventListener("change", () => {
-        providerModelFeature.handleProviderSelectChanged();
-    });
-}
+
+appEventBindingsFeature.bindEventHandlers();
 
 bindAutosave();
 bindMirroredEditors(els.jobspecEditor, els.researchJobspecEditor);
