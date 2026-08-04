@@ -87,6 +87,7 @@ def build_state(deps: dict[str, Any]) -> dict[str, Any]:
     files = {key: deps["read_text"](path) for key, path in deps["EDITOR_FILES"].items()}
     output_pdf = deps["OUTPUT_DIR"] / "tailored_dev.pdf"
     output_docx = deps["OUTPUT_DIR"] / "tailored_dev.docx"
+    output_model = deps["OUTPUT_DIR"] / "tailored.model-output.txt"
     catalog = deps["load_catalog"]()
     provider_options = deps["build_provider_options"]()
     enabled_options = [item for item in provider_options if item.get("enabled", True)]
@@ -113,6 +114,7 @@ def build_state(deps: dict[str, Any]) -> dict[str, Any]:
             "docxExists": output_docx.exists(),
             "pdfMtime": deps["file_mtime"](output_pdf),
             "docxMtime": deps["file_mtime"](output_docx),
+            "modelOutputMtime": deps["file_mtime"](output_model),
         },
         "lastRun": deps["LAST_RUN"],
     }

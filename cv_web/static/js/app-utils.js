@@ -55,6 +55,32 @@ export function formatTimestampToSecond(value) {
 }
 
 /**
+ * Format a date-like value to preview style (dd/MM/yyyy - HH:mm:ss).
+ * @param {string | number | Date | null | undefined} value Optional date-like input.
+ * @param {string} [fallback="-"] Value returned when input is missing/invalid.
+ * @returns {string} Formatted date-time or fallback.
+ */
+export function formatPreviewDateTime(value, fallback = "-") {
+    if (value == null || value === "") {
+        return fallback;
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return fallback;
+    }
+
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const day = pad2(date.getDate());
+    const month = pad2(date.getMonth() + 1);
+    const year = date.getFullYear();
+    const hours = pad2(date.getHours());
+    const mins = pad2(date.getMinutes());
+    const secs = pad2(date.getSeconds());
+    return `${day}/${month}/${year} - ${hours}:${mins}:${secs}`;
+}
+
+/**
  * Await for a fixed number of milliseconds.
  * @param {number} ms Delay in milliseconds.
  * @returns {Promise<void>}

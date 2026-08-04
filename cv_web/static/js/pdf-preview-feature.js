@@ -1,3 +1,5 @@
+import { formatPreviewDateTime } from "./app-utils.js";
+
 const PREVIEW_CONFIG = {
     cv: {
         label: "CV",
@@ -8,6 +10,21 @@ const PREVIEW_CONFIG = {
             payload && payload.outputs && Number.isFinite(payload.outputs.pdfMtime)
                 ? payload.outputs.pdfMtime
                 : null,
+        payloadToSourceGeneratedAt: (payload) => {
+            const sourceMtime =
+                payload && payload.outputs && Number.isFinite(payload.outputs.modelOutputMtime)
+                    ? payload.outputs.modelOutputMtime * 1000
+                    : null;
+            if (sourceMtime !== null) {
+                return sourceMtime;
+            }
+
+            const fallback =
+                payload && payload.lastRun && typeof payload.lastRun.finishedAt === "string"
+                    ? payload.lastRun.finishedAt
+                    : null;
+            return fallback;
+        },
     },
     research: {
         label: "Research",
@@ -18,6 +35,31 @@ const PREVIEW_CONFIG = {
             payload && payload.output && Number.isFinite(payload.output.formattedPdfMtime)
                 ? payload.output.formattedPdfMtime
                 : null,
+        payloadToSourceGeneratedAt: (payload) => {
+            const fallback =
+                payload && payload.lastRun && typeof payload.lastRun.finishedAt === "string"
+                    ? payload.lastRun.finishedAt
+                    : null;
+
+            const rawJson =
+                payload && payload.output && typeof payload.output.json === "string"
+                    ? payload.output.json
+                    : "";
+            if (!rawJson.trim()) {
+                return fallback;
+            }
+
+            try {
+                const parsed = JSON.parse(rawJson);
+                if (parsed && typeof parsed.generatedAt === "string") {
+                    return parsed.generatedAt;
+                }
+            } catch {
+                // Keep fallback when research JSON is unavailable or malformed.
+            }
+
+            return fallback;
+        },
     },
 };
 
@@ -50,8 +92,8 @@ export function createPdfPreviewFeature(ctx) {
     const { els, getActivePreviewKind } = ctx;
 
     const previewState = {
-        cv: { exists: false, mtime: null },
-        research: { exists: false, mtime: null },
+        cv: { exists: false, mtime: null, sourceGeneratedAt: null },
+        research: { exists: false, mtime: null, sourceGeneratedAt: null },
     };
 
     /**
@@ -68,19 +110,16 @@ export function createPdfPreviewFeature(ctx) {
             return "-";
         }
 
-        const date = new Date(mtimeSeconds * 1000);
-        if (Number.isNaN(date.getTime())) {
-            return "-";
-        }
+        return formatPreviewDateTime(mtimeSeconds * 1000, "-");
+    }
 
-        const pad2 = (n) => String(n).padStart(2, "0");
-        const day = pad2(date.getDate());
-        const month = pad2(date.getMonth() + 1);
-        const year = date.getFullYear();
-        const hours = pad2(date.getHours());
-        const mins = pad2(date.getMinutes());
-        const secs = pad2(date.getSeconds());
-        return `${day}/${month}/${year} - ${hours}:${mins}:${secs}`;
+    /**
+     * Format source generation timestamp for preview title text.
+     * @param {string | null | undefined} value ISO-like timestamp from model output metadata.
+     * @returns {string} Formatted timestamp or "-".
+     */
+    function formatSourceGeneratedForPreview(value) {
+        return formatPreviewDateTime(value, "-");
     }
 
     /**
@@ -97,6 +136,7 @@ export function createPdfPreviewFeature(ctx) {
 
         previewState[kind].exists = cfg.payloadToExists(payload);
         previewState[kind].mtime = cfg.payloadToMtime(payload);
+        previewState[kind].sourceGeneratedAt = cfg.payloadToSourceGeneratedAt(payload);
     }
 
     /**
@@ -128,7 +168,10 @@ export function createPdfPreviewFeature(ctx) {
 
         if (els.pdfPreviewTitle) {
             const generatedText = formatMtimeForPreview(state.mtime);
-            els.pdfPreviewTitle.textContent = `PDF Preview (${cfg.label}, Generated: ${generatedText})`;
+            const sourceGeneratedText = formatSourceGeneratedForPreview(state.sourceGeneratedAt);
+            els.pdfPreviewTitle.textContent =
+                `PDF Preview (${cfg.label}, Generated: ${generatedText}, ` +
+                `Source generated: ${sourceGeneratedText})`;
         }
 
         if (els.pdfPreviewOpenLink) {

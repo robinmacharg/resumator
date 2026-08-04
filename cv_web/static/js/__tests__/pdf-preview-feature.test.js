@@ -58,6 +58,7 @@ test("pdf preview renders CV output when file exists", () => {
             outputs: {
                 pdfExists: true,
                 pdfMtime: 1,
+                modelOutputMtime: 1700000000,
             },
         });
         feature.updatePreview();
@@ -70,9 +71,34 @@ test("pdf preview renders CV output when file exists", () => {
         assert.equal(els.pdfPreviewOpenLink.style.opacity, "1");
         assert.equal(els.pdfPreviewTitle.textContent.includes("PDF Preview (CV, Generated:"), true);
         assert.equal(els.pdfPreviewTitle.textContent.includes("Generated: -"), false);
+        assert.equal(els.pdfPreviewTitle.textContent.includes(", Source generated: "), true);
+        assert.equal(els.pdfPreviewTitle.textContent.includes("Source generated: -"), false);
     } finally {
         Date.now = originalNow;
     }
+});
+
+test("pdf preview CV source timestamp falls back to lastRun metadata", () => {
+    const els = createEls();
+
+    const feature = createPdfPreviewFeature({
+        els,
+        getActivePreviewKind: () => "cv",
+    });
+
+    feature.applyCvOutputState({
+        outputs: {
+            pdfExists: true,
+            pdfMtime: 1700000100,
+            modelOutputMtime: null,
+        },
+        lastRun: {
+            finishedAt: "2026-08-04T10:11:12Z",
+        },
+    });
+    feature.updatePreview();
+
+    assert.equal(els.pdfPreviewTitle.textContent.includes("Source generated: -"), false);
 });
 
 test("pdf preview renders placeholder when research PDF is missing", () => {
@@ -97,7 +123,10 @@ test("pdf preview renders placeholder when research PDF is missing", () => {
     assert.equal(els.pdfPreviewOpenLink.href, "/output/research_output.formatted.pdf");
     assert.equal(els.pdfPreviewOpenLink.style.pointerEvents, "none");
     assert.equal(els.pdfPreviewOpenLink.style.opacity, "0.45");
-    assert.equal(els.pdfPreviewTitle.textContent, "PDF Preview (Research, Generated: -)");
+    assert.equal(
+        els.pdfPreviewTitle.textContent,
+        "PDF Preview (Research, Generated: -, Source generated: -)",
+    );
 });
 
 test("pdf preview defaults to CV when active kind is unknown", () => {
@@ -110,7 +139,10 @@ test("pdf preview defaults to CV when active kind is unknown", () => {
 
     feature.updatePreview();
 
-    assert.equal(els.pdfPreviewTitle.textContent, "PDF Preview (CV, Generated: -)");
+    assert.equal(
+        els.pdfPreviewTitle.textContent,
+        "PDF Preview (CV, Generated: -, Source generated: -)",
+    );
     assert.equal(els.pdfPreviewOpenLink.href, "/output/tailored_dev.pdf");
 });
 
@@ -129,6 +161,10 @@ test("pdf preview reads research payload metadata when available", () => {
             output: {
                 formattedPdfExists: true,
                 formattedPdfMtime: 1700000000,
+                json: JSON.stringify({ generatedAt: "2026-08-04T09:10:11Z" }),
+            },
+            lastRun: {
+                finishedAt: "2026-08-04T00:00:00Z",
             },
         });
         feature.updatePreview();
@@ -138,6 +174,7 @@ test("pdf preview reads research payload metadata when available", () => {
             els.pdfPreviewTitle.textContent.startsWith("PDF Preview (Research, Generated: "),
             true,
         );
+        assert.equal(els.pdfPreviewTitle.textContent.includes("Source generated: -"), false);
         assert.equal(els.pdfPreviewOpenLink.style.pointerEvents, "auto");
     } finally {
         Date.now = originalNow;
@@ -164,5 +201,8 @@ test("pdf preview tolerates malformed payloads and keeps safe defaults", () => {
     assert.equal(els.pdfPreviewOpenLink.href, "/output/research_output.formatted.pdf");
     assert.equal(els.pdfPreviewOpenLink.style.pointerEvents, "none");
     assert.equal(els.pdfPreviewOpenLink.style.opacity, "0.45");
-    assert.equal(els.pdfPreviewTitle.textContent, "PDF Preview (Research, Generated: -)");
+    assert.equal(
+        els.pdfPreviewTitle.textContent,
+        "PDF Preview (Research, Generated: -, Source generated: -)",
+    );
 });

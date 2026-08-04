@@ -93,6 +93,7 @@ def _run_output_mtimes() -> dict[str, float | None]:
     return {
         "pdfMtime": _file_mtime(OUTPUT_DIR / "tailored_dev.pdf"),
         "docxMtime": _file_mtime(OUTPUT_DIR / "tailored_dev.docx"),
+        "modelOutputMtime": _file_mtime(OUTPUT_DIR / "tailored.model-output.txt"),
     }
 
 

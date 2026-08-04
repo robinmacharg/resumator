@@ -104,6 +104,7 @@ def finalize_current_run(return_code: int) -> dict[str, Any] | None:
         CURRENT_RUN["success"] = return_code == 0
         CURRENT_RUN["pdfMtime"] = _file_mtime(OUTPUT_DIR / "tailored_dev.pdf")
         CURRENT_RUN["docxMtime"] = _file_mtime(OUTPUT_DIR / "tailored_dev.docx")
+        CURRENT_RUN["modelOutputMtime"] = _file_mtime(OUTPUT_DIR / "tailored.model-output.txt")
 
         snapshot = {
             key: value
