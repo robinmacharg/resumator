@@ -2,7 +2,8 @@ const PREVIEW_CONFIG = {
     cv: {
         label: "CV",
         fileName: "tailored_dev.pdf",
-        payloadToExists: (payload) => Boolean(payload && payload.outputs && payload.outputs.pdfExists),
+        payloadToExists: (payload) =>
+            Boolean(payload && payload.outputs && payload.outputs.pdfExists),
         payloadToMtime: (payload) =>
             payload && payload.outputs && Number.isFinite(payload.outputs.pdfMtime)
                 ? payload.outputs.pdfMtime
@@ -29,7 +30,11 @@ export function createPdfPreviewFeature(ctx) {
     };
 
     function formatMtimeForPreview(mtimeSeconds) {
-        if (typeof mtimeSeconds !== "number" || !Number.isFinite(mtimeSeconds) || mtimeSeconds <= 0) {
+        if (
+            typeof mtimeSeconds !== "number" ||
+            !Number.isFinite(mtimeSeconds) ||
+            mtimeSeconds <= 0
+        ) {
             return "-";
         }
 

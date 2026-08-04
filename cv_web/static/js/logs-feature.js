@@ -1,11 +1,5 @@
 export function createLogsFeature(ctx) {
-    const {
-        els,
-        api,
-        setRunLogOutput,
-        summarizeRun,
-        setDebugLogOutput,
-    } = ctx;
+    const { els, api, setRunLogOutput, summarizeRun, setDebugLogOutput } = ctx;
 
     async function refreshLogs() {
         try {

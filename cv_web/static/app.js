@@ -3,6 +3,7 @@ import { createCvPipelineFeature } from "./js/cv-pipeline-feature.js";
 import { createLogsFeature } from "./js/logs-feature.js";
 import { createPdfPreviewFeature } from "./js/pdf-preview-feature.js";
 import { createResearchFeature } from "./js/research-feature.js";
+import { createUiLayoutFeature } from "./js/ui-layout-feature.js";
 import { formatCommandForDisplay, formatTimestampToSecond, sleep } from "./js/app-utils.js";
 
 const state = {
@@ -131,10 +132,6 @@ const EDITABLE_FILES = {
     },
 };
 
-const SPLITTER_MIN_LEFT_PX = 360;
-const SPLITTER_MIN_RIGHT_PX = 320;
-const RESEARCH_SPLITTER_MIN_SECTION_PX = 140;
-
 const LS_KEYS = {
     cv: "cvweb.cv",
     prompt: "cvweb.prompt",
@@ -250,57 +247,6 @@ function setOutputContentWithSmartAutoscroll(el, text, useValueProperty = false)
         tracker.programmaticScrollInProgress = false;
         updateAutoScrollIndicators();
     });
-}
-
-function normalizeResearchRatios(ratios) {
-    if (!Array.isArray(ratios) || ratios.length !== 3) {
-        return [1 / 3, 1 / 3, 1 / 3];
-    }
-
-    const cleaned = ratios.map((value) => {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-    });
-    const sum = cleaned.reduce((acc, value) => acc + value, 0);
-
-    if (sum <= 0) {
-        return [1 / 3, 1 / 3, 1 / 3];
-    }
-
-    return cleaned.map((value) => value / sum);
-}
-
-function applyResearchSectionRatios(ratios, persist = true) {
-    const panel = els.tabPanels.research;
-    if (!panel) {
-        return;
-    }
-
-    const normalized = normalizeResearchRatios(ratios);
-    state.researchSectionRatios = normalized;
-
-    panel.style.setProperty("--research-top-size", `${(normalized[0] * 100).toFixed(4)}%`);
-    panel.style.setProperty("--research-middle-size", `${(normalized[1] * 100).toFixed(4)}%`);
-    panel.style.setProperty("--research-bottom-size", `${(normalized[2] * 100).toFixed(4)}%`);
-
-    if (persist) {
-        localStorage.setItem(LS_KEYS.research_section_ratios, JSON.stringify(normalized));
-    }
-}
-
-function initializeResearchSectionRatios() {
-    const savedRaw = localStorage.getItem(LS_KEYS.research_section_ratios);
-    if (!savedRaw) {
-        applyResearchSectionRatios([1 / 3, 1 / 3, 1 / 3], false);
-        return;
-    }
-
-    try {
-        const parsed = JSON.parse(savedRaw);
-        applyResearchSectionRatios(parsed, false);
-    } catch (_err) {
-        applyResearchSectionRatios([1 / 3, 1 / 3, 1 / 3], false);
-    }
 }
 
 function setStatus(message, isError = false) {
@@ -950,6 +896,16 @@ const logsFeature = createLogsFeature({
     setDebugLogOutput,
 });
 
+const uiLayoutFeature = createUiLayoutFeature({
+    state,
+    els,
+    localStorageKeys: LS_KEYS,
+    onLogsTabActivated: logsFeature.refreshLogs,
+    onPreviewUpdate: previewFeature.updatePreview,
+    onTailoredTabActivated: refreshTailoredOutput,
+    onTabsChanged: updateAutoScrollIndicators,
+});
+
 const cvPipelineFeature = createCvPipelineFeature({
     api,
     currentFiles,
@@ -1043,238 +999,6 @@ async function restartServerFromWeb() {
     setStatus("Server restart timed out. Refresh the page manually.", true);
 }
 
-function setActiveTab(tabName) {
-    if (!els.tabPanels[tabName]) {
-        return;
-    }
-
-    state.activeTab = tabName;
-    localStorage.setItem(LS_KEYS.active_tab, tabName);
-    els.tabButtons.forEach((button) => {
-        const isActive = button.dataset.tab === tabName;
-        button.classList.toggle("active", isActive);
-        button.setAttribute("aria-selected", isActive ? "true" : "false");
-    });
-
-    Object.entries(els.tabPanels).forEach(([name, panel]) => {
-        panel.classList.toggle("active", name === tabName);
-    });
-
-    if (tabName === "logs") {
-        logsFeature.refreshLogs();
-    }
-
-    previewFeature.updatePreview();
-}
-
-function setActiveCvTab(tabName) {
-    if (!els.cvTabPanels[tabName]) {
-        return;
-    }
-
-    state.activeCvTab = tabName;
-    localStorage.setItem(LS_KEYS.active_cv_tab, tabName);
-
-    els.cvTabButtons.forEach((button) => {
-        const isActive = button.dataset.cvTab === tabName;
-        button.classList.toggle("active", isActive);
-        button.setAttribute("aria-selected", isActive ? "true" : "false");
-    });
-
-    Object.entries(els.cvTabPanels).forEach(([name, panel]) => {
-        panel.classList.toggle("active", name === tabName);
-    });
-
-    if (tabName === "tailored") {
-        refreshTailoredOutput();
-    }
-}
-
-function setActiveResearchInputTab(tabName) {
-    if (!els.researchInputPanels[tabName]) {
-        return;
-    }
-
-    state.activeResearchInputTab = tabName;
-    localStorage.setItem(LS_KEYS.active_research_input_tab, tabName);
-
-    els.researchInputTabButtons.forEach((button) => {
-        const isActive = button.dataset.researchInputTab === tabName;
-        button.classList.toggle("active", isActive);
-        button.setAttribute("aria-selected", isActive ? "true" : "false");
-    });
-
-    Object.entries(els.researchInputPanels).forEach(([name, panel]) => {
-        panel.classList.toggle("active", name === tabName);
-    });
-}
-
-function setActiveLogTab(tabName) {
-    if (!els.logPanels[tabName]) {
-        return;
-    }
-
-    state.activeLogTab = tabName;
-    localStorage.setItem(LS_KEYS.active_log_tab, tabName);
-    els.logTabButtons.forEach((button) => {
-        const isActive = button.dataset.logTab === tabName;
-        button.classList.toggle("active", isActive);
-        button.setAttribute("aria-selected", isActive ? "true" : "false");
-    });
-
-    Object.entries(els.logPanels).forEach(([name, panel]) => {
-        panel.classList.toggle("active", name === tabName);
-    });
-
-    updateAutoScrollIndicators();
-}
-
-function setActiveResearchOutputTab(tabName) {
-    if (!els.researchOutputPanels[tabName]) {
-        return;
-    }
-
-    state.activeResearchOutputTab = tabName;
-    localStorage.setItem(LS_KEYS.research_output_tab, tabName);
-
-    els.researchOutputTabButtons.forEach((button) => {
-        const isActive = button.dataset.researchOutputTab === tabName;
-        button.classList.toggle("active", isActive);
-        button.setAttribute("aria-selected", isActive ? "true" : "false");
-    });
-
-    Object.entries(els.researchOutputPanels).forEach(([name, panel]) => {
-        panel.classList.toggle("active", name === tabName);
-    });
-
-    updateAutoScrollIndicators();
-}
-
-function updateSplitterPosition(clientX) {
-    if (!els.layout) {
-        return;
-    }
-
-    const rect = els.layout.getBoundingClientRect();
-    const maxLeft = rect.width - SPLITTER_MIN_RIGHT_PX;
-    const next = Math.min(Math.max(clientX - rect.left, SPLITTER_MIN_LEFT_PX), maxLeft);
-    const pct = (next / rect.width) * 100;
-    els.layout.style.setProperty("--left-pane-width", `${pct}%`);
-}
-
-function onSplitterPointerDown(event) {
-    if (!els.paneSplitter || window.matchMedia("(max-width: 1100px)").matches) {
-        return;
-    }
-
-    state.isDraggingSplitter = true;
-    els.paneSplitter.classList.add("dragging");
-    els.paneSplitter.setPointerCapture(event.pointerId);
-    updateSplitterPosition(event.clientX);
-}
-
-function onResearchSplitterPointerDown(event) {
-    if (!els.tabPanels.research || window.matchMedia("(max-width: 1100px)").matches) {
-        return;
-    }
-
-    const splitter = event.currentTarget;
-    if (!splitter || !splitter.dataset || !splitter.dataset.researchSplitter) {
-        return;
-    }
-
-    const panelRect = els.tabPanels.research.getBoundingClientRect();
-    const splitterCount = 2;
-    const splitterSize = 6;
-    const availableHeight = Math.max(panelRect.height - splitterCount * splitterSize, 1);
-    const currentHeights = state.researchSectionRatios.map((ratio) => ratio * availableHeight);
-
-    state.isDraggingResearchSplitter = true;
-    state.activeResearchSplitter = {
-        key: splitter.dataset.researchSplitter,
-        startY: event.clientY,
-        startHeights: currentHeights,
-        element: splitter,
-    };
-
-    splitter.classList.add("dragging");
-    splitter.setPointerCapture(event.pointerId);
-}
-
-function onSplitterPointerMove(event) {
-    if (!state.isDraggingSplitter) {
-        if (!state.isDraggingResearchSplitter || !state.activeResearchSplitter) {
-            return;
-        }
-
-        const drag = state.activeResearchSplitter;
-        const nextHeights = [...drag.startHeights];
-        const deltaY = event.clientY - drag.startY;
-        const minSection = RESEARCH_SPLITTER_MIN_SECTION_PX;
-
-        if (drag.key === "top") {
-            nextHeights[0] += deltaY;
-            nextHeights[1] -= deltaY;
-
-            if (nextHeights[0] < minSection) {
-                nextHeights[1] -= minSection - nextHeights[0];
-                nextHeights[0] = minSection;
-            }
-            if (nextHeights[1] < minSection) {
-                nextHeights[0] -= minSection - nextHeights[1];
-                nextHeights[1] = minSection;
-            }
-        } else {
-            nextHeights[1] += deltaY;
-            nextHeights[2] -= deltaY;
-
-            if (nextHeights[1] < minSection) {
-                nextHeights[2] -= minSection - nextHeights[1];
-                nextHeights[1] = minSection;
-            }
-            if (nextHeights[2] < minSection) {
-                nextHeights[1] -= minSection - nextHeights[2];
-                nextHeights[2] = minSection;
-            }
-        }
-
-        const total = nextHeights.reduce((acc, value) => acc + value, 0);
-        if (total > 0) {
-            applyResearchSectionRatios(nextHeights.map((value) => value / total));
-        }
-        return;
-    }
-    updateSplitterPosition(event.clientX);
-}
-
-function onSplitterPointerUp(event) {
-    if (state.isDraggingResearchSplitter && state.activeResearchSplitter) {
-        const drag = state.activeResearchSplitter;
-        state.isDraggingResearchSplitter = false;
-        state.activeResearchSplitter = null;
-        if (drag.element) {
-            drag.element.classList.remove("dragging");
-            try {
-                drag.element.releasePointerCapture(event.pointerId);
-            } catch (_err) {
-                // Ignore capture release errors when pointer is no longer active.
-            }
-        }
-    }
-
-    if (!state.isDraggingSplitter || !els.paneSplitter) {
-        return;
-    }
-
-    state.isDraggingSplitter = false;
-    els.paneSplitter.classList.remove("dragging");
-    try {
-        els.paneSplitter.releasePointerCapture(event.pointerId);
-    } catch (_err) {
-        // Ignore capture release errors when pointer is no longer active.
-    }
-}
-
 async function initialize() {
     setStatus("Loading editor state...");
     try {
@@ -1338,37 +1062,37 @@ async function initialize() {
 
         const savedTab = localStorage.getItem(LS_KEYS.active_tab);
         if (savedTab && els.tabPanels[savedTab]) {
-            setActiveTab(savedTab);
+            uiLayoutFeature.setActiveTab(savedTab);
         } else {
-            setActiveTab("cv");
+            uiLayoutFeature.setActiveTab("cv");
         }
 
         const savedCvTab = localStorage.getItem(LS_KEYS.active_cv_tab);
         if (savedCvTab && els.cvTabPanels[savedCvTab]) {
-            setActiveCvTab(savedCvTab);
+            uiLayoutFeature.setActiveCvTab(savedCvTab);
         } else {
-            setActiveCvTab("cv");
+            uiLayoutFeature.setActiveCvTab("cv");
         }
 
         const savedResearchInputTab = localStorage.getItem(LS_KEYS.active_research_input_tab);
         if (savedResearchInputTab && els.researchInputPanels[savedResearchInputTab]) {
-            setActiveResearchInputTab(savedResearchInputTab);
+            uiLayoutFeature.setActiveResearchInputTab(savedResearchInputTab);
         } else {
-            setActiveResearchInputTab("query");
+            uiLayoutFeature.setActiveResearchInputTab("query");
         }
 
         const savedLogTab = localStorage.getItem(LS_KEYS.active_log_tab);
         if (savedLogTab && els.logPanels[savedLogTab]) {
-            setActiveLogTab(savedLogTab);
+            uiLayoutFeature.setActiveLogTab(savedLogTab);
         } else {
-            setActiveLogTab("run");
+            uiLayoutFeature.setActiveLogTab("run");
         }
 
         const savedResearchOutputTab = localStorage.getItem(LS_KEYS.research_output_tab);
         if (savedResearchOutputTab && els.researchOutputPanels[savedResearchOutputTab]) {
-            setActiveResearchOutputTab(savedResearchOutputTab);
+            uiLayoutFeature.setActiveResearchOutputTab(savedResearchOutputTab);
         } else {
-            setActiveResearchOutputTab("console");
+            uiLayoutFeature.setActiveResearchOutputTab("console");
         }
     } catch (err) {
         setStatus(`Initialization failed: ${err.message}`, true);
@@ -1399,22 +1123,22 @@ if (els.copyResearchOutputBtn) {
 els.refreshLogsBtn.addEventListener("click", () => logsFeature.refreshLogs());
 els.logSelect.addEventListener("change", () => logsFeature.loadSelectedDebugLog());
 els.tabButtons.forEach((button) => {
-    button.addEventListener("click", () => setActiveTab(button.dataset.tab));
+    button.addEventListener("click", () => uiLayoutFeature.setActiveTab(button.dataset.tab));
 });
 els.cvTabButtons.forEach((button) => {
-    button.addEventListener("click", () => setActiveCvTab(button.dataset.cvTab));
+    button.addEventListener("click", () => uiLayoutFeature.setActiveCvTab(button.dataset.cvTab));
 });
 els.researchInputTabButtons.forEach((button) => {
     button.addEventListener("click", () =>
-        setActiveResearchInputTab(button.dataset.researchInputTab),
+        uiLayoutFeature.setActiveResearchInputTab(button.dataset.researchInputTab),
     );
 });
 els.logTabButtons.forEach((button) => {
-    button.addEventListener("click", () => setActiveLogTab(button.dataset.logTab));
+    button.addEventListener("click", () => uiLayoutFeature.setActiveLogTab(button.dataset.logTab));
 });
 els.researchOutputTabButtons.forEach((button) => {
     button.addEventListener("click", () =>
-        setActiveResearchOutputTab(button.dataset.researchOutputTab),
+        uiLayoutFeature.setActiveResearchOutputTab(button.dataset.researchOutputTab),
     );
 });
 els.fileSaveButtons.forEach((button) => {
@@ -1424,13 +1148,13 @@ els.fileLoadButtons.forEach((button) => {
     button.addEventListener("click", () => loadSingleFile(button.dataset.file));
 });
 if (els.paneSplitter) {
-    els.paneSplitter.addEventListener("pointerdown", onSplitterPointerDown);
-    window.addEventListener("pointermove", onSplitterPointerMove);
-    window.addEventListener("pointerup", onSplitterPointerUp);
-    window.addEventListener("pointercancel", onSplitterPointerUp);
+    els.paneSplitter.addEventListener("pointerdown", uiLayoutFeature.onSplitterPointerDown);
+    window.addEventListener("pointermove", uiLayoutFeature.onSplitterPointerMove);
+    window.addEventListener("pointerup", uiLayoutFeature.onSplitterPointerUp);
+    window.addEventListener("pointercancel", uiLayoutFeature.onSplitterPointerUp);
 }
 els.researchSplitters.forEach((splitter) => {
-    splitter.addEventListener("pointerdown", onResearchSplitterPointerDown);
+    splitter.addEventListener("pointerdown", uiLayoutFeature.onResearchSplitterPointerDown);
 });
 if (els.modelSelect) {
     els.modelSelect.addEventListener("change", () => {
@@ -1448,5 +1172,5 @@ if (els.providerSelect) {
 bindAutosave();
 bindMirroredEditors(els.jobspecEditor, els.researchJobspecEditor);
 bindMirroredEditors(els.cvEditor, els.researchCvEditor);
-initializeResearchSectionRatios();
+uiLayoutFeature.initializeResearchSectionRatios();
 initialize();
