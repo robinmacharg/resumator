@@ -983,6 +983,15 @@ class CVWebHandler(BaseHTTPRequestHandler):
                     return
                 self._serve_file(css_path, "text/css; charset=utf-8")
                 return
+            if rel.startswith("js/") and rel.endswith(".js"):
+                js_path = STATIC_DIR / rel
+                try:
+                    js_path.resolve().relative_to(STATIC_DIR.resolve())
+                except ValueError:
+                    self.send_error(HTTPStatus.NOT_FOUND, "Unknown static file")
+                    return
+                self._serve_file(js_path, "application/javascript; charset=utf-8")
+                return
             if rel == "app.js":
                 self._serve_file(STATIC_DIR / "app.js", "application/javascript; charset=utf-8")
                 return

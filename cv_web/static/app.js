@@ -1,3 +1,11 @@
+import { api, fetchText } from "./js/api-client.js";
+import {
+    formatCommandForDisplay,
+    formatTimestampToSecond,
+    parseResearchUrlsInput,
+    sleep,
+} from "./js/app-utils.js";
+
 const state = {
     isRunning: false,
     isResearchRunning: false,
@@ -666,28 +674,6 @@ function updateDiskSnapshot(files) {
     syncDirtyIndicators();
 }
 
-async function api(path, options = {}) {
-    const response = await fetch(path, {
-        headers: { "Content-Type": "application/json" },
-        ...options,
-    });
-
-    if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Request failed: ${response.status}`);
-    }
-
-    return response.json();
-}
-
-async function fetchText(path) {
-    const response = await fetch(path);
-    if (!response.ok) {
-        throw new Error(`Request failed: ${response.status}`);
-    }
-    return response.text();
-}
-
 function updatePreviewCacheBuster() {
     const isResearchTab = state.activeTab === "research";
     const isResearchDoc = isResearchTab;
@@ -787,23 +773,6 @@ function setResearchBuiltQueryOutput(text) {
     setOutputContentWithSmartAutoscroll(els.researchBuiltQueryOutput, text);
 }
 
-function shellQuote(arg) {
-    if (arg === "") {
-        return "''";
-    }
-    if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(arg)) {
-        return arg;
-    }
-    return `'${String(arg).replace(/'/g, `'\\''`)}'`;
-}
-
-function formatCommandForDisplay(command) {
-    if (!Array.isArray(command) || command.length === 0) {
-        return "No command yet. Run Research first.";
-    }
-    return command.map((part) => shellQuote(String(part))).join(" ");
-}
-
 function setResearchCommandOutput(command) {
     if (!els.researchCommandOutput) {
         return;
@@ -816,25 +785,6 @@ function setResearchCommandOutput(command) {
         rendered || "No command yet. Run Research first.",
         true,
     );
-}
-
-function formatTimestampToSecond(value) {
-    const date = value ? new Date(value) : new Date();
-    if (Number.isNaN(date.getTime())) {
-        return new Date().toLocaleString();
-    }
-    const pad2 = (n) => String(n).padStart(2, "0");
-    const year = date.getFullYear();
-    const month = pad2(date.getMonth() + 1);
-    const day = pad2(date.getDate());
-    const hours = pad2(date.getHours());
-    const mins = pad2(date.getMinutes());
-    const secs = pad2(date.getSeconds());
-    return `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
-}
-
-function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function summarizeRun(run) {
@@ -865,20 +815,6 @@ function summarizeRun(run) {
     }
 
     return summary.join("\n");
-}
-
-function parseResearchUrlsInput(rawText) {
-    const seen = new Set();
-    const urls = [];
-    (rawText || "").split(/\r?\n/).forEach((line) => {
-        const cleaned = line.trim();
-        if (!cleaned || cleaned.startsWith("#") || seen.has(cleaned)) {
-            return;
-        }
-        seen.add(cleaned);
-        urls.push(cleaned);
-    });
-    return urls;
 }
 
 function summarizeResearchOutput(run) {
