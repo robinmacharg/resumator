@@ -8,6 +8,7 @@
  */
 
 import { api, fetchText } from "./js/api-client.js";
+import { createAppInitializationFeature } from "./js/app-initialization-feature.js";
 import { createAppOperationsFeature } from "./js/app-operations-feature.js";
 import { createCvPipelineFeature } from "./js/cv-pipeline-feature.js";
 import { createDraftFilesFeature } from "./js/draft-files-feature.js";
@@ -303,112 +304,34 @@ const cvPipelineFeature = createCvPipelineFeature({
     summarizeRun,
 });
 
-/**
- * Initialize app state, tabs, providers/models, logs, and research state.
- * @returns {Promise<void>}
- */
-async function initialize() {
-    setStatus("Loading editor state...");
-    try {
-        const payload = await api("/api/state");
-        providerModelFeature.populateProviderAndModelSelect(
-            payload.providers || null,
-            payload.models || null,
-        );
-        applyFilesToEditors(payload.files || {});
-        updateDiskSnapshot(payload.files || {});
-        previewFeature.applyCvOutputState(payload);
-        const researchPayload = await api("/api/research/state");
-        renderResearchState(researchPayload);
+const appInitializationFeature = createAppInitializationFeature({
+    api,
+    els,
+    localStorageKeys: LS_KEYS,
+    providerModelFeature,
+    uiLayoutFeature,
+    researchFeature,
+    setStatus,
+    applyFilesToEditors,
+    updateDiskSnapshot,
+    applyCvOutputState: previewFeature.applyCvOutputState,
+    renderResearchState,
+    hasLocalDraft,
+    loadLocalDraft,
+    writeDraftToLocalStorage,
+    syncDirtyIndicators,
+    setRunLogOutput,
+    summarizeRun,
+    summarizeResearchOutput,
+    setResearchOutput,
+    setResearchCommandOutput,
+    setResearchStatus,
+    setResearchRunning,
+    updatePreview: previewFeature.updatePreview,
+    refreshTailoredOutput,
+});
 
-        if (hasLocalDraft()) {
-            loadLocalDraft(payload.files || {});
-            setStatus("Loaded browser draft. Use per-tab Save to write to disk.");
-            syncDirtyIndicators();
-        } else {
-            writeDraftToLocalStorage();
-            setStatus("Loaded from disk.");
-            syncDirtyIndicators();
-        }
-
-        if (payload.lastRun) {
-            setRunLogOutput(summarizeRun(payload.lastRun));
-        }
-
-        const currentResearch = await researchFeature.fetchResearchStatus();
-        if (currentResearch.run) {
-            setResearchOutput(summarizeResearchOutput(currentResearch.run));
-            setResearchCommandOutput(currentResearch.run.command || []);
-            if (currentResearch.running) {
-                setResearchStatus("Research run in progress...");
-                setResearchRunning(true);
-                researchFeature
-                    .waitForResearchCompletion()
-                    .then((run) => {
-                        setResearchCommandOutput((run && run.command) || []);
-                        if (run && run.success) {
-                            setResearchStatus(`Research complete (${run.elapsedSeconds}s).`);
-                        } else {
-                            setResearchStatus("Research run failed.", true);
-                        }
-                    })
-                    .catch((err) => {
-                        setResearchStatus(`Research status polling failed: ${err.message}`, true);
-                    })
-                    .finally(() => {
-                        setResearchRunning(false);
-                    });
-            } else {
-                setResearchStatus(
-                    currentResearch.run.success ? "Last run succeeded." : "Last run failed.",
-                );
-            }
-        } else {
-            setResearchStatus("Idle.");
-            setResearchCommandOutput([]);
-        }
-
-        previewFeature.updatePreview();
-        await refreshTailoredOutput();
-
-        const savedTab = localStorage.getItem(LS_KEYS.active_tab);
-        if (savedTab && els.tabPanels[savedTab]) {
-            uiLayoutFeature.setActiveTab(savedTab);
-        } else {
-            uiLayoutFeature.setActiveTab("cv");
-        }
-
-        const savedCvTab = localStorage.getItem(LS_KEYS.active_cv_tab);
-        if (savedCvTab && els.cvTabPanels[savedCvTab]) {
-            uiLayoutFeature.setActiveCvTab(savedCvTab);
-        } else {
-            uiLayoutFeature.setActiveCvTab("cv");
-        }
-
-        const savedResearchInputTab = localStorage.getItem(LS_KEYS.active_research_input_tab);
-        if (savedResearchInputTab && els.researchInputPanels[savedResearchInputTab]) {
-            uiLayoutFeature.setActiveResearchInputTab(savedResearchInputTab);
-        } else {
-            uiLayoutFeature.setActiveResearchInputTab("query");
-        }
-
-        const savedLogTab = localStorage.getItem(LS_KEYS.active_log_tab);
-        if (savedLogTab && els.logPanels[savedLogTab]) {
-            uiLayoutFeature.setActiveLogTab(savedLogTab);
-        } else {
-            uiLayoutFeature.setActiveLogTab("run");
-        }
-
-        const savedResearchOutputTab = localStorage.getItem(LS_KEYS.research_output_tab);
-        if (savedResearchOutputTab && els.researchOutputPanels[savedResearchOutputTab]) {
-            uiLayoutFeature.setActiveResearchOutputTab(savedResearchOutputTab);
-        } else {
-            uiLayoutFeature.setActiveResearchOutputTab("console");
-        }
-    } catch (err) {
-        setStatus(`Initialization failed: ${err.message}`, true);
-    }
-}
+const { initialize } = appInitializationFeature;
 
 els.runFormatBtn.addEventListener("click", () => cvPipelineFeature.runPipeline("format"));
 els.runFullBtn.addEventListener("click", () => cvPipelineFeature.runPipeline("full"));

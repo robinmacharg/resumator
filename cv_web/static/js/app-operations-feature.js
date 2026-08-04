@@ -63,8 +63,7 @@ export function createAppOperationsFeature(ctx) {
             const text = await fetchText(`/output/tailored.md?ts=${Date.now()}`);
             els.tailoredViewer.value = text;
         } catch (_err) {
-            els.tailoredViewer.value =
-                "output/tailored.md not found yet. Run full pipeline first.";
+            els.tailoredViewer.value = "output/tailored.md not found yet. Run full pipeline first.";
         }
     }
 
