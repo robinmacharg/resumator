@@ -39,6 +39,32 @@ export function createAppEventBindingsFeature(ctx) {
     } = ctx;
 
     /**
+     * Add a click listener when the element exists.
+     * @param {HTMLElement | null | undefined} element
+     * @param {() => void} handler
+     * @returns {void}
+     */
+    function bindOptionalClick(element, handler) {
+        if (!element) {
+            return;
+        }
+        element.addEventListener("click", handler);
+    }
+
+    /**
+     * Bind tab-style button groups where data-* drives selected value.
+     * @param {Array<any>} buttons
+     * @param {(button: any) => any} getValue
+     * @param {(value: any) => void} onSelect
+     * @returns {void}
+     */
+    function bindButtonGroup(buttons, getValue, onSelect) {
+        buttons.forEach((button) => {
+            button.addEventListener("click", () => onSelect(getValue(button)));
+        });
+    }
+
+    /**
      * Attach event handlers for all interactive controls.
      * @returns {void}
      */
@@ -46,62 +72,43 @@ export function createAppEventBindingsFeature(ctx) {
         els.runFormatBtn.addEventListener("click", () => cvPipelineFeature.runPipeline("format"));
         els.runFullBtn.addEventListener("click", () => cvPipelineFeature.runPipeline("full"));
 
-        if (els.restartServerBtn) {
-            els.restartServerBtn.addEventListener(
-                "click",
-                appOperationsFeature.restartServerFromWeb,
-            );
-        }
+        bindOptionalClick(els.restartServerBtn, appOperationsFeature.restartServerFromWeb);
 
-        if (els.runResearchBtn) {
-            els.runResearchBtn.addEventListener("click", () =>
-                researchFeature.onResearchPrimaryAction(),
-            );
-        }
-        if (els.formatResearchBtn) {
-            els.formatResearchBtn.addEventListener("click", () =>
-                researchFeature.formatResearchPdf(),
-            );
-        }
-        if (els.resetResearchPromptBtn) {
-            els.resetResearchPromptBtn.addEventListener("click", () =>
-                researchFeature.resetResearchPrompt(),
-            );
-        }
-        if (els.copyResearchOutputBtn) {
-            els.copyResearchOutputBtn.addEventListener("click", () =>
-                researchFeature.copyResearchOutputToClipboard(),
-            );
-        }
+        bindOptionalClick(els.runResearchBtn, () => researchFeature.onResearchPrimaryAction());
+        bindOptionalClick(els.formatResearchBtn, () => researchFeature.formatResearchPdf());
+        bindOptionalClick(els.resetResearchPromptBtn, () => researchFeature.resetResearchPrompt());
+        bindOptionalClick(els.copyResearchOutputBtn, () =>
+            researchFeature.copyResearchOutputToClipboard(),
+        );
 
         els.refreshLogsBtn.addEventListener("click", () => logsFeature.refreshLogs());
         els.logSelect.addEventListener("change", () => logsFeature.loadSelectedDebugLog());
 
-        els.tabButtons.forEach((button) => {
-            button.addEventListener("click", () =>
-                uiLayoutFeature.setActiveTab(button.dataset.tab),
-            );
-        });
-        els.cvTabButtons.forEach((button) => {
-            button.addEventListener("click", () =>
-                uiLayoutFeature.setActiveCvTab(button.dataset.cvTab),
-            );
-        });
-        els.researchInputTabButtons.forEach((button) => {
-            button.addEventListener("click", () =>
-                uiLayoutFeature.setActiveResearchInputTab(button.dataset.researchInputTab),
-            );
-        });
-        els.logTabButtons.forEach((button) => {
-            button.addEventListener("click", () =>
-                uiLayoutFeature.setActiveLogTab(button.dataset.logTab),
-            );
-        });
-        els.researchOutputTabButtons.forEach((button) => {
-            button.addEventListener("click", () =>
-                uiLayoutFeature.setActiveResearchOutputTab(button.dataset.researchOutputTab),
-            );
-        });
+        bindButtonGroup(
+            els.tabButtons,
+            (button) => button.dataset.tab,
+            uiLayoutFeature.setActiveTab,
+        );
+        bindButtonGroup(
+            els.cvTabButtons,
+            (button) => button.dataset.cvTab,
+            uiLayoutFeature.setActiveCvTab,
+        );
+        bindButtonGroup(
+            els.researchInputTabButtons,
+            (button) => button.dataset.researchInputTab,
+            uiLayoutFeature.setActiveResearchInputTab,
+        );
+        bindButtonGroup(
+            els.logTabButtons,
+            (button) => button.dataset.logTab,
+            uiLayoutFeature.setActiveLogTab,
+        );
+        bindButtonGroup(
+            els.researchOutputTabButtons,
+            (button) => button.dataset.researchOutputTab,
+            uiLayoutFeature.setActiveResearchOutputTab,
+        );
 
         els.fileSaveButtons.forEach((button) => {
             button.addEventListener("click", () =>
@@ -125,14 +132,16 @@ export function createAppEventBindingsFeature(ctx) {
         });
 
         if (els.modelSelect) {
-            els.modelSelect.addEventListener("change", () => {
-                providerModelFeature.handleModelSelectChanged();
-            });
+            els.modelSelect.addEventListener(
+                "change",
+                providerModelFeature.handleModelSelectChanged,
+            );
         }
         if (els.providerSelect) {
-            els.providerSelect.addEventListener("change", () => {
-                providerModelFeature.handleProviderSelectChanged();
-            });
+            els.providerSelect.addEventListener(
+                "change",
+                providerModelFeature.handleProviderSelectChanged,
+            );
         }
     }
 

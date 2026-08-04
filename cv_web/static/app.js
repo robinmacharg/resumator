@@ -171,6 +171,13 @@ const LS_KEYS = {
     selected_model: "cvweb.selected_model",
 };
 
+// Shared preview wiring used across composed features.
+const previewBindings = {
+    applyCvOutputState: previewFeature.applyCvOutputState,
+    applyResearchPreviewState: previewFeature.applyResearchOutputState,
+    updatePreview: previewFeature.updatePreview,
+};
+
 // Phase 3: compose foundational display and state-control features.
 // Shared PDF preview presenter for CV and Research outputs.
 const outputDisplayFeature = createOutputDisplayFeature({
@@ -178,7 +185,7 @@ const outputDisplayFeature = createOutputDisplayFeature({
     els,
     formatCommandForDisplay,
     formatTimestampToSecond,
-    applyResearchPreviewState: previewFeature.applyResearchOutputState,
+    applyResearchPreviewState: previewBindings.applyResearchPreviewState,
 });
 
 const {
@@ -231,21 +238,31 @@ const {
     bindAutosave,
 } = draftFilesFeature;
 
+// Shared dependency bundles reused by workflow features.
+const workflowDeps = {
+    api,
+    currentFiles,
+    writeDraftToLocalStorage,
+    setStatus,
+    updateDiskSnapshot,
+};
+
+const previewWorkflowDeps = {
+    applyCvOutputState: previewBindings.applyCvOutputState,
+    updatePreviewCacheBuster: previewBindings.updatePreview,
+};
+
 // File operation and server lifecycle actions (save/load/reload/restart).
 const appOperationsFeature = createAppOperationsFeature({
     els,
     editableFiles: EDITABLE_FILES,
-    api,
+    ...workflowDeps,
     fetchText,
     sleep,
-    currentFiles,
-    writeDraftToLocalStorage,
-    updateDiskSnapshot,
     applyFilesToEditors,
-    applyCvOutputState: previewFeature.applyCvOutputState,
-    updatePreview: previewFeature.updatePreview,
+    applyCvOutputState: previewBindings.applyCvOutputState,
+    updatePreview: previewBindings.updatePreview,
     setRunning,
-    setStatus,
 });
 
 const { refreshTailoredOutput } = appOperationsFeature;
@@ -254,13 +271,9 @@ const { refreshTailoredOutput } = appOperationsFeature;
 const researchFeature = createResearchFeature({
     state,
     els,
-    api,
-    currentFiles,
-    writeDraftToLocalStorage,
-    setStatus,
+    ...workflowDeps,
     setResearchRunning,
-    updatePreviewCacheBuster: previewFeature.updatePreview,
-    updateDiskSnapshot,
+    updatePreviewCacheBuster: previewWorkflowDeps.updatePreviewCacheBuster,
     setResearchStatus,
     setResearchOutput,
     setResearchCommandOutput,
@@ -284,7 +297,7 @@ const uiLayoutFeature = createUiLayoutFeature({
     els,
     localStorageKeys: LS_KEYS,
     onLogsTabActivated: logsFeature.refreshLogs,
-    onPreviewUpdate: previewFeature.updatePreview,
+    onPreviewUpdate: previewBindings.updatePreview,
     onTailoredTabActivated: refreshTailoredOutput,
     onTabsChanged: updateAutoScrollIndicators,
 });
@@ -298,18 +311,13 @@ const providerModelFeature = createProviderModelFeature({
 
 // CV pipeline run orchestrator and polling coordinator.
 const cvPipelineFeature = createCvPipelineFeature({
-    api,
-    currentFiles,
-    writeDraftToLocalStorage,
+    ...workflowDeps,
     state,
     setRunning,
     startRunStatusTimer,
     stopRunStatusTimer,
     setRunLogOutput,
-    setStatus,
-    updateDiskSnapshot,
-    applyCvOutputState: previewFeature.applyCvOutputState,
-    updatePreviewCacheBuster: previewFeature.updatePreview,
+    ...previewWorkflowDeps,
     refreshTailoredOutput,
     refreshLogs: logsFeature.refreshLogs,
     summarizeRun,
@@ -317,20 +325,17 @@ const cvPipelineFeature = createCvPipelineFeature({
 
 // Startup state restoration coordinator.
 const appInitializationFeature = createAppInitializationFeature({
-    api,
+    ...workflowDeps,
     els,
     localStorageKeys: LS_KEYS,
     providerModelFeature,
     uiLayoutFeature,
     researchFeature,
-    setStatus,
     applyFilesToEditors,
-    updateDiskSnapshot,
-    applyCvOutputState: previewFeature.applyCvOutputState,
+    applyCvOutputState: previewBindings.applyCvOutputState,
     renderResearchState,
     hasLocalDraft,
     loadLocalDraft,
-    writeDraftToLocalStorage,
     syncDirtyIndicators,
     setRunLogOutput,
     summarizeRun,
@@ -339,7 +344,7 @@ const appInitializationFeature = createAppInitializationFeature({
     setResearchCommandOutput,
     setResearchStatus,
     setResearchRunning,
-    updatePreview: previewFeature.updatePreview,
+    updatePreview: previewBindings.updatePreview,
     refreshTailoredOutput,
 });
 

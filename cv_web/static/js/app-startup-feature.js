@@ -37,13 +37,25 @@ export function createAppStartupFeature(ctx) {
     } = ctx;
 
     /**
+     * Bind all mirrored editor pairs used in startup.
+     * @returns {void}
+     */
+    function bindMirroredEditorPairs() {
+        [
+            [els.jobspecEditor, els.researchJobspecEditor],
+            [els.cvEditor, els.researchCvEditor],
+        ].forEach(([primaryEditor, mirrorEditor]) => {
+            bindMirroredEditors(primaryEditor, mirrorEditor);
+        });
+    }
+
+    /**
      * Execute startup sequence once after all features are composed.
      * @returns {void}
      */
     function runStartupSequence() {
         bindAutosave();
-        bindMirroredEditors(els.jobspecEditor, els.researchJobspecEditor);
-        bindMirroredEditors(els.cvEditor, els.researchCvEditor);
+        bindMirroredEditorPairs();
         uiLayoutFeature.initializeResearchSectionRatios();
         syncResearchPrimaryButton();
         initialize();
