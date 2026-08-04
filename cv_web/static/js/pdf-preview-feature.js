@@ -150,7 +150,7 @@ export function createPdfPreviewFeature(ctx) {
         els.pdfPreview.classList.add("hidden");
         if (els.pdfPlaceholder) {
             els.pdfPlaceholder.classList.add("visible");
-            els.pdfPlaceholder.textContent = "No document availabel";
+            els.pdfPlaceholder.textContent = "No document available";
         }
     }
 

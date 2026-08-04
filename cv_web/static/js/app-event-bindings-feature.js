@@ -47,7 +47,10 @@ export function createAppEventBindingsFeature(ctx) {
         els.runFullBtn.addEventListener("click", () => cvPipelineFeature.runPipeline("full"));
 
         if (els.restartServerBtn) {
-            els.restartServerBtn.addEventListener("click", appOperationsFeature.restartServerFromWeb);
+            els.restartServerBtn.addEventListener(
+                "click",
+                appOperationsFeature.restartServerFromWeb,
+            );
         }
 
         if (els.runResearchBtn) {
@@ -56,7 +59,9 @@ export function createAppEventBindingsFeature(ctx) {
             );
         }
         if (els.formatResearchBtn) {
-            els.formatResearchBtn.addEventListener("click", () => researchFeature.formatResearchPdf());
+            els.formatResearchBtn.addEventListener("click", () =>
+                researchFeature.formatResearchPdf(),
+            );
         }
         if (els.resetResearchPromptBtn) {
             els.resetResearchPromptBtn.addEventListener("click", () =>
@@ -73,10 +78,14 @@ export function createAppEventBindingsFeature(ctx) {
         els.logSelect.addEventListener("change", () => logsFeature.loadSelectedDebugLog());
 
         els.tabButtons.forEach((button) => {
-            button.addEventListener("click", () => uiLayoutFeature.setActiveTab(button.dataset.tab));
+            button.addEventListener("click", () =>
+                uiLayoutFeature.setActiveTab(button.dataset.tab),
+            );
         });
         els.cvTabButtons.forEach((button) => {
-            button.addEventListener("click", () => uiLayoutFeature.setActiveCvTab(button.dataset.cvTab));
+            button.addEventListener("click", () =>
+                uiLayoutFeature.setActiveCvTab(button.dataset.cvTab),
+            );
         });
         els.researchInputTabButtons.forEach((button) => {
             button.addEventListener("click", () =>
