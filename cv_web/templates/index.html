@@ -197,26 +197,7 @@
                     </section>
 
                     <section id="tab-research" class="tab-panel" role="tabpanel">
-                        <div class="editor-head">
-                            <label id="researchPromptTitle" for="researchPromptEditor"
-                                >Research Role</label
-                            >
-                            <div class="file-actions">
-                                <button
-                                    class="btn btn-secondary file-load-btn"
-                                    data-file="research_prompt"
-                                >
-                                    Load from Disk
-                                </button>
-                                <button
-                                    class="btn btn-secondary file-save-btn"
-                                    data-file="research_prompt"
-                                >
-                                    Save
-                                </button>
-                            </div>
-                        </div>
-                        <div class="research-controls">
+                        <div id="research-section-controls" class="research-controls">
                             <div class="research-input-grid">
                                 <label for="researchCompanyInput">Company Name</label>
                                 <input
@@ -250,8 +231,120 @@
                                 <span id="researchStatusText">Idle.</span>
                             </div>
                         </div>
-                        <textarea id="researchPromptEditor" spellcheck="false"></textarea>
-                        <div class="research-output-wrap">
+
+                        <button
+                            id="researchSplitterTop"
+                            class="research-section-splitter"
+                            data-research-splitter="top"
+                            type="button"
+                            aria-label="Resize research top and middle sections"
+                        >
+                            <div class="splitter-grip" aria-hidden="true"></div>
+                        </button>
+
+                        <div id="research-section-input" class="research-input-wrap">
+                            <div class="research-input-tabbar" role="tablist" aria-label="Research input tabs">
+                                <button
+                                    class="research-input-tab-btn active"
+                                    data-research-input-tab="query"
+                                    role="tab"
+                                    aria-selected="true"
+                                >
+                                    Query
+                                </button>
+                                <button
+                                    class="research-input-tab-btn"
+                                    data-research-input-tab="jobspec"
+                                    role="tab"
+                                    aria-selected="false"
+                                >
+                                    Job Spec
+                                </button>
+                                <button
+                                    class="research-input-tab-btn"
+                                    data-research-input-tab="cv"
+                                    role="tab"
+                                    aria-selected="false"
+                                >
+                                    CV
+                                </button>
+                            </div>
+
+                            <section
+                                id="research-input-panel-query"
+                                class="research-input-panel active"
+                                role="tabpanel"
+                            >
+                                <div class="editor-head">
+                                    <label id="researchPromptTitle" for="researchPromptEditor">Research Role</label>
+                                    <div class="file-actions">
+                                        <button
+                                            class="btn btn-secondary file-load-btn"
+                                            data-file="research_prompt"
+                                        >
+                                            Load from Disk
+                                        </button>
+                                        <button
+                                            class="btn btn-secondary file-save-btn"
+                                            data-file="research_prompt"
+                                        >
+                                            Save
+                                        </button>
+                                    </div>
+                                </div>
+                                <textarea id="researchPromptEditor" spellcheck="false"></textarea>
+                            </section>
+
+                            <section
+                                id="research-input-panel-jobspec"
+                                class="research-input-panel"
+                                role="tabpanel"
+                            >
+                                <div class="editor-head">
+                                    <label for="researchJobspecEditor">Job Spec</label>
+                                    <div class="file-actions">
+                                        <button class="btn btn-secondary file-load-btn" data-file="jobspec">
+                                            Load from Disk
+                                        </button>
+                                        <button class="btn btn-secondary file-save-btn" data-file="jobspec">
+                                            Save
+                                        </button>
+                                    </div>
+                                </div>
+                                <textarea id="researchJobspecEditor" spellcheck="false"></textarea>
+                            </section>
+
+                            <section
+                                id="research-input-panel-cv"
+                                class="research-input-panel"
+                                role="tabpanel"
+                            >
+                                <div class="editor-head">
+                                    <label for="researchCvEditor">CV</label>
+                                    <div class="file-actions">
+                                        <button class="btn btn-secondary file-load-btn" data-file="cv">
+                                            Load from Disk
+                                        </button>
+                                        <button class="btn btn-secondary file-save-btn" data-file="cv">
+                                            Save
+                                        </button>
+                                    </div>
+                                </div>
+                                <textarea id="researchCvEditor" spellcheck="false"></textarea>
+                            </section>
+                        </div>
+
+                        <button
+                            id="researchSplitterBottom"
+                            class="research-section-splitter"
+                            data-research-splitter="bottom"
+                            type="button"
+                            aria-label="Resize research middle and bottom sections"
+                        >
+                            <div class="splitter-grip" aria-hidden="true"></div>
+                        </button>
+
+                        <div id="research-section-output" class="research-output-wrap">
                             <div class="research-output-head">
                                 <label for="researchOutput">Research Output</label>
                                 <span

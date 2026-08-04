@@ -300,8 +300,17 @@ body {
 }
 
 #tab-research {
-  grid-template-rows: auto auto minmax(220px, 1fr) minmax(140px, 0.8fr);
-  gap: 0.55rem;
+  --research-top-size: 33.3333%;
+  --research-middle-size: 33.3333%;
+  --research-bottom-size: 33.3334%;
+  --research-splitter-size: 6px;
+  grid-template-rows:
+    minmax(140px, var(--research-top-size))
+    var(--research-splitter-size)
+    minmax(140px, var(--research-middle-size))
+    var(--research-splitter-size)
+    minmax(140px, var(--research-bottom-size));
+  gap: 0;
 }
 
 .tab-panel label {
@@ -352,6 +361,81 @@ textarea {
   resize: vertical;
 }
 
+.research-input-wrap {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0;
+  overflow: hidden;
+}
+
+.research-section-splitter {
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  cursor: row-resize;
+  user-select: none;
+  touch-action: none;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.research-section-splitter .splitter-grip {
+  width: 52px;
+  height: 6px;
+}
+
+.research-section-splitter.dragging {
+  background: transparent;
+}
+
+.research-input-tabbar {
+  display: flex;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0;
+}
+
+.research-input-tab-btn {
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  background: #f7f2ec;
+  color: var(--muted);
+  border-radius: 0.45rem 0.45rem 0 0;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.research-input-tab-btn.active {
+  background: #fff;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.research-input-panel {
+  display: none;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.4rem;
+  padding-top: 0.5rem;
+}
+
+.research-input-panel.active {
+  display: grid;
+}
+
+#researchPromptEditor,
+#researchJobspecEditor,
+#researchCvEditor {
+  min-height: 0;
+  height: 100%;
+}
+
 .research-controls {
   border: 1px solid var(--line);
   border-radius: 0.6rem;
@@ -359,6 +443,8 @@ textarea {
   padding: 0.65rem;
   display: grid;
   gap: 0.65rem;
+  min-height: 0;
+  overflow: auto;
 }
 
 .research-input-grid {
@@ -405,6 +491,7 @@ textarea {
   display: grid;
   grid-template-rows: auto auto minmax(110px, 1fr);
   gap: 0.35rem;
+  overflow: hidden;
 }
 
 .research-output-head {
@@ -446,6 +533,7 @@ textarea {
   display: none;
   min-height: 0;
   height: 100%;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .research-output-panel.active {
@@ -468,6 +556,11 @@ textarea {
 }
 
 #researchOutput {
+  max-height: none;
+  height: 100%;
+}
+
+#researchBuiltQueryOutput {
   max-height: none;
   height: 100%;
 }
