@@ -23,6 +23,7 @@ import { createRunStateFeature } from "./js/run-state-feature.js";
 import { createUiLayoutFeature } from "./js/ui-layout-feature.js";
 import { formatCommandForDisplay, formatTimestampToSecond, sleep } from "./js/app-utils.js";
 
+// Phase 1: shared runtime state used across feature modules.
 const state = {
     isRunning: false,
     isResearchRunning: false,
@@ -45,6 +46,7 @@ const state = {
     runStatusMessage: "",
 };
 
+// Phase 2: stable DOM registry collected once and injected into features.
 const els = {
     statusText: document.getElementById("statusText"),
     providerSelect: document.getElementById("providerSelect"),
@@ -121,6 +123,7 @@ const els = {
 };
 
 const previewFeature = createPdfPreviewFeature({
+    // Editable file metadata used by draft/save/load flows and tab dirty indicators.
     els,
     getActivePreviewKind: () => (state.activeTab === "research" ? "research" : "cv"),
 });
@@ -149,6 +152,7 @@ const EDITABLE_FILES = {
     },
 };
 
+// Local storage key registry for persisted UI/editor state.
 const LS_KEYS = {
     cv: "cvweb.cv",
     prompt: "cvweb.prompt",
@@ -167,6 +171,8 @@ const LS_KEYS = {
     selected_model: "cvweb.selected_model",
 };
 
+// Phase 3: compose foundational display and state-control features.
+// Shared PDF preview presenter for CV and Research outputs.
 const outputDisplayFeature = createOutputDisplayFeature({
     state,
     els,
@@ -188,6 +194,7 @@ const {
     renderResearchState,
 } = outputDisplayFeature;
 
+// Shared run-state controller (busy flags, timer, control disabling, button state).
 const runStateFeature = createRunStateFeature({
     state,
     els,
@@ -202,6 +209,8 @@ const {
     syncResearchPrimaryButton,
 } = runStateFeature;
 
+// Phase 4: compose content/draft and operation workflow features.
+// Draft and editor synchronization feature for local state persistence.
 const draftFilesFeature = createDraftFilesFeature({
     state,
     els,
@@ -222,6 +231,7 @@ const {
     bindAutosave,
 } = draftFilesFeature;
 
+// File operation and server lifecycle actions (save/load/reload/restart).
 const appOperationsFeature = createAppOperationsFeature({
     els,
     editableFiles: EDITABLE_FILES,
@@ -240,6 +250,7 @@ const appOperationsFeature = createAppOperationsFeature({
 
 const { refreshTailoredOutput } = appOperationsFeature;
 
+// Research workflow orchestration (run/stop/format/reset/copy).
 const researchFeature = createResearchFeature({
     state,
     els,
@@ -257,6 +268,7 @@ const researchFeature = createResearchFeature({
     summarizeResearchOutput,
 });
 
+// Logs retrieval and selection handling.
 const logsFeature = createLogsFeature({
     els,
     api,
@@ -265,6 +277,8 @@ const logsFeature = createLogsFeature({
     setDebugLogOutput,
 });
 
+// Phase 5: compose layout/config/workflow orchestration features.
+// Layout and tab interaction manager.
 const uiLayoutFeature = createUiLayoutFeature({
     state,
     els,
@@ -275,12 +289,14 @@ const uiLayoutFeature = createUiLayoutFeature({
     onTabsChanged: updateAutoScrollIndicators,
 });
 
+// Provider/model selection and persistence manager.
 const providerModelFeature = createProviderModelFeature({
     state,
     els,
     localStorageKeys: LS_KEYS,
 });
 
+// CV pipeline run orchestrator and polling coordinator.
 const cvPipelineFeature = createCvPipelineFeature({
     api,
     currentFiles,
@@ -299,6 +315,7 @@ const cvPipelineFeature = createCvPipelineFeature({
     summarizeRun,
 });
 
+// Startup state restoration coordinator.
 const appInitializationFeature = createAppInitializationFeature({
     api,
     els,
@@ -328,6 +345,8 @@ const appInitializationFeature = createAppInitializationFeature({
 
 const { initialize } = appInitializationFeature;
 
+// Phase 6: bind UI events, then run startup sequence.
+// UI event attachment map.
 const appEventBindingsFeature = createAppEventBindingsFeature({
     els,
     cvPipelineFeature,
@@ -338,6 +357,7 @@ const appEventBindingsFeature = createAppEventBindingsFeature({
     providerModelFeature,
 });
 
+// Final startup launcher for one-time app boot order.
 const appStartupFeature = createAppStartupFeature({
     els,
     bindAutosave,
