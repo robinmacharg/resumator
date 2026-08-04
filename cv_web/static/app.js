@@ -1,5 +1,7 @@
 import { api, fetchText } from "./js/api-client.js";
 import { createCvPipelineFeature } from "./js/cv-pipeline-feature.js";
+import { createLogsFeature } from "./js/logs-feature.js";
+import { createPdfPreviewFeature } from "./js/pdf-preview-feature.js";
 import { createResearchFeature } from "./js/research-feature.js";
 import { formatCommandForDisplay, formatTimestampToSecond, sleep } from "./js/app-utils.js";
 
@@ -23,10 +25,6 @@ const state = {
     runStatusTimerId: null,
     runStatusStartMs: 0,
     runStatusMessage: "",
-    cvPdfExists: false,
-    researchPdfExists: false,
-    cvPdfMtime: null,
-    researchPdfMtime: null,
 };
 
 const els = {
@@ -103,6 +101,11 @@ const els = {
         command: document.getElementById("research-output-panel-command"),
     },
 };
+
+const previewFeature = createPdfPreviewFeature({
+    els,
+    getActivePreviewKind: () => (state.activeTab === "research" ? "research" : "cv"),
+});
 
 const EDITABLE_FILES = {
     cv: { tabLabel: "CV", title: document.getElementById("cvTitle"), editor: () => els.cvEditor },
@@ -671,81 +674,12 @@ function updateDiskSnapshot(files) {
     syncDirtyIndicators();
 }
 
-function updatePreviewCacheBuster() {
-    const isResearchTab = state.activeTab === "research";
-    const isResearchDoc = isResearchTab;
-    const targetName = isResearchDoc ? "research_output.formatted.pdf" : "tailored_dev.pdf";
-    const exists = isResearchDoc ? state.researchPdfExists : state.cvPdfExists;
-    const targetLabel = isResearchDoc ? "Research" : "CV";
-    const targetMtime = isResearchDoc ? state.researchPdfMtime : state.cvPdfMtime;
-
-    if (els.pdfPreviewTitle) {
-        const generatedText = formatMtimeForPreview(targetMtime);
-        els.pdfPreviewTitle.textContent = `PDF Preview (${targetLabel}, Generated: ${generatedText})`;
-    }
-
-    if (els.pdfPreviewOpenLink) {
-        els.pdfPreviewOpenLink.href = `/output/${targetName}`;
-        els.pdfPreviewOpenLink.style.pointerEvents = exists ? "auto" : "none";
-        els.pdfPreviewOpenLink.style.opacity = exists ? "1" : "0.45";
-    }
-
-    if (exists) {
-        const ts = Date.now();
-        els.pdfPreview.classList.remove("hidden");
-        if (els.pdfPlaceholder) {
-            els.pdfPlaceholder.classList.remove("visible");
-        }
-        els.pdfPreview.src = `/output/${targetName}?ts=${ts}`;
-    } else {
-        els.pdfPreview.classList.add("hidden");
-        if (els.pdfPlaceholder) {
-            els.pdfPlaceholder.classList.add("visible");
-            els.pdfPlaceholder.textContent = "No document availabel";
-        }
-    }
-}
-
-function formatMtimeForPreview(mtimeSeconds) {
-    if (typeof mtimeSeconds !== "number" || !Number.isFinite(mtimeSeconds) || mtimeSeconds <= 0) {
-        return "-";
-    }
-
-    const date = new Date(mtimeSeconds * 1000);
-    if (Number.isNaN(date.getTime())) {
-        return "-";
-    }
-
-    const pad2 = (n) => String(n).padStart(2, "0");
-    const day = pad2(date.getDate());
-    const month = pad2(date.getMonth() + 1);
-    const year = date.getFullYear();
-    const hours = pad2(date.getHours());
-    const mins = pad2(date.getMinutes());
-    const secs = pad2(date.getSeconds());
-    return `${day}/${month}/${year} - ${hours}:${mins}:${secs}`;
-}
-
-function applyCvOutputState(payload) {
-    const outputs = (payload && payload.outputs) || {};
-    state.cvPdfExists = Boolean(outputs.pdfExists);
-    state.cvPdfMtime =
-        typeof outputs.pdfMtime === "number" && Number.isFinite(outputs.pdfMtime)
-            ? outputs.pdfMtime
-            : null;
-}
-
-function applyResearchOutputState(payload) {
-    const output = (payload && payload.output) || {};
-    state.researchPdfExists = Boolean(output.formattedPdfExists);
-    state.researchPdfMtime =
-        typeof output.formattedPdfMtime === "number" && Number.isFinite(output.formattedPdfMtime)
-            ? output.formattedPdfMtime
-            : null;
-}
-
 function setRunLogOutput(text) {
     setOutputContentWithSmartAutoscroll(els.runLogOutput, text);
+}
+
+function setDebugLogOutput(text) {
+    setOutputContentWithSmartAutoscroll(els.debugLogOutput, text);
 }
 
 function setResearchStatus(message, isError = false) {
@@ -862,7 +796,7 @@ function renderResearchState(payload) {
         return;
     }
 
-    applyResearchOutputState(payload);
+    previewFeature.applyResearchOutputState(payload);
 
     if (typeof payload.companyName === "string") {
         els.researchCompanyInput.value = payload.companyName;
@@ -991,33 +925,6 @@ async function loadSingleFile(fileKey) {
     }
 }
 
-async function refreshLogs() {
-    try {
-        const payload = await api("/api/logs");
-        const logs = payload.logs || [];
-
-        els.logSelect.innerHTML = "";
-        const placeholder = document.createElement("option");
-        placeholder.value = "";
-        placeholder.textContent = "Select debug log...";
-        els.logSelect.appendChild(placeholder);
-
-        logs.forEach((item) => {
-            const option = document.createElement("option");
-            option.value = item.name;
-            const when = new Date(item.mtime * 1000).toLocaleString();
-            option.textContent = `${item.name} (${when})`;
-            els.logSelect.appendChild(option);
-        });
-
-        if (payload.lastRun) {
-            setRunLogOutput(summarizeRun(payload.lastRun));
-        }
-    } catch (err) {
-        els.debugLogOutput.textContent = `Unable to load logs: ${err.message}`;
-    }
-}
-
 const researchFeature = createResearchFeature({
     state,
     els,
@@ -1026,13 +933,21 @@ const researchFeature = createResearchFeature({
     writeDraftToLocalStorage,
     setStatus,
     setResearchRunning,
-    updatePreviewCacheBuster,
+    updatePreviewCacheBuster: previewFeature.updatePreview,
     updateDiskSnapshot,
     setResearchStatus,
     setResearchOutput,
     setResearchCommandOutput,
     renderResearchState,
     summarizeResearchOutput,
+});
+
+const logsFeature = createLogsFeature({
+    els,
+    api,
+    setRunLogOutput,
+    summarizeRun,
+    setDebugLogOutput,
 });
 
 const cvPipelineFeature = createCvPipelineFeature({
@@ -1046,33 +961,12 @@ const cvPipelineFeature = createCvPipelineFeature({
     setRunLogOutput,
     setStatus,
     updateDiskSnapshot,
-    applyCvOutputState,
-    updatePreviewCacheBuster,
+    applyCvOutputState: previewFeature.applyCvOutputState,
+    updatePreviewCacheBuster: previewFeature.updatePreview,
     refreshTailoredOutput,
-    refreshLogs,
+    refreshLogs: logsFeature.refreshLogs,
     summarizeRun,
 });
-
-async function loadSelectedDebugLog() {
-    const name = els.logSelect.value;
-    if (!name) {
-        els.debugLogOutput.textContent = "Select a debug log to view its content.";
-        return;
-    }
-
-    try {
-        const payload = await api(`/api/logs/content?name=${encodeURIComponent(name)}`);
-        setOutputContentWithSmartAutoscroll(
-            els.debugLogOutput,
-            payload.content || "(Empty log file)",
-        );
-    } catch (err) {
-        setOutputContentWithSmartAutoscroll(
-            els.debugLogOutput,
-            `Unable to load log file: ${err.message}`,
-        );
-    }
-}
 
 async function saveToDisk() {
     setRunning(true);
@@ -1099,9 +993,9 @@ async function reloadFromDisk() {
         const payload = await api("/api/state");
         applyFilesToEditors(payload.files || {});
         updateDiskSnapshot(payload.files || {});
-        applyCvOutputState(payload);
+        previewFeature.applyCvOutputState(payload);
         writeDraftToLocalStorage();
-        updatePreviewCacheBuster();
+        previewFeature.updatePreview();
         await refreshTailoredOutput();
         setStatus("Reloaded from disk.");
     } catch (err) {
@@ -1167,10 +1061,10 @@ function setActiveTab(tabName) {
     });
 
     if (tabName === "logs") {
-        refreshLogs();
+        logsFeature.refreshLogs();
     }
 
-    updatePreviewCacheBuster();
+    previewFeature.updatePreview();
 }
 
 function setActiveCvTab(tabName) {
@@ -1388,7 +1282,7 @@ async function initialize() {
         populateProviderAndModelSelect(payload.providers || null, payload.models || null);
         applyFilesToEditors(payload.files || {});
         updateDiskSnapshot(payload.files || {});
-        applyCvOutputState(payload);
+        previewFeature.applyCvOutputState(payload);
         const researchPayload = await api("/api/research/state");
         renderResearchState(researchPayload);
 
@@ -1439,7 +1333,7 @@ async function initialize() {
             setResearchCommandOutput([]);
         }
 
-        updatePreviewCacheBuster();
+        previewFeature.updatePreview();
         await refreshTailoredOutput();
 
         const savedTab = localStorage.getItem(LS_KEYS.active_tab);
@@ -1502,8 +1396,8 @@ if (els.copyResearchOutputBtn) {
         researchFeature.copyResearchOutputToClipboard(),
     );
 }
-els.refreshLogsBtn.addEventListener("click", refreshLogs);
-els.logSelect.addEventListener("change", loadSelectedDebugLog);
+els.refreshLogsBtn.addEventListener("click", () => logsFeature.refreshLogs());
+els.logSelect.addEventListener("change", () => logsFeature.loadSelectedDebugLog());
 els.tabButtons.forEach((button) => {
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
 });
