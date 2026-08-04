@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from backend_registry import build_backend_catalog, runtime_env
+
 CATALOG_PATH = Path("model_providers.json")
 
 
@@ -21,6 +23,25 @@ def _dedupe(items: list[str]) -> list[str]:
 
 
 def load_provider_catalog(path: Path | None = None) -> dict[str, Any]:
+    # Primary source: interrogated backend modules.
+    discovered = build_backend_catalog(runtime_env())
+    if discovered.providers:
+        return {
+            "defaultProvider": discovered.default_provider,
+            "providers": [
+                {
+                    "id": item["id"],
+                    "label": item["label"],
+                    "defaultModel": item.get("defaultModel") or "",
+                    "models": _dedupe([m for m in item.get("models", []) if isinstance(m, str)]),
+                    "enabled": bool(item.get("enabled", False)),
+                    "disabledReason": str(item.get("disabledReason") or ""),
+                }
+                for item in discovered.providers
+            ],
+        }
+
+    # Fallback source: static JSON catalog.
     catalog_path = path or CATALOG_PATH
     if not catalog_path.exists():
         return {
@@ -68,6 +89,8 @@ def load_provider_catalog(path: Path | None = None) -> dict[str, Any]:
                 "label": label,
                 "defaultModel": default_model,
                 "models": models,
+                "enabled": True,
+                "disabledReason": "",
             }
         )
         provider_ids.add(provider_id)

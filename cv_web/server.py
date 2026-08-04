@@ -68,6 +68,15 @@ RESEARCH_PROC_LOCK = threading.Lock()
 CURRENT_RESEARCH_PROC: subprocess.Popen[str] | None = None
 
 
+def schedule_process_restart() -> None:
+    def _restart() -> None:
+        # Small delay gives the HTTP response a chance to flush before process replacement.
+        time.sleep(0.35)
+        os.execv(sys.executable, [sys.executable, str(APP_DIR / "server.py")])
+
+    threading.Thread(target=_restart, daemon=True).start()
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -134,7 +143,12 @@ def load_catalog() -> dict[str, Any]:
 def build_provider_options() -> list[dict[str, str]]:
     catalog = load_catalog()
     return [
-        {"value": item["id"], "label": item["label"]}
+        {
+            "value": item["id"],
+            "label": item["label"],
+            "enabled": bool(item.get("enabled", True)),
+            "disabledReason": str(item.get("disabledReason") or ""),
+        }
         for item in catalog.get("providers", [])
         if isinstance(item, dict) and item.get("id") and item.get("label")
     ]
@@ -149,39 +163,27 @@ def build_available_models(selected_provider: str) -> list[str]:
     if not provider_entry:
         return []
 
-    env = parse_dotenv_file(ENV_FILE_PATH)
-    provider_id = str(provider_entry.get("id", "")).strip()
-    default_models = [item for item in provider_entry.get("models", []) if isinstance(item, str)]
-    if provider_id == "gemini":
-        env_models = [
-            env.get("GEMINI_MODEL", "").strip(),
-            *split_csv(env.get("GEMINI_MODEL_FALLBACKS", "")),
-        ]
-    elif provider_id == "huggingface":
-        env_models = [
-            env.get("HUGGINGFACE_MODEL", "").strip(),
-            *split_csv(env.get("HUGGINGFACE_MODEL_FALLBACKS", "")),
-        ]
-    elif provider_id == "openai":
-        env_models = [
-            env.get("OPENAI_MODEL", "").strip(),
-            *split_csv(env.get("OPENAI_MODEL_FALLBACKS", "")),
-        ]
-    elif provider_id == "swiftlet":
-        env_models = [
-            env.get("SWIFTLET_MODEL", "").strip(),
-            *split_csv(env.get("SWIFTLET_MODEL_FALLBACKS", "")),
-        ]
-    else:
-        env_models = []
-
-    return dedupe_keep_order([*env_models, *default_models])
+    return dedupe_keep_order(
+        [item for item in provider_entry.get("models", []) if isinstance(item, str)]
+    )
 
 
 def parse_selected_provider(payload: dict[str, Any]) -> str:
     catalog = load_catalog()
     providers = provider_map(catalog)
-    default_provider = str(catalog.get("defaultProvider", "gemini")).strip() or "gemini"
+    all_provider_ids = [
+        str(item.get("id") or "").strip()
+        for item in catalog.get("providers", [])
+        if isinstance(item, dict)
+    ]
+    enabled_provider_ids = [
+        str(item.get("id") or "").strip()
+        for item in catalog.get("providers", [])
+        if isinstance(item, dict) and bool(item.get("enabled", True))
+    ]
+    default_provider = str(catalog.get("defaultProvider", "")).strip()
+    if default_provider not in enabled_provider_ids:
+        default_provider = enabled_provider_ids[0] if enabled_provider_ids else ""
 
     raw_provider = payload.get("selectedProvider", "")
     if raw_provider is None:
@@ -190,8 +192,11 @@ def parse_selected_provider(payload: dict[str, Any]) -> str:
         raise ValueError("selectedProvider must be a string")
 
     selected_provider = raw_provider.strip() or default_provider
-    if selected_provider not in providers:
+    if selected_provider not in providers or selected_provider not in all_provider_ids:
         raise ValueError("selectedProvider is not in available provider options")
+    selected_entry = providers.get(selected_provider) or {}
+    if not bool(selected_entry.get("enabled", True)):
+        raise ValueError("selectedProvider is currently disabled")
     return selected_provider
 
 
@@ -224,7 +229,10 @@ def build_state() -> dict[str, Any]:
     output_docx = ROOT_DIR / "tailored_dev.docx"
     catalog = load_catalog()
     provider_options = build_provider_options()
-    default_provider = str(catalog.get("defaultProvider", "gemini")).strip() or "gemini"
+    enabled_options = [item for item in provider_options if item.get("enabled", True)]
+    default_provider = str(catalog.get("defaultProvider", "")).strip()
+    if default_provider not in {item["value"] for item in enabled_options}:
+        default_provider = enabled_options[0]["value"] if enabled_options else ""
     models_by_provider = {
         item["value"]: build_available_models(item["value"])
         for item in provider_options
@@ -973,6 +981,11 @@ class CVWebHandler(BaseHTTPRequestHandler):
                 self._json_response({"error": str(exc)}, status=400)
                 return
             self._json_response({"success": True, "savedAt": utc_now_iso(), "state": build_state()})
+            return
+
+        if route == "/api/server/restart":
+            schedule_process_restart()
+            self._json_response({"success": True, "restarting": True, "requestedAt": utc_now_iso()})
             return
 
         if route == "/api/research/reset-prompt":

@@ -3,7 +3,6 @@ import argparse
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import time
@@ -11,15 +10,9 @@ from datetime import datetime
 from pathlib import Path
 
 from cv_convert import convert_markdown_outputs
+from backend_registry import get_backend_or_raise
 from provider_catalog import load_provider_catalog, provider_map
-from provider_clients import (
-    AttemptResult,
-    run_gemini_attempt,
-    run_huggingface_attempt,
-    run_openai_attempt,
-    run_swiftlet_attempt,
-    run_vscodebridge_attempt,
-)
+from provider_clients import AttemptResult
 
 # File paths in current working directory
 CV_FILE = Path("CV.md")
@@ -31,45 +24,8 @@ RAW_MODEL_OUTPUT_FILE = Path("tailored.model-output.txt")
 RAW_MODEL_JSON_FILE = Path("tailored.model.json")
 OUTPUT_PDF = Path("tailored_dev.pdf")
 OUTPUT_DOCX = Path("tailored_dev.docx")
-GEMINI_TIMEOUT_SECONDS = 300
-HUGGINGFACE_TIMEOUT_SECONDS = 180
-OPENAI_TIMEOUT_SECONDS = 180
-SWIFTLET_TIMEOUT_SECONDS = 240
-VSCODE_BRIDGE_TIMEOUT_SECONDS = 240
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
-DEFAULT_FALLBACK_MODELS = [
-    "gemini-3.5-flash",
-    "gemini-3.6-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-flash",
-    "gemini-2.0-flash-lite-001",
-    "gemini-2.0-flash-001",
-    "gemini-2.5-pro",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash",
-]
 GEMINI_HEARTBEAT_SECONDS = 15
 DEBUG_LOG_DIR = Path("gemini_debug_logs")
-DEFAULT_FAST_MODEL = "gemini-2.5-flash-lite"
-DEFAULT_FAST_FALLBACK_MODELS = DEFAULT_FALLBACK_MODELS
-DEFAULT_HUGGINGFACE_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
-DEFAULT_HUGGINGFACE_FALLBACK_MODELS = [
-    "Qwen/Qwen2.5-7B-Instruct",
-    "mistralai/Mistral-7B-Instruct-v0.3",
-    "google/gemma-2-9b-it",
-]
-DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
-DEFAULT_OPENAI_FALLBACK_MODELS = [
-    "gpt-5.6-terra",
-    "gpt-5.6-sol",
-    "gpt-5.5",
-    "gpt-4.1-mini",
-]
-DEFAULT_SWIFTLET_MODEL = "qwen3_5_moe_text"
-DEFAULT_SWIFTLET_FALLBACK_MODELS = []
-DEFAULT_VSCODE_BRIDGE_MODEL = "copilot-vscode"
-DEFAULT_VSCODE_BRIDGE_FALLBACK_MODELS = []
 MAX_FAST_CV_CHARS = 18000
 REQUIRED_SEMANTIC_TAG_KEYS = [
     "candidate_name",
@@ -107,46 +63,9 @@ def is_high_load_error(stderr_text: str) -> bool:
     )
 
 
-def build_model_sequence(process_env: dict, provider: str, explicit_model: str = "") -> list[str]:
-    """Build model attempt order from environment with sensible fallbacks."""
-    explicit = explicit_model.strip()
-    if explicit:
-        return [explicit]
-
-    fast_mode = process_env.get("CV_FAST_MODE", "false").strip().lower() in {"1", "true", "yes", "on"}
-    if provider == "huggingface":
-        primary = process_env.get("HUGGINGFACE_MODEL", DEFAULT_HUGGINGFACE_MODEL).strip()
-        fallback_raw = process_env.get("HUGGINGFACE_MODEL_FALLBACKS", "")
-        fallback_from_env = [item.strip() for item in fallback_raw.split(",") if item.strip()]
-        fallback_defaults = DEFAULT_HUGGINGFACE_FALLBACK_MODELS
-    elif provider == "openai":
-        primary = process_env.get("OPENAI_MODEL", DEFAULT_OPENAI_MODEL).strip()
-        fallback_raw = process_env.get("OPENAI_MODEL_FALLBACKS", "")
-        fallback_from_env = [item.strip() for item in fallback_raw.split(",") if item.strip()]
-        fallback_defaults = DEFAULT_OPENAI_FALLBACK_MODELS
-    elif provider == "swiftlet":
-        primary = process_env.get("SWIFTLET_MODEL", DEFAULT_SWIFTLET_MODEL).strip()
-        fallback_raw = process_env.get("SWIFTLET_MODEL_FALLBACKS", "")
-        fallback_from_env = [item.strip() for item in fallback_raw.split(",") if item.strip()]
-        fallback_defaults = DEFAULT_SWIFTLET_FALLBACK_MODELS
-    elif provider == "vscodebridge":
-        primary = process_env.get("VSCODE_BRIDGE_MODEL", DEFAULT_VSCODE_BRIDGE_MODEL).strip()
-        fallback_raw = process_env.get("VSCODE_BRIDGE_MODEL_FALLBACKS", "")
-        fallback_from_env = [item.strip() for item in fallback_raw.split(",") if item.strip()]
-        fallback_defaults = DEFAULT_VSCODE_BRIDGE_FALLBACK_MODELS
-    else:
-        default_primary = DEFAULT_FAST_MODEL if fast_mode else DEFAULT_GEMINI_MODEL
-        primary = process_env.get("GEMINI_MODEL", default_primary).strip()
-        fallback_raw = process_env.get("GEMINI_MODEL_FALLBACKS", "")
-        fallback_from_env = [item.strip() for item in fallback_raw.split(",") if item.strip()]
-        fallback_defaults = DEFAULT_FAST_FALLBACK_MODELS if fast_mode else DEFAULT_FALLBACK_MODELS
-
-    ordered: list[str] = []
-    for model in [primary, *fallback_from_env, *fallback_defaults]:
-        if model and model not in ordered:
-            ordered.append(model)
-
-    return ordered
+def build_model_sequence(process_env: dict[str, str], provider: str, explicit_model: str = "") -> list[str]:
+    backend = get_backend_or_raise(provider, process_env)
+    return backend.backend.model_sequence(process_env, explicit_model)
 
 
 def parse_args() -> argparse.Namespace:
@@ -154,7 +73,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--provider",
         default="",
-        help="Model provider override (gemini, huggingface, openai, swiftlet, or vscodebridge)",
+        help="Model provider override (any discovered backend id)",
     )
     parser.add_argument("--model", default="", help="Explicit model override")
     return parser.parse_args()
@@ -774,25 +693,11 @@ def main() -> None:
     if selected_provider not in providers:
         print(f"Error: Unsupported provider '{selected_provider}'.", file=sys.stderr)
         sys.exit(1)
-
-    if selected_provider == "gemini" and not shutil.which("gemini"):
-        print(
-            "Error: 'gemini' CLI tool not found. Install via: npm install -g @google/gemini-cli",
-            file=sys.stderr,
-        )
+    selected_backend = get_backend_or_raise(selected_provider, process_env)
+    if not selected_backend.status.enabled:
+        reason = selected_backend.status.reason or "provider is disabled"
+        print(f"Error: Provider '{selected_provider}' is disabled: {reason}", file=sys.stderr)
         sys.exit(1)
-
-    if selected_provider == "huggingface":
-        hf_token = (process_env.get("HF_API_TOKEN") or process_env.get("HUGGINGFACE_API_TOKEN") or "").strip()
-        if not hf_token:
-            print("Error: Missing HF_API_TOKEN for Hugging Face provider.", file=sys.stderr)
-            sys.exit(1)
-
-    if selected_provider == "openai":
-        openai_token = (process_env.get("OPENAI_API_KEY") or process_env.get("OPENAI_TOKEN") or "").strip()
-        if not openai_token:
-            print("Error: Missing OPENAI_API_KEY for OpenAI provider.", file=sys.stderr)
-            sys.exit(1)
 
     # 4. Formulate prompt and invoke Gemini non-interactively via stdin/stdout
     fast_mode = is_fast_mode_enabled(process_env)
@@ -815,66 +720,17 @@ def main() -> None:
     attempt_results: list[tuple[str, str]] = []
     for index, model_name in enumerate(models_to_try, start=1):
         print(f"{selected_provider} attempt {index}/{len(models_to_try)} with model: {model_name}")
-        if selected_provider == "huggingface":
-            completed = run_huggingface_attempt(
-                model_name=model_name,
-                prompt_text=full_prompt,
-                env=process_env,
-                timeout_seconds=HUGGINGFACE_TIMEOUT_SECONDS,
-                heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
-                attempt_index=index,
-                debug_log_dir=DEBUG_LOG_DIR,
-                log_prefix="cv-attempt",
-                emit_live_output=True,
-            )
-        elif selected_provider == "openai":
-            completed = run_openai_attempt(
-                model_name=model_name,
-                prompt_text=full_prompt,
-                env=process_env,
-                timeout_seconds=OPENAI_TIMEOUT_SECONDS,
-                heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
-                attempt_index=index,
-                debug_log_dir=DEBUG_LOG_DIR,
-                log_prefix="cv-attempt",
-                emit_live_output=True,
-            )
-        elif selected_provider == "swiftlet":
-            completed = run_swiftlet_attempt(
-                model_name=model_name,
-                prompt_text=full_prompt,
-                env=process_env,
-                timeout_seconds=SWIFTLET_TIMEOUT_SECONDS,
-                heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
-                attempt_index=index,
-                debug_log_dir=DEBUG_LOG_DIR,
-                log_prefix="cv-attempt",
-                emit_live_output=True,
-            )
-        elif selected_provider == "vscodebridge":
-            completed = run_vscodebridge_attempt(
-                model_name=model_name,
-                prompt_text=full_prompt,
-                env=process_env,
-                timeout_seconds=VSCODE_BRIDGE_TIMEOUT_SECONDS,
-                heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
-                attempt_index=index,
-                debug_log_dir=DEBUG_LOG_DIR,
-                log_prefix="cv-attempt",
-                emit_live_output=True,
-            )
-        else:
-            completed = run_gemini_attempt(
-                model_name=model_name,
-                prompt_text=full_prompt,
-                env=process_env,
-                timeout_seconds=GEMINI_TIMEOUT_SECONDS,
-                heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
-                attempt_index=index,
-                debug_log_dir=DEBUG_LOG_DIR,
-                log_prefix="cv-attempt",
-                emit_live_output=False,
-            )
+        completed = selected_backend.backend.run_attempt(
+            model_name=model_name,
+            prompt_text=full_prompt,
+            env=process_env,
+            timeout_seconds=int(getattr(selected_backend.backend, "timeout_seconds", 240)),
+            heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
+            attempt_index=index,
+            debug_log_dir=DEBUG_LOG_DIR,
+            log_prefix="cv-attempt",
+            emit_live_output=True,
+        )
 
         if completed.returncode != 0:
             stderr_text = (completed.stderr or "").strip() or "(no stderr output)"

@@ -4,7 +4,6 @@ import json
 import os
 import re
 import signal
-import shutil
 import subprocess
 import sys
 import threading
@@ -12,15 +11,9 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from backend_registry import get_backend_or_raise
 from provider_catalog import load_provider_catalog, provider_map
-from provider_clients import (
-    AttemptResult,
-    run_gemini_attempt,
-    run_huggingface_attempt,
-    run_openai_attempt,
-    run_swiftlet_attempt,
-    run_vscodebridge_attempt,
-)
+from provider_clients import AttemptResult
 
 CV_FILE = Path("CV.md")
 JOBSPEC_FILE = Path("jobspec.txt")
@@ -59,13 +52,10 @@ DEFAULT_HUGGINGFACE_FALLBACK_MODELS = [
     "google/gemma-2-9b-it",
 ]
 HUGGINGFACE_TIMEOUT_SECONDS = 180
-OPENAI_TIMEOUT_SECONDS = 180
 DEFAULT_SWIFTLET_MODEL = "qwen3_5_moe_text"
 DEFAULT_SWIFTLET_FALLBACK_MODELS = []
-SWIFTLET_TIMEOUT_SECONDS = 240
 DEFAULT_VSCODE_BRIDGE_MODEL = "copilot-vscode"
 DEFAULT_VSCODE_BRIDGE_FALLBACK_MODELS = []
-VSCODE_BRIDGE_TIMEOUT_SECONDS = 240
 DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
 DEFAULT_OPENAI_FALLBACK_MODELS = [
     "gpt-5.6-terra",
@@ -394,44 +384,8 @@ def build_model_sequence(
     provider: str,
     explicit_model: str | None = None,
 ) -> list[str]:
-    explicit = (explicit_model or "").strip()
-    if explicit:
-        return [explicit]
-
-    if provider == "huggingface":
-        primary = process_env.get("HUGGINGFACE_MODEL", "").strip() or DEFAULT_HUGGINGFACE_MODEL
-        fallback_raw = process_env.get("HUGGINGFACE_MODEL_FALLBACKS", "").strip()
-        env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
-        defaults = DEFAULT_HUGGINGFACE_FALLBACK_MODELS
-    elif provider == "openai":
-        primary = process_env.get("OPENAI_MODEL", "").strip() or DEFAULT_OPENAI_MODEL
-        fallback_raw = process_env.get("OPENAI_MODEL_FALLBACKS", "").strip()
-        env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
-        defaults = DEFAULT_OPENAI_FALLBACK_MODELS
-    elif provider == "swiftlet":
-        primary = process_env.get("SWIFTLET_MODEL", "").strip() or DEFAULT_SWIFTLET_MODEL
-        fallback_raw = process_env.get("SWIFTLET_MODEL_FALLBACKS", "").strip()
-        env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
-        defaults = DEFAULT_SWIFTLET_FALLBACK_MODELS
-    elif provider == "vscodebridge":
-        primary = process_env.get("VSCODE_BRIDGE_MODEL", "").strip() or DEFAULT_VSCODE_BRIDGE_MODEL
-        fallback_raw = process_env.get("VSCODE_BRIDGE_MODEL_FALLBACKS", "").strip()
-        env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
-        defaults = DEFAULT_VSCODE_BRIDGE_FALLBACK_MODELS
-    else:
-        primary = process_env.get("GEMINI_MODEL", "").strip()
-        if not primary:
-            primary = DEFAULT_MODEL
-        fallback_raw = process_env.get("GEMINI_MODEL_FALLBACKS", "").strip()
-        env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
-        defaults = DEFAULT_FALLBACK_MODELS
-
-    ordered: list[str] = []
-    for model in [primary, *env_fallbacks, *defaults]:
-        if model and model not in ordered:
-            ordered.append(model)
-
-    return ordered
+    backend = get_backend_or_raise(provider, process_env)
+    return backend.backend.model_sequence(process_env, explicit_model or "")
 
 
 def load_dotenv_file(path: Path) -> dict[str, str]:
@@ -569,11 +523,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--url", action="append", default=[], help="Additional URL (repeatable)")
     parser.add_argument("--output-md", default=str(OUTPUT_MD), help="Markdown output path")
     parser.add_argument("--output-json", default=str(OUTPUT_JSON), help="JSON output path")
-    parser.add_argument(
-        "--provider",
-        default="",
-        help="Model provider override (gemini, huggingface, openai, swiftlet, or vscodebridge)",
-    )
+    parser.add_argument("--provider", default="", help="Model provider override (any discovered backend id)")
     parser.add_argument("--model", default="", help="Model name (optional override)")
     parser.add_argument(
         "--dry-run",
@@ -657,6 +607,11 @@ def main() -> None:
     if selected_provider not in providers:
         print(f"Unsupported provider: {selected_provider}", file=sys.stderr)
         sys.exit(1)
+    selected_backend = get_backend_or_raise(selected_provider, process_env)
+    if not selected_backend.status.enabled:
+        reason = selected_backend.status.reason or "provider is disabled"
+        print(f"Provider '{selected_provider}' is disabled: {reason}", file=sys.stderr)
+        sys.exit(1)
 
     timeout_seconds = parse_positive_int(
         process_env,
@@ -708,20 +663,6 @@ def main() -> None:
         print(f"Dry run complete. JSON written to: {output_json.resolve()}")
         return
 
-    if selected_provider == "gemini" and not shutil.which("gemini"):
-        print("'gemini' CLI not found on PATH.", file=sys.stderr)
-        sys.exit(1)
-    if selected_provider == "huggingface":
-        hf_token = (process_env.get("HF_API_TOKEN") or process_env.get("HUGGINGFACE_API_TOKEN") or "").strip()
-        if not hf_token:
-            print("HF_API_TOKEN (or HUGGINGFACE_API_TOKEN) is required for provider=huggingface.", file=sys.stderr)
-            sys.exit(1)
-    if selected_provider == "openai":
-        openai_token = (process_env.get("OPENAI_API_KEY") or process_env.get("OPENAI_TOKEN") or "").strip()
-        if not openai_token:
-            print("OPENAI_API_KEY (or OPENAI_TOKEN) is required for provider=openai.", file=sys.stderr)
-            sys.exit(1)
-
     print(
         f"Diagnostics enabled. Per-attempt logs at: {DEBUG_LOG_DIR.resolve()}",
         flush=True,
@@ -760,69 +701,20 @@ def main() -> None:
         )
 
         try:
-            if selected_provider == "huggingface":
-                proc = run_huggingface_attempt(
-                    model_name=model_name,
-                    prompt_text=prompt_text,
-                    env=process_env,
-                    timeout_seconds=HUGGINGFACE_TIMEOUT_SECONDS,
-                    heartbeat_seconds=heartbeat_seconds,
-                    attempt_index=idx,
-                    debug_log_dir=DEBUG_LOG_DIR,
-                    log_prefix="research-attempt",
-                    emit_live_output=True,
-                )
-            elif selected_provider == "openai":
-                proc = run_openai_attempt(
-                    model_name=model_name,
-                    prompt_text=prompt_text,
-                    env=process_env,
-                    timeout_seconds=OPENAI_TIMEOUT_SECONDS,
-                    heartbeat_seconds=heartbeat_seconds,
-                    attempt_index=idx,
-                    debug_log_dir=DEBUG_LOG_DIR,
-                    log_prefix="research-attempt",
-                    emit_live_output=True,
-                )
-            elif selected_provider == "swiftlet":
-                proc = run_swiftlet_attempt(
-                    model_name=model_name,
-                    prompt_text=prompt_text,
-                    env=process_env,
-                    timeout_seconds=SWIFTLET_TIMEOUT_SECONDS,
-                    heartbeat_seconds=heartbeat_seconds,
-                    attempt_index=idx,
-                    debug_log_dir=DEBUG_LOG_DIR,
-                    log_prefix="research-attempt",
-                    emit_live_output=True,
-                )
-            elif selected_provider == "vscodebridge":
-                proc = run_vscodebridge_attempt(
-                    model_name=model_name,
-                    prompt_text=prompt_text,
-                    env=process_env,
-                    timeout_seconds=VSCODE_BRIDGE_TIMEOUT_SECONDS,
-                    heartbeat_seconds=heartbeat_seconds,
-                    attempt_index=idx,
-                    debug_log_dir=DEBUG_LOG_DIR,
-                    log_prefix="research-attempt",
-                    emit_live_output=True,
-                )
-            else:
-                proc = run_gemini_attempt(
-                    model_name=model_name,
-                    prompt_text=prompt_text,
-                    env=process_env,
-                    timeout_seconds=timeout_seconds,
-                    heartbeat_seconds=heartbeat_seconds,
-                    attempt_index=idx,
-                    debug_log_dir=DEBUG_LOG_DIR,
-                    log_prefix="research-attempt",
-                    max_429_lines_before_fallback=max_429_lines_before_fallback,
-                    rate_limit_grace_seconds=rate_limit_grace_seconds,
-                    max_retry_after_seconds_before_fallback=max_retry_after_seconds_before_fallback,
-                    emit_live_output=True,
-                )
+            proc = selected_backend.backend.run_attempt(
+                model_name=model_name,
+                prompt_text=prompt_text,
+                env=process_env,
+                timeout_seconds=int(getattr(selected_backend.backend, "timeout_seconds", timeout_seconds)),
+                heartbeat_seconds=heartbeat_seconds,
+                attempt_index=idx,
+                debug_log_dir=DEBUG_LOG_DIR,
+                log_prefix="research-attempt",
+                emit_live_output=True,
+                max_429_lines_before_fallback=max_429_lines_before_fallback,
+                rate_limit_grace_seconds=rate_limit_grace_seconds,
+                max_retry_after_seconds_before_fallback=max_retry_after_seconds_before_fallback,
+            )
             print(
                 f"Attempt {idx} completed in {proc.elapsed_seconds:.1f}s. Debug log: {proc.log_path}",
                 flush=True,

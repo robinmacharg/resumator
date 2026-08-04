@@ -48,6 +48,7 @@ const els = {
     tailoredViewer: document.getElementById("tailoredViewer"),
     runFormatBtn: document.getElementById("runFormatBtn"),
     runFullBtn: document.getElementById("runFullBtn"),
+    restartServerBtn: document.getElementById("restartServerBtn"),
     runLogOutput: document.getElementById("runLogOutput"),
     debugLogOutput: document.getElementById("debugLogOutput"),
     refreshLogsBtn: document.getElementById("refreshLogsBtn"),
@@ -335,6 +336,7 @@ function applyControlDisabledState() {
         els.researchDryRunCheckbox,
         els.providerSelect,
         els.modelSelect,
+        els.restartServerBtn,
     ].forEach((el) => {
         if (!el) {
             return;
@@ -449,18 +451,32 @@ function populateProviderAndModelSelect(providersPayload, modelsPayload) {
             ? providersPayload.options
                   .filter(
                       (item) =>
-                          item && typeof item.value === "string" && typeof item.label === "string",
+                          item &&
+                          typeof item.value === "string" &&
+                          typeof item.label === "string",
                   )
-                  .map((item) => ({ value: item.value.trim(), label: item.label.trim() }))
+                  .map((item) => ({
+                      value: item.value.trim(),
+                      label: item.label.trim(),
+                      enabled: item.enabled !== false,
+                      disabledReason:
+                          typeof item.disabledReason === "string"
+                              ? item.disabledReason.trim()
+                              : "",
+                  }))
                   .filter((item) => item.value && item.label)
-            : [{ value: "gemini", label: "Gemini" }];
+            : [{ value: "gemini", label: "Gemini", enabled: true, disabledReason: "" }];
 
     if (els.providerSelect) {
         els.providerSelect.innerHTML = "";
         providerOptions.forEach((item) => {
             const opt = document.createElement("option");
             opt.value = item.value;
-            opt.textContent = item.label;
+            opt.textContent = item.enabled ? item.label : `${item.label} (disabled)`;
+            opt.disabled = !item.enabled;
+            if (!item.enabled && item.disabledReason) {
+                opt.title = item.disabledReason;
+            }
             els.providerSelect.appendChild(opt);
         });
     }
@@ -480,12 +496,13 @@ function populateProviderAndModelSelect(providersPayload, modelsPayload) {
             : {};
 
     const savedProvider = (localStorage.getItem(LS_KEYS.selected_provider) || "").trim();
-    const availableProviders = providerOptions.map((item) => item.value);
-    const selectedProvider = availableProviders.includes(savedProvider)
+        const enabledProviders = providerOptions.filter((item) => item.enabled).map((item) => item.value);
+        const fallbackProviders = providerOptions.map((item) => item.value);
+        const selectedProvider = enabledProviders.includes(savedProvider)
         ? savedProvider
-        : availableProviders.includes(defaultProvider)
+                : enabledProviders.includes(defaultProvider)
           ? defaultProvider
-          : availableProviders[0] || "gemini";
+                    : enabledProviders[0] || fallbackProviders[0] || "gemini";
     setSelectedProvider(selectedProvider);
     refreshModelSelectOptions();
 }
@@ -1389,6 +1406,44 @@ async function reloadFromDisk() {
     }
 }
 
+async function restartServerFromWeb() {
+    const confirmed = window.confirm("Restart the CV web server now?");
+    if (!confirmed) {
+        return;
+    }
+
+    if (els.restartServerBtn) {
+        els.restartServerBtn.disabled = true;
+    }
+    setStatus("Restart requested. Waiting for server...");
+
+    try {
+        await api("/api/server/restart", {
+            method: "POST",
+            body: JSON.stringify({}),
+        });
+    } catch (_err) {
+        // If the server restarts quickly, request may abort. Continue to polling.
+    }
+
+    const start = Date.now();
+    const maxWaitMs = 20_000;
+    while (Date.now() - start < maxWaitMs) {
+        try {
+            await api("/api/state");
+            window.location.reload();
+            return;
+        } catch (_err) {
+            await sleep(600);
+        }
+    }
+
+    if (els.restartServerBtn) {
+        els.restartServerBtn.disabled = false;
+    }
+    setStatus("Server restart timed out. Refresh the page manually.", true);
+}
+
 function setActiveTab(tabName) {
     if (!els.tabPanels[tabName]) {
         return;
@@ -1722,6 +1777,9 @@ async function initialize() {
 
 els.runFormatBtn.addEventListener("click", () => runPipeline("format"));
 els.runFullBtn.addEventListener("click", () => runPipeline("full"));
+if (els.restartServerBtn) {
+    els.restartServerBtn.addEventListener("click", restartServerFromWeb);
+}
 if (els.runResearchBtn) {
     els.runResearchBtn.addEventListener("click", onResearchPrimaryAction);
 }
