@@ -1,0 +1,63 @@
+#panel-top-cv {
+  padding: 0.75rem;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 0.5rem;
+  min-height: 0;
+}
+
+.cv-actions-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cv-subtabbar {
+  display: flex;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0;
+}
+
+.cv-subtab-btn {
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  background: #f7f2ec;
+  color: var(--muted);
+  border-radius: 0.45rem 0.45rem 0 0;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.cv-subtab-btn.active {
+  background: #fff;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.cv-subpanels {
+  min-height: 0;
+  display: grid;
+}
+
+.cv-subpanel {
+  display: none;
+  min-height: 0;
+  width: 100%;
+}
+
+.cv-subpanel.active {
+  display: grid;
+}
+
+#tab-cv,
+#tab-prompt,
+#tab-jobspec,
+#tab-env,
+#tab-tailored {
+  padding: 0.75rem;
+  grid-template-rows: auto minmax(260px, 1fr);
+  gap: 0.4rem;
+  min-height: 0;
+}
