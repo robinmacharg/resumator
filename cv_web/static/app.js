@@ -11,6 +11,7 @@ import { api, fetchText } from "./js/api-client.js";
 import { createAppEventBindingsFeature } from "./js/app-event-bindings-feature.js";
 import { createAppInitializationFeature } from "./js/app-initialization-feature.js";
 import { createAppOperationsFeature } from "./js/app-operations-feature.js";
+import { createAppStartupFeature } from "./js/app-startup-feature.js";
 import { createCvPipelineFeature } from "./js/cv-pipeline-feature.js";
 import { createDraftFilesFeature } from "./js/draft-files-feature.js";
 import { createLogsFeature } from "./js/logs-feature.js";
@@ -337,10 +338,14 @@ const appEventBindingsFeature = createAppEventBindingsFeature({
     providerModelFeature,
 });
 
-appEventBindingsFeature.bindEventHandlers();
+const appStartupFeature = createAppStartupFeature({
+    els,
+    bindAutosave,
+    bindMirroredEditors,
+    uiLayoutFeature,
+    syncResearchPrimaryButton,
+    initialize,
+});
 
-bindAutosave();
-bindMirroredEditors(els.jobspecEditor, els.researchJobspecEditor);
-bindMirroredEditors(els.cvEditor, els.researchCvEditor);
-uiLayoutFeature.initializeResearchSectionRatios();
-initialize();
+appEventBindingsFeature.bindEventHandlers();
+appStartupFeature.runStartupSequence();

@@ -1,0 +1,55 @@
+/**
+ * Architecture role:
+ * - Layer: composition support feature used by app bootstrap.
+ * - Responsibility: execute the final startup sequence after all features are constructed.
+ *
+ * Plain-language purpose:
+ * - This module is the app's "startup launcher".
+ * - It runs one-time setup steps (autosave wiring, mirrored editors, layout ratio init, initial button sync, and async initialize call).
+ */
+
+/**
+ * Dependencies required by app startup feature.
+ *
+ * @typedef {Object} AppStartupFeatureContext
+ * @property {any} els DOM element registry.
+ * @property {() => void} bindAutosave Draft autosave binding callback.
+ * @property {(primaryEditor: HTMLTextAreaElement | null, mirrorEditor: HTMLTextAreaElement | null) => void} bindMirroredEditors Mirrored editor binding callback.
+ * @property {{initializeResearchSectionRatios: () => void}} uiLayoutFeature Layout feature API subset.
+ * @property {() => void} syncResearchPrimaryButton Run-state button sync callback.
+ * @property {() => Promise<void>} initialize App initialization callback.
+ */
+
+/**
+ * Create app startup feature.
+ *
+ * @param {AppStartupFeatureContext} ctx Feature dependencies.
+ * @returns {{runStartupSequence: () => void}}
+ */
+export function createAppStartupFeature(ctx) {
+    const {
+        els,
+        bindAutosave,
+        bindMirroredEditors,
+        uiLayoutFeature,
+        syncResearchPrimaryButton,
+        initialize,
+    } = ctx;
+
+    /**
+     * Execute startup sequence once after all features are composed.
+     * @returns {void}
+     */
+    function runStartupSequence() {
+        bindAutosave();
+        bindMirroredEditors(els.jobspecEditor, els.researchJobspecEditor);
+        bindMirroredEditors(els.cvEditor, els.researchCvEditor);
+        uiLayoutFeature.initializeResearchSectionRatios();
+        syncResearchPrimaryButton();
+        initialize();
+    }
+
+    return {
+        runStartupSequence,
+    };
+}
