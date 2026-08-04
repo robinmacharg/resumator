@@ -96,7 +96,7 @@ def is_retryable_model_error(stderr_text: str) -> bool:
     """Purpose: Evaluate whether retryable model error is true.
     
     Inputs:
-    - stderr_text: See type hints and call site for expected value.
+    - stderr_text: Captured stderr text used for retry/failure classification.
     
     Returns:
     - `bool` value representing the operation result.
@@ -119,7 +119,7 @@ def extract_retry_after_seconds(text: str) -> int | None:
     """Purpose: Execute extract retry after seconds for this module's workflow.
     
     Inputs:
-    - text: See type hints and call site for expected value.
+    - text: Input text content being parsed, normalized, or inspected.
     
     Returns:
     - `int | None` value representing the operation result.
@@ -137,7 +137,7 @@ def is_hard_quota_exhausted_message(text: str) -> bool:
     """Purpose: Evaluate whether hard quota exhausted message is true.
     
     Inputs:
-    - text: See type hints and call site for expected value.
+    - text: Input text content being parsed, normalized, or inspected.
     
     Returns:
     - `bool` value representing the operation result.
@@ -156,7 +156,7 @@ def extract_full_report_path(stderr_text: str) -> str | None:
     """Purpose: Execute extract full report path for this module's workflow.
     
     Inputs:
-    - stderr_text: See type hints and call site for expected value.
+    - stderr_text: Captured stderr text used for retry/failure classification.
     
     Returns:
     - `str | None` value representing the operation result.
@@ -171,7 +171,7 @@ def load_full_report_content(report_path: str) -> str | None:
     """Purpose: Load full report content from configured source(s).
     
     Inputs:
-    - report_path: See type hints and call site for expected value.
+    - report_path: Path to a provider-generated full diagnostic report.
     
     Returns:
     - `str | None` value representing the operation result.
@@ -189,8 +189,8 @@ def print_attempt_summary(attempt_results: list[tuple[str, str]], stream) -> Non
     """Purpose: Execute print attempt summary for this module's workflow.
     
     Inputs:
-    - attempt_results: See type hints and call site for expected value.
-    - stream: See type hints and call site for expected value.
+    - attempt_results: Ordered list of model attempt outcomes for summary reporting.
+    - stream: Writable output stream used for human-readable summary lines.
     
     Returns:
     - None. This function performs side effects only.
@@ -206,9 +206,9 @@ def parse_positive_int(process_env: dict[str, str], key: str, default: int) -> i
     """Purpose: Parse and validate positive int for downstream use.
     
     Inputs:
-    - process_env: See type hints and call site for expected value.
-    - key: See type hints and call site for expected value.
-    - default: See type hints and call site for expected value.
+    - process_env: Runtime environment dictionary (OS env plus dotenv overrides).
+    - key: Environment variable key to read and parse.
+    - default: Default integer returned when the configured value is missing/invalid.
     
     Returns:
     - `int` value representing the operation result.
@@ -237,15 +237,15 @@ def run_gemini_with_diagnostics(
     """Purpose: Run gemini with diagnostics and return its outcome.
     
     Inputs:
-    - command: See type hints and call site for expected value.
-    - env: See type hints and call site for expected value.
-    - timeout_seconds: See type hints and call site for expected value.
-    - heartbeat_seconds: See type hints and call site for expected value.
-    - model_name: See type hints and call site for expected value.
-    - attempt_index: See type hints and call site for expected value.
-    - max_429_lines_before_fallback: See type hints and call site for expected value.
-    - rate_limit_grace_seconds: See type hints and call site for expected value.
-    - max_retry_after_seconds_before_fallback: See type hints and call site for expected value.
+    - command: Command argument vector used to launch the model subprocess.
+    - env: Process environment variables used for subprocesses or HTTP calls.
+    - timeout_seconds: Maximum seconds allowed before timing out the attempt.
+    - heartbeat_seconds: Interval in seconds between progress heartbeat checks/logs.
+    - model_name: Model identifier to invoke for this provider attempt.
+    - attempt_index: 1-based index of the current model attempt.
+    - max_429_lines_before_fallback: Count threshold of detected 429/quota lines before aborting and falling back.
+    - rate_limit_grace_seconds: Grace period in seconds before rate-limit fallback checks are enforced.
+    - max_retry_after_seconds_before_fallback: Maximum provider-requested retry delay tolerated before forcing fallback.
     
     Returns:
     - `tuple[subprocess.CompletedProcess[str], float, Path]` value representing the operation result.
@@ -291,11 +291,11 @@ def run_gemini_with_diagnostics(
         """Purpose: Execute stream reader for this module's workflow.
         
         Inputs:
-        - pipe: See type hints and call site for expected value.
-        - sink: See type hints and call site for expected value.
-        - sink_name: See type hints and call site for expected value.
-        - emit_stream: See type hints and call site for expected value.
-        - stat_key: See type hints and call site for expected value.
+        - pipe: Readable stream (stdout/stderr or HTTP worker stream) consumed line-by-line.
+        - sink: Mutable list used to accumulate streamed output lines.
+        - sink_name: Human-readable label for the stream source in emitted output.
+        - emit_stream: Output stream where mirrored live lines are written.
+        - stat_key: Key in the stream statistics map to increment for each line.
         
         Returns:
         - None. This function performs side effects only.
@@ -493,9 +493,9 @@ def build_model_sequence(
     """Purpose: Build model sequence from current inputs and state.
     
     Inputs:
-    - process_env: See type hints and call site for expected value.
-    - provider: See type hints and call site for expected value.
-    - explicit_model: See type hints and call site for expected value.
+    - process_env: Runtime environment dictionary (OS env plus dotenv overrides).
+    - provider: Selected provider backend identifier.
+    - explicit_model: Optional explicit model override to prioritize in sequence building.
     
     Returns:
     - `list[str]` value representing the operation result.
@@ -508,7 +508,7 @@ def load_dotenv_file(path: Path) -> dict[str, str]:
     """Purpose: Load dotenv file from configured source(s).
     
     Inputs:
-    - path: See type hints and call site for expected value.
+    - path: Filesystem path to the dotenv file to parse.
     
     Returns:
     - `dict[str, str]` value representing the operation result.
@@ -546,7 +546,7 @@ def dedupe_keep_order(items: list[str]) -> list[str]:
     """Purpose: Execute dedupe keep order for this module's workflow.
     
     Inputs:
-    - items: See type hints and call site for expected value.
+    - items: Input list that will be deduplicated while preserving order.
     
     Returns:
     - `list[str]` value representing the operation result.
@@ -568,7 +568,7 @@ def read_company_name(company_file: Path) -> str:
     """Purpose: Read company name from file or runtime state.
     
     Inputs:
-    - company_file: See type hints and call site for expected value.
+    - company_file: Path to persisted company-name input file.
     
     Returns:
     - `str` value representing the operation result.
@@ -582,10 +582,10 @@ def persist_inputs(company_file: Path, company_name: str, urls_file: Path, urls:
     """Purpose: Execute persist inputs for this module's workflow.
     
     Inputs:
-    - company_file: See type hints and call site for expected value.
-    - company_name: See type hints and call site for expected value.
-    - urls_file: See type hints and call site for expected value.
-    - urls: See type hints and call site for expected value.
+    - company_file: Path to persisted company-name input file.
+    - company_name: Company name used to contextualize research prompt generation.
+    - urls_file: Path to persisted newline-delimited URL input file.
+    - urls: URL list used as research context sources.
     
     Returns:
     - None. This function performs side effects only.
@@ -601,8 +601,8 @@ def reset_prompt_file(prompt_default_path: Path, prompt_path: Path) -> None:
     """Purpose: Execute reset prompt file for this module's workflow.
     
     Inputs:
-    - prompt_default_path: See type hints and call site for expected value.
-    - prompt_path: See type hints and call site for expected value.
+    - prompt_default_path: Path to immutable default research prompt source file.
+    - prompt_path: Path to editable prompt file used for runtime prompt composition.
     
     Returns:
     - None. This function performs side effects only.
@@ -617,8 +617,8 @@ def read_urls(urls_file: Path, inline_urls: list[str]) -> list[str]:
     """Purpose: Read urls from file or runtime state.
     
     Inputs:
-    - urls_file: See type hints and call site for expected value.
-    - inline_urls: See type hints and call site for expected value.
+    - urls_file: Path to persisted newline-delimited URL input file.
+    - inline_urls: URL values provided directly via CLI/request input.
     
     Returns:
     - `list[str]` value representing the operation result.
@@ -643,7 +643,7 @@ def format_urls_block(urls: list[str]) -> str:
     """Purpose: Execute format urls block for this module's workflow.
     
     Inputs:
-    - urls: See type hints and call site for expected value.
+    - urls: URL list used as research context sources.
     
     Returns:
     - `str` value representing the operation result.
@@ -663,11 +663,11 @@ def build_prompt(
     """Purpose: Build prompt from current inputs and state.
     
     Inputs:
-    - prompt_template: See type hints and call site for expected value.
-    - company_name: See type hints and call site for expected value.
-    - cv_content: See type hints and call site for expected value.
-    - jobspec_content: See type hints and call site for expected value.
-    - urls: See type hints and call site for expected value.
+    - prompt_template: Prompt template text that may include replacement tokens.
+    - company_name: Company name used to contextualize research prompt generation.
+    - cv_content: CV markdown content inserted into the research prompt.
+    - jobspec_content: Job specification text inserted into the research prompt.
+    - urls: URL list used as research context sources.
     
     Returns:
     - `str` value representing the operation result.

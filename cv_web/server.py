@@ -263,8 +263,8 @@ def stream_pipe(pipe, prefix: str = "") -> None:
     """Purpose: Execute stream pipe for this module's workflow.
     
     Inputs:
-    - pipe: See type hints and call site for expected value.
-    - prefix: See type hints and call site for expected value.
+    - pipe: Readable subprocess stream (typically stdout or stderr) for a CV run.
+    - prefix: Optional label prepended to each streamed line, such as "[stderr] ".
     
     Returns:
     - None. This function performs side effects only.
@@ -276,8 +276,8 @@ def stream_pipe_research(pipe, prefix: str = "") -> None:
     """Purpose: Execute stream pipe research for this module's workflow.
     
     Inputs:
-    - pipe: See type hints and call site for expected value.
-    - prefix: See type hints and call site for expected value.
+    - pipe: Readable subprocess stream (typically stdout or stderr) for a research run.
+    - prefix: Optional label prepended to each streamed line, such as "[stderr] ".
     
     Returns:
     - None. This function performs side effects only.
@@ -289,9 +289,9 @@ def run_subprocess_streaming(kind: str, selected_provider: str = "", selected_mo
     """Purpose: Run subprocess streaming and return its outcome.
     
     Inputs:
-    - kind: See type hints and call site for expected value.
-    - selected_provider: See type hints and call site for expected value.
-    - selected_model: See type hints and call site for expected value.
+    - kind: CV pipeline mode, expected to be "full" or "format".
+    - selected_provider: Optional provider override; empty string keeps default ordering.
+    - selected_model: Optional model override for the selected provider.
     
     Returns:
     - `dict[str, Any]` value representing the operation result.
@@ -308,9 +308,9 @@ def run_subprocess_async(kind: str, selected_provider: str = "", selected_model:
     """Purpose: Run subprocess async and return its outcome.
     
     Inputs:
-    - kind: See type hints and call site for expected value.
-    - selected_provider: See type hints and call site for expected value.
-    - selected_model: See type hints and call site for expected value.
+    - kind: CV pipeline mode, expected to be "full" or "format".
+    - selected_provider: Optional provider override; empty string keeps default ordering.
+    - selected_model: Optional model override for the selected provider.
     
     Returns:
     - None. This function performs side effects only.
@@ -334,12 +334,12 @@ def run_research_subprocess_streaming(
     """Purpose: Run research subprocess streaming and return its outcome.
     
     Inputs:
-    - company_name: See type hints and call site for expected value.
-    - urls: See type hints and call site for expected value.
-    - dry_run: See type hints and call site for expected value.
-    - auto_format_pdf: See type hints and call site for expected value.
-    - selected_provider: See type hints and call site for expected value.
-    - selected_model: See type hints and call site for expected value.
+    - company_name: Company identifier used to tailor the research prompt and outputs.
+    - urls: Source URLs to include as research input context.
+    - dry_run: When true, skips provider execution and runs in preview/simulation mode.
+    - auto_format_pdf: When true, triggers PDF formatting after successful research generation.
+    - selected_provider: Optional provider override; empty string keeps default ordering.
+    - selected_model: Optional model override for the selected provider.
     
     Returns:
     - `dict[str, Any]` value representing the operation result.
@@ -378,12 +378,12 @@ def run_research_subprocess_async(
     """Purpose: Run research subprocess async and return its outcome.
     
     Inputs:
-    - company_name: See type hints and call site for expected value.
-    - urls: See type hints and call site for expected value.
-    - dry_run: See type hints and call site for expected value.
-    - auto_format_pdf: See type hints and call site for expected value.
-    - selected_provider: See type hints and call site for expected value.
-    - selected_model: See type hints and call site for expected value.
+    - company_name: Company identifier used to tailor the research prompt and outputs.
+    - urls: Source URLs to include as research input context.
+    - dry_run: When true, skips provider execution and runs in preview/simulation mode.
+    - auto_format_pdf: When true, triggers PDF formatting after successful research generation.
+    - selected_provider: Optional provider override; empty string keeps default ordering.
+    - selected_model: Optional model override for the selected provider.
     
     Returns:
     - None. This function performs side effects only.
@@ -456,8 +456,8 @@ class CVWebHandler(BaseHTTPRequestHandler):
         """Purpose: Execute json response for this module's workflow.
         
         Inputs:
-        - payload: See type hints and call site for expected value.
-        - status: See type hints and call site for expected value.
+        - payload: JSON-serializable response object to send to the client.
+        - status: HTTP status code for the response (default 200).
         
         Returns:
         - None. This function performs side effects only.
@@ -473,9 +473,9 @@ class CVWebHandler(BaseHTTPRequestHandler):
         """Purpose: Execute text response for this module's workflow.
         
         Inputs:
-        - text: See type hints and call site for expected value.
-        - status: See type hints and call site for expected value.
-        - content_type: See type hints and call site for expected value.
+        - text: Raw text body to write to the HTTP response.
+        - status: HTTP status code for the response (default 200).
+        - content_type: MIME content type header value for the text response.
         
         Returns:
         - None. This function performs side effects only.
@@ -491,8 +491,8 @@ class CVWebHandler(BaseHTTPRequestHandler):
         """Purpose: Execute serve file for this module's workflow.
         
         Inputs:
-        - path: See type hints and call site for expected value.
-        - content_type: See type hints and call site for expected value.
+        - path: Absolute file path to serve.
+        - content_type: MIME content type header value for the served file.
         
         Returns:
         - None. This function performs side effects only.
@@ -537,8 +537,8 @@ class CVWebHandler(BaseHTTPRequestHandler):
         """Purpose: Execute save editor payload for this module's workflow.
         
         Inputs:
-        - payload: See type hints and call site for expected value.
-        - allowed_keys: See type hints and call site for expected value.
+        - payload: Request body expected to include a `files` mapping of editor keys to text.
+        - allowed_keys: Optional subset of editor keys permitted for this save operation.
         
         Returns:
         - None. This function performs side effects only.
@@ -560,7 +560,7 @@ class CVWebHandler(BaseHTTPRequestHandler):
         """Purpose: Execute handle save for this module's workflow.
         
         Inputs:
-        - payload: See type hints and call site for expected value.
+        - payload: Parsed request body containing editor file content updates.
         
         Returns:
         - None. This function performs side effects only.
@@ -593,7 +593,7 @@ class CVWebHandler(BaseHTTPRequestHandler):
         """Purpose: Execute handle research run for this module's workflow.
         
         Inputs:
-        - payload: See type hints and call site for expected value.
+        - payload: Parsed request body containing research settings and editable file content.
         
         Returns:
         - None. This function performs side effects only.
@@ -626,8 +626,8 @@ class CVWebHandler(BaseHTTPRequestHandler):
         """Purpose: Execute handle cv run for this module's workflow.
         
         Inputs:
-        - route: See type hints and call site for expected value.
-        - payload: See type hints and call site for expected value.
+        - route: Request path identifying run kind, such as `/api/run/full` or `/api/run/format`.
+        - payload: Parsed request body containing run settings and editable file content.
         
         Returns:
         - None. This function performs side effects only.
@@ -638,7 +638,7 @@ class CVWebHandler(BaseHTTPRequestHandler):
         """Purpose: Execute handle static get for this module's workflow.
         
         Inputs:
-        - route: See type hints and call site for expected value.
+        - route: Parsed request path used to resolve static asset file routing.
         
         Returns:
         - `bool` value representing the operation result.
@@ -671,7 +671,7 @@ class CVWebHandler(BaseHTTPRequestHandler):
         """Purpose: Execute handle logs content get for this module's workflow.
         
         Inputs:
-        - parsed: See type hints and call site for expected value.
+        - parsed: Parsed URL object containing query parameters for log lookup.
         
         Returns:
         - None. This function performs side effects only.
@@ -682,7 +682,7 @@ class CVWebHandler(BaseHTTPRequestHandler):
         """Purpose: Execute handle output get for this module's workflow.
         
         Inputs:
-        - route: See type hints and call site for expected value.
+        - route: Parsed request path used to resolve output artifact file routing.
         
         Returns:
         - `bool` value representing the operation result.

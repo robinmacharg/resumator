@@ -14,7 +14,7 @@ def normalize_markdown(text: str) -> str:
     """Purpose: Execute normalize markdown for this module's workflow.
     
     Inputs:
-    - text: See type hints and call site for expected value.
+    - text: Input text content being parsed, normalized, or inspected.
     
     Returns:
     - `str` value representing the operation result.
@@ -44,8 +44,8 @@ def ensure_heading(text: str, heading: str) -> str:
     """Purpose: Execute ensure heading for this module's workflow.
     
     Inputs:
-    - text: See type hints and call site for expected value.
-    - heading: See type hints and call site for expected value.
+    - text: Input text content being parsed, normalized, or inspected.
+    - heading: Heading title to enforce at the top of formatted markdown.
     
     Returns:
     - `str` value representing the operation result.
@@ -77,9 +77,9 @@ def compile_pdf(markdown_file: Path, output_pdf: Path, font_name: str) -> None:
     """Purpose: Execute compile pdf for this module's workflow.
     
     Inputs:
-    - markdown_file: See type hints and call site for expected value.
-    - output_pdf: See type hints and call site for expected value.
-    - font_name: See type hints and call site for expected value.
+    - markdown_file: Source markdown file compiled into PDF.
+    - output_pdf: Path where formatted PDF output is written.
+    - font_name: Font family name supplied to the PDF engine.
     
     Returns:
     - None. This function performs side effects only.
@@ -111,10 +111,10 @@ def run(input_md: Path, output_md: Path, output_pdf: Path, heading: str) -> int:
     """Purpose: Run the operation and return its outcome.
     
     Inputs:
-    - input_md: See type hints and call site for expected value.
-    - output_md: See type hints and call site for expected value.
-    - output_pdf: See type hints and call site for expected value.
-    - heading: See type hints and call site for expected value.
+    - input_md: Path to source research markdown file.
+    - output_md: Path where formatted markdown output is written.
+    - output_pdf: Path where formatted PDF output is written.
+    - heading: Heading title to enforce at the top of formatted markdown.
     
     Returns:
     - `int` value representing the operation result.

@@ -35,7 +35,7 @@ def extract_retry_after_seconds(text: str) -> int | None:
     """Purpose: Execute extract retry after seconds for this module's workflow.
     
     Inputs:
-    - text: See type hints and call site for expected value.
+    - text: Input text content being parsed, normalized, or inspected.
     
     Returns:
     - `int | None` value representing the operation result.
@@ -53,7 +53,7 @@ def is_hard_quota_exhausted_message(text: str) -> bool:
     """Purpose: Evaluate whether hard quota exhausted message is true.
     
     Inputs:
-    - text: See type hints and call site for expected value.
+    - text: Input text content being parsed, normalized, or inspected.
     
     Returns:
     - `bool` value representing the operation result.
@@ -72,8 +72,8 @@ def _write_attempt_log(log_path: Path, lines: list[str]) -> None:
     """Purpose: Write attempt log to the target location.
     
     Inputs:
-    - log_path: See type hints and call site for expected value.
-    - lines: See type hints and call site for expected value.
+    - log_path: Destination path for the per-attempt debug log file.
+    - lines: Ordered log lines to persist to the debug log file.
     
     Returns:
     - None. This function performs side effects only.
@@ -100,18 +100,18 @@ def run_gemini_attempt(
     """Purpose: Run gemini attempt and return its outcome.
     
     Inputs:
-    - model_name: See type hints and call site for expected value.
-    - prompt_text: See type hints and call site for expected value.
-    - env: See type hints and call site for expected value.
-    - timeout_seconds: See type hints and call site for expected value.
-    - heartbeat_seconds: See type hints and call site for expected value.
-    - attempt_index: See type hints and call site for expected value.
-    - debug_log_dir: See type hints and call site for expected value.
-    - log_prefix: See type hints and call site for expected value.
-    - max_429_lines_before_fallback: See type hints and call site for expected value.
-    - rate_limit_grace_seconds: See type hints and call site for expected value.
-    - max_retry_after_seconds_before_fallback: See type hints and call site for expected value.
-    - emit_live_output: See type hints and call site for expected value.
+    - model_name: Model identifier to invoke for this provider attempt.
+    - prompt_text: Fully rendered prompt text sent to the model/provider.
+    - env: Process environment variables used for subprocesses or HTTP calls.
+    - timeout_seconds: Maximum seconds allowed before timing out the attempt.
+    - heartbeat_seconds: Interval in seconds between progress heartbeat checks/logs.
+    - attempt_index: 1-based index of the current model attempt.
+    - debug_log_dir: Directory where per-attempt diagnostic log files are written.
+    - log_prefix: Filename prefix used when generating attempt log filenames.
+    - max_429_lines_before_fallback: Count threshold of detected 429/quota lines before aborting and falling back.
+    - rate_limit_grace_seconds: Grace period in seconds before rate-limit fallback checks are enforced.
+    - max_retry_after_seconds_before_fallback: Maximum provider-requested retry delay tolerated before forcing fallback.
+    - emit_live_output: When true, streams provider output live to stdout/stderr.
     
     Returns:
     - `AttemptResult` value representing the operation result.
@@ -188,11 +188,11 @@ def run_gemini_attempt(
         """Purpose: Execute stream reader for this module's workflow.
         
         Inputs:
-        - pipe: See type hints and call site for expected value.
-        - sink: See type hints and call site for expected value.
-        - sink_name: See type hints and call site for expected value.
-        - emit_stream: See type hints and call site for expected value.
-        - stat_key: See type hints and call site for expected value.
+        - pipe: Readable stream (stdout/stderr or HTTP worker stream) consumed line-by-line.
+        - sink: Mutable list used to accumulate streamed output lines.
+        - sink_name: Human-readable label for the stream source in emitted output.
+        - emit_stream: Output stream where mirrored live lines are written.
+        - stat_key: Key in the stream statistics map to increment for each line.
         
         Returns:
         - None. This function performs side effects only.
@@ -398,7 +398,7 @@ def _extract_hf_text(payload: dict[str, Any]) -> str:
     """Purpose: Execute extract hf text for this module's workflow.
     
     Inputs:
-    - payload: See type hints and call site for expected value.
+    - payload: Decoded response payload object to extract model text from.
     
     Returns:
     - `str` value representing the operation result.
@@ -432,7 +432,7 @@ def _extract_hf_error_details(body_text: str) -> tuple[str, str]:
     """Purpose: Execute extract hf error details for this module's workflow.
     
     Inputs:
-    - body_text: See type hints and call site for expected value.
+    - body_text: Raw response body text used to derive error details.
     
     Returns:
     - `tuple[str, str]` value representing the operation result.
@@ -478,7 +478,7 @@ def _is_hf_retryable_http_status(status_code: int) -> bool:
     """Purpose: Evaluate whether hf retryable http status is true.
     
     Inputs:
-    - status_code: See type hints and call site for expected value.
+    - status_code: HTTP status code to classify retryability.
     
     Returns:
     - `bool` value representing the operation result.
@@ -490,7 +490,7 @@ def _is_hf_retryable_exception_message(message: str) -> bool:
     """Purpose: Evaluate whether hf retryable exception message is true.
     
     Inputs:
-    - message: See type hints and call site for expected value.
+    - message: Error message text evaluated for transient failure patterns.
     
     Returns:
     - `bool` value representing the operation result.
@@ -522,15 +522,15 @@ def run_huggingface_attempt(
     """Purpose: Run huggingface attempt and return its outcome.
     
     Inputs:
-    - model_name: See type hints and call site for expected value.
-    - prompt_text: See type hints and call site for expected value.
-    - env: See type hints and call site for expected value.
-    - timeout_seconds: See type hints and call site for expected value.
-    - heartbeat_seconds: See type hints and call site for expected value.
-    - attempt_index: See type hints and call site for expected value.
-    - debug_log_dir: See type hints and call site for expected value.
-    - log_prefix: See type hints and call site for expected value.
-    - emit_live_output: See type hints and call site for expected value.
+    - model_name: Model identifier to invoke for this provider attempt.
+    - prompt_text: Fully rendered prompt text sent to the model/provider.
+    - env: Process environment variables used for subprocesses or HTTP calls.
+    - timeout_seconds: Maximum seconds allowed before timing out the attempt.
+    - heartbeat_seconds: Interval in seconds between progress heartbeat checks/logs.
+    - attempt_index: 1-based index of the current model attempt.
+    - debug_log_dir: Directory where per-attempt diagnostic log files are written.
+    - log_prefix: Filename prefix used when generating attempt log filenames.
+    - emit_live_output: When true, streams provider output live to stdout/stderr.
     
     Returns:
     - `AttemptResult` value representing the operation result.
@@ -809,15 +809,15 @@ def run_swiftlet_attempt(
     """Purpose: Run swiftlet attempt and return its outcome.
     
     Inputs:
-    - model_name: See type hints and call site for expected value.
-    - prompt_text: See type hints and call site for expected value.
-    - env: See type hints and call site for expected value.
-    - timeout_seconds: See type hints and call site for expected value.
-    - heartbeat_seconds: See type hints and call site for expected value.
-    - attempt_index: See type hints and call site for expected value.
-    - debug_log_dir: See type hints and call site for expected value.
-    - log_prefix: See type hints and call site for expected value.
-    - emit_live_output: See type hints and call site for expected value.
+    - model_name: Model identifier to invoke for this provider attempt.
+    - prompt_text: Fully rendered prompt text sent to the model/provider.
+    - env: Process environment variables used for subprocesses or HTTP calls.
+    - timeout_seconds: Maximum seconds allowed before timing out the attempt.
+    - heartbeat_seconds: Interval in seconds between progress heartbeat checks/logs.
+    - attempt_index: 1-based index of the current model attempt.
+    - debug_log_dir: Directory where per-attempt diagnostic log files are written.
+    - log_prefix: Filename prefix used when generating attempt log filenames.
+    - emit_live_output: When true, streams provider output live to stdout/stderr.
     
     Returns:
     - `AttemptResult` value representing the operation result.
@@ -1066,7 +1066,7 @@ def _extract_openai_error_details(body_text: str) -> tuple[str, str]:
     """Purpose: Execute extract openai error details for this module's workflow.
     
     Inputs:
-    - body_text: See type hints and call site for expected value.
+    - body_text: Raw response body text used to derive error details.
     
     Returns:
     - `tuple[str, str]` value representing the operation result.
@@ -1117,15 +1117,15 @@ def run_openai_attempt(
     """Purpose: Run openai attempt and return its outcome.
     
     Inputs:
-    - model_name: See type hints and call site for expected value.
-    - prompt_text: See type hints and call site for expected value.
-    - env: See type hints and call site for expected value.
-    - timeout_seconds: See type hints and call site for expected value.
-    - heartbeat_seconds: See type hints and call site for expected value.
-    - attempt_index: See type hints and call site for expected value.
-    - debug_log_dir: See type hints and call site for expected value.
-    - log_prefix: See type hints and call site for expected value.
-    - emit_live_output: See type hints and call site for expected value.
+    - model_name: Model identifier to invoke for this provider attempt.
+    - prompt_text: Fully rendered prompt text sent to the model/provider.
+    - env: Process environment variables used for subprocesses or HTTP calls.
+    - timeout_seconds: Maximum seconds allowed before timing out the attempt.
+    - heartbeat_seconds: Interval in seconds between progress heartbeat checks/logs.
+    - attempt_index: 1-based index of the current model attempt.
+    - debug_log_dir: Directory where per-attempt diagnostic log files are written.
+    - log_prefix: Filename prefix used when generating attempt log filenames.
+    - emit_live_output: When true, streams provider output live to stdout/stderr.
     
     Returns:
     - `AttemptResult` value representing the operation result.
@@ -1395,15 +1395,15 @@ def run_vscodebridge_attempt(
     """Purpose: Run vscodebridge attempt and return its outcome.
     
     Inputs:
-    - model_name: See type hints and call site for expected value.
-    - prompt_text: See type hints and call site for expected value.
-    - env: See type hints and call site for expected value.
-    - timeout_seconds: See type hints and call site for expected value.
-    - heartbeat_seconds: See type hints and call site for expected value.
-    - attempt_index: See type hints and call site for expected value.
-    - debug_log_dir: See type hints and call site for expected value.
-    - log_prefix: See type hints and call site for expected value.
-    - emit_live_output: See type hints and call site for expected value.
+    - model_name: Model identifier to invoke for this provider attempt.
+    - prompt_text: Fully rendered prompt text sent to the model/provider.
+    - env: Process environment variables used for subprocesses or HTTP calls.
+    - timeout_seconds: Maximum seconds allowed before timing out the attempt.
+    - heartbeat_seconds: Interval in seconds between progress heartbeat checks/logs.
+    - attempt_index: 1-based index of the current model attempt.
+    - debug_log_dir: Directory where per-attempt diagnostic log files are written.
+    - log_prefix: Filename prefix used when generating attempt log filenames.
+    - emit_live_output: When true, streams provider output live to stdout/stderr.
     
     Returns:
     - `AttemptResult` value representing the operation result.
