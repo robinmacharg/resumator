@@ -1,5 +1,36 @@
 import { sleep } from "./app-utils.js";
 
+/**
+ * Dependencies required by the CV pipeline feature.
+ * Boundaries: this feature orchestrates CV run polling and status updates, but does not own DOM queries.
+ * Side effects are performed via injected callbacks.
+ *
+ * @typedef {Object} CvPipelineFeatureContext
+ * @property {(path: string, options?: RequestInit) => Promise<any>} api JSON API request helper.
+ * @property {() => {cv: string, prompt: string, research_prompt: string, jobspec: string, env: string}} currentFiles Current editor payload.
+ * @property {() => void} writeDraftToLocalStorage Persist current draft before runs.
+ * @property {{selectedProvider: string, selectedModel: string}} state Shared app state subset.
+ * @property {(running: boolean) => void} setRunning Toggle global running state.
+ * @property {(message: string) => void} startRunStatusTimer Start status timer message.
+ * @property {() => void} stopRunStatusTimer Stop run status timer.
+ * @property {(text: string) => void} setRunLogOutput Render run output text.
+ * @property {(message: string, isError?: boolean) => void} setStatus Render status text.
+ * @property {(files: any) => void} updateDiskSnapshot Refresh local disk snapshot for dirty checks.
+ * @property {(payload: any) => void} applyCvOutputState Update preview output state from API payload.
+ * @property {() => void} updatePreviewCacheBuster Refresh preview iframe/source metadata.
+ * @property {() => Promise<void>} refreshTailoredOutput Refresh tailored markdown output.
+ * @property {() => Promise<void>} refreshLogs Refresh logs UI.
+ * @property {(run: any) => string} summarizeRun Convert run payload to display text.
+ */
+
+/**
+ * Create the CV pipeline feature.
+ * Purpose: execute format/full CV pipeline runs and keep run status/log/preview synchronized.
+ * Boundary: no direct DOM lookup; all rendering and state mutations are done through injected callbacks.
+ *
+ * @param {CvPipelineFeatureContext} ctx Feature dependencies.
+ * @returns {{fetchRunStatus: () => Promise<any>, waitForRunCompletion: () => Promise<any>, runPipeline: (kind: "full" | "format") => Promise<void>}} Public CV pipeline API.
+ */
 export function createCvPipelineFeature(ctx) {
     const {
         api,
@@ -19,10 +50,19 @@ export function createCvPipelineFeature(ctx) {
         summarizeRun,
     } = ctx;
 
+    /**
+     * Fetch current CV run status payload.
+     * @returns {Promise<any>} Server run status envelope.
+     */
     async function fetchRunStatus() {
         return api("/api/run/status");
     }
 
+    /**
+     * Poll run status until completion.
+     * Side effects: pushes summarized output to run log while running.
+     * @returns {Promise<any>} Final run payload.
+     */
     async function waitForRunCompletion() {
         while (true) {
             const status = await fetchRunStatus();
@@ -39,6 +79,12 @@ export function createCvPipelineFeature(ctx) {
         }
     }
 
+    /**
+     * Run CV pipeline in full or formatting-only mode.
+     * Side effects: updates running state, status timer, logs, preview and disk snapshot.
+     * @param {"full" | "format"} kind Pipeline execution mode.
+     * @returns {Promise<void>}
+     */
     async function runPipeline(kind) {
         setRunning(true);
         startRunStatusTimer(

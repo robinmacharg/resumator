@@ -2,6 +2,27 @@ const SPLITTER_MIN_LEFT_PX = 360;
 const SPLITTER_MIN_RIGHT_PX = 320;
 const RESEARCH_SPLITTER_MIN_SECTION_PX = 140;
 
+/**
+ * Dependencies required by UI layout feature.
+ * Boundaries: this feature owns tab activation state and splitter interactions; data fetching is delegated.
+ *
+ * @typedef {Object} UiLayoutFeatureContext
+ * @property {any} state Shared app state subset for active tabs and drag state.
+ * @property {any} els DOM registry for tab buttons/panels and splitter elements.
+ * @property {any} localStorageKeys Local storage key map.
+ * @property {() => void} onLogsTabActivated Callback when logs top tab is activated.
+ * @property {() => void} onPreviewUpdate Callback to refresh preview on top-tab changes.
+ * @property {() => void} onTailoredTabActivated Callback when CV tailored tab is activated.
+ * @property {() => void} onTabsChanged Callback for tab changes that should trigger extra UI sync.
+ */
+
+/**
+ * Create UI layout feature.
+ * Purpose: centralize tab state transitions, persistence, and splitter pointer behavior.
+ *
+ * @param {UiLayoutFeatureContext} ctx Feature dependencies.
+ * @returns {{initializeResearchSectionRatios: () => void, setActiveTab: (tabName: string) => void, setActiveCvTab: (tabName: string) => void, setActiveResearchInputTab: (tabName: string) => void, setActiveLogTab: (tabName: string) => void, setActiveResearchOutputTab: (tabName: string) => void, onSplitterPointerDown: (event: PointerEvent) => void, onResearchSplitterPointerDown: (event: PointerEvent) => void, onSplitterPointerMove: (event: PointerEvent) => void, onSplitterPointerUp: (event: PointerEvent) => void}}
+ */
 export function createUiLayoutFeature(ctx) {
     const {
         state,
@@ -13,6 +34,11 @@ export function createUiLayoutFeature(ctx) {
         onTabsChanged,
     } = ctx;
 
+    /**
+     * Normalize three research section ratios into fractions summing to 1.
+     * @param {any} ratios Candidate ratio list.
+     * @returns {number[]} Normalized 3-length ratio array.
+     */
     function normalizeResearchRatios(ratios) {
         if (!Array.isArray(ratios) || ratios.length !== 3) {
             return [1 / 3, 1 / 3, 1 / 3];
@@ -31,6 +57,12 @@ export function createUiLayoutFeature(ctx) {
         return cleaned.map((value) => value / sum);
     }
 
+    /**
+     * Apply research section ratios to CSS variables.
+     * @param {number[]} ratios Top/middle/bottom ratios.
+     * @param {boolean} [persist=true] Persist ratios in localStorage.
+     * @returns {void}
+     */
     function applyResearchSectionRatios(ratios, persist = true) {
         const panel = els.tabPanels.research;
         if (!panel) {
@@ -52,6 +84,10 @@ export function createUiLayoutFeature(ctx) {
         }
     }
 
+    /**
+     * Initialize research section ratios from localStorage or defaults.
+     * @returns {void}
+     */
     function initializeResearchSectionRatios() {
         const savedRaw = localStorage.getItem(localStorageKeys.research_section_ratios);
         if (!savedRaw) {
@@ -67,6 +103,11 @@ export function createUiLayoutFeature(ctx) {
         }
     }
 
+    /**
+     * Activate top-level tab and persist selection.
+     * @param {string} tabName Target tab name.
+     * @returns {void}
+     */
     function setActiveTab(tabName) {
         if (!els.tabPanels[tabName]) {
             return;
@@ -91,6 +132,11 @@ export function createUiLayoutFeature(ctx) {
         onPreviewUpdate();
     }
 
+    /**
+     * Activate CV sub-tab and persist selection.
+     * @param {string} tabName Target CV sub-tab.
+     * @returns {void}
+     */
     function setActiveCvTab(tabName) {
         if (!els.cvTabPanels[tabName]) {
             return;
@@ -114,6 +160,11 @@ export function createUiLayoutFeature(ctx) {
         }
     }
 
+    /**
+     * Activate research input sub-tab and persist selection.
+     * @param {string} tabName Target research input tab.
+     * @returns {void}
+     */
     function setActiveResearchInputTab(tabName) {
         if (!els.researchInputPanels[tabName]) {
             return;
@@ -133,6 +184,11 @@ export function createUiLayoutFeature(ctx) {
         });
     }
 
+    /**
+     * Activate logs tab (run/debug) and persist selection.
+     * @param {string} tabName Target logs tab.
+     * @returns {void}
+     */
     function setActiveLogTab(tabName) {
         if (!els.logPanels[tabName]) {
             return;
@@ -153,6 +209,11 @@ export function createUiLayoutFeature(ctx) {
         onTabsChanged();
     }
 
+    /**
+     * Activate research output tab and persist selection.
+     * @param {string} tabName Target research output tab.
+     * @returns {void}
+     */
     function setActiveResearchOutputTab(tabName) {
         if (!els.researchOutputPanels[tabName]) {
             return;
@@ -174,6 +235,11 @@ export function createUiLayoutFeature(ctx) {
         onTabsChanged();
     }
 
+    /**
+     * Update main pane splitter position in response to pointer movement.
+     * @param {number} clientX Pointer X coordinate.
+     * @returns {void}
+     */
     function updateSplitterPosition(clientX) {
         if (!els.layout) {
             return;
@@ -186,6 +252,11 @@ export function createUiLayoutFeature(ctx) {
         els.layout.style.setProperty("--left-pane-width", `${pct}%`);
     }
 
+    /**
+     * Start drag interaction for main horizontal pane splitter.
+     * @param {PointerEvent} event Pointer event.
+     * @returns {void}
+     */
     function onSplitterPointerDown(event) {
         if (!els.paneSplitter || window.matchMedia("(max-width: 1100px)").matches) {
             return;
@@ -197,6 +268,11 @@ export function createUiLayoutFeature(ctx) {
         updateSplitterPosition(event.clientX);
     }
 
+    /**
+     * Start drag interaction for research vertical splitters.
+     * @param {PointerEvent} event Pointer event.
+     * @returns {void}
+     */
     function onResearchSplitterPointerDown(event) {
         if (!els.tabPanels.research || window.matchMedia("(max-width: 1100px)").matches) {
             return;
@@ -225,6 +301,11 @@ export function createUiLayoutFeature(ctx) {
         splitter.setPointerCapture(event.pointerId);
     }
 
+    /**
+     * Handle pointer move while dragging either main or research splitters.
+     * @param {PointerEvent} event Pointer event.
+     * @returns {void}
+     */
     function onSplitterPointerMove(event) {
         if (!state.isDraggingSplitter) {
             if (!state.isDraggingResearchSplitter || !state.activeResearchSplitter) {
@@ -271,6 +352,11 @@ export function createUiLayoutFeature(ctx) {
         updateSplitterPosition(event.clientX);
     }
 
+    /**
+     * End active splitter drag interactions and release pointer capture.
+     * @param {PointerEvent} event Pointer event.
+     * @returns {void}
+     */
     function onSplitterPointerUp(event) {
         if (state.isDraggingResearchSplitter && state.activeResearchSplitter) {
             const drag = state.activeResearchSplitter;

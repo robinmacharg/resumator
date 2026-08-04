@@ -1,6 +1,29 @@
+/**
+ * Dependencies required by logs feature.
+ * Boundaries: this feature fetches log data and updates log UI controls; no global app state ownership.
+ *
+ * @typedef {Object} LogsFeatureContext
+ * @property {any} els DOM element registry subset (log select and outputs).
+ * @property {(path: string, options?: RequestInit) => Promise<any>} api JSON API request helper.
+ * @property {(text: string) => void} setRunLogOutput Run log text renderer.
+ * @property {(run: any) => string} summarizeRun Run formatter.
+ * @property {(text: string) => void} setDebugLogOutput Debug log renderer.
+ */
+
+/**
+ * Create logs feature.
+ * Purpose: load log index, populate debug-log selector, and load selected debug log content.
+ *
+ * @param {LogsFeatureContext} ctx Feature dependencies.
+ * @returns {{refreshLogs: () => Promise<void>, loadSelectedDebugLog: () => Promise<void>}} Public logs API.
+ */
 export function createLogsFeature(ctx) {
     const { els, api, setRunLogOutput, summarizeRun, setDebugLogOutput } = ctx;
 
+    /**
+     * Refresh log index and run summary output.
+     * @returns {Promise<void>}
+     */
     async function refreshLogs() {
         try {
             const payload = await api("/api/logs");
@@ -28,6 +51,10 @@ export function createLogsFeature(ctx) {
         }
     }
 
+    /**
+     * Load content for selected debug log file.
+     * @returns {Promise<void>}
+     */
     async function loadSelectedDebugLog() {
         const name = els.logSelect.value;
         if (!name) {

@@ -1,5 +1,34 @@
 import { parseResearchUrlsInput, sleep } from "./app-utils.js";
 
+/**
+ * Dependencies required by the research feature.
+ * Boundaries: this feature orchestrates research lifecycle and polling; UI/state mutations are delegated to callbacks.
+ *
+ * @typedef {Object} ResearchFeatureContext
+ * @property {{isResearchRunning: boolean, selectedProvider: string, selectedModel: string, activeResearchOutputTab: string}} state Shared app state subset.
+ * @property {any} els DOM element registry.
+ * @property {(path: string, options?: RequestInit) => Promise<any>} api JSON API request helper.
+ * @property {() => {cv: string, prompt: string, research_prompt: string, jobspec: string, env: string}} currentFiles Current editor payload.
+ * @property {() => void} writeDraftToLocalStorage Persist draft before operations.
+ * @property {(message: string, isError?: boolean) => void} setStatus Global status renderer.
+ * @property {(running: boolean) => void} setResearchRunning Toggle research-running UI state.
+ * @property {() => void} updatePreviewCacheBuster Refresh preview metadata/source.
+ * @property {(files: any) => void} updateDiskSnapshot Refresh disk snapshot for dirty indicators.
+ * @property {(message: string, isError?: boolean) => void} setResearchStatus Research status renderer.
+ * @property {(text: string) => void} setResearchOutput Research console renderer.
+ * @property {(command: any) => void} setResearchCommandOutput Research command renderer.
+ * @property {(payload: any) => void} renderResearchState Apply research state to UI.
+ * @property {(run: any) => string} summarizeResearchOutput Convert run payload to display text.
+ */
+
+/**
+ * Create the research feature.
+ * Purpose: run/stop/format/reset research workflows, poll status, and synchronize output panels.
+ * Boundary: no direct DOM querying; consumes pre-collected element references and callback functions.
+ *
+ * @param {ResearchFeatureContext} ctx Feature dependencies.
+ * @returns {{fetchResearchStatus: () => Promise<any>, waitForResearchCompletion: () => Promise<any>, runResearch: () => Promise<void>, stopResearch: () => Promise<void>, onResearchPrimaryAction: () => void, formatResearchPdf: () => Promise<void>, resetResearchPrompt: () => Promise<void>, copyResearchOutputToClipboard: () => Promise<void>}}
+ */
 export function createResearchFeature(ctx) {
     const {
         state,
@@ -18,10 +47,19 @@ export function createResearchFeature(ctx) {
         summarizeResearchOutput,
     } = ctx;
 
+    /**
+     * Fetch current research status payload.
+     * @returns {Promise<any>} Server research status envelope.
+     */
     async function fetchResearchStatus() {
         return api("/api/research/status");
     }
 
+    /**
+     * Poll research status until completion.
+     * Side effects: keeps output and command panes live-updated during execution.
+     * @returns {Promise<any>} Final research run payload.
+     */
     async function waitForResearchCompletion() {
         while (true) {
             const status = await fetchResearchStatus();
@@ -42,6 +80,11 @@ export function createResearchFeature(ctx) {
         }
     }
 
+    /**
+     * Start a research run from current UI inputs.
+     * Validates company name and prompt, persists draft, then runs and polls until completion.
+     * @returns {Promise<void>}
+     */
     async function runResearch() {
         const companyName = (els.researchCompanyInput.value || "").trim();
         if (!companyName) {
@@ -113,6 +156,10 @@ export function createResearchFeature(ctx) {
         }
     }
 
+    /**
+     * Request stop for active research run.
+     * @returns {Promise<void>}
+     */
     async function stopResearch() {
         setResearchStatus("Stopping research run...");
         setStatus("Stopping research run...");
@@ -129,6 +176,11 @@ export function createResearchFeature(ctx) {
         }
     }
 
+    /**
+     * Primary research button behavior.
+     * Stops active run with confirmation, or starts a new run.
+     * @returns {void}
+     */
     function onResearchPrimaryAction() {
         if (state.isResearchRunning) {
             const shouldStop = window.confirm("Stop the current research run?");
@@ -141,6 +193,10 @@ export function createResearchFeature(ctx) {
         runResearch();
     }
 
+    /**
+     * Run research formatting workflow for existing research output.
+     * @returns {Promise<void>}
+     */
     async function formatResearchPdf() {
         setResearchRunning(true);
         setResearchStatus("Formatting research PDF...");
@@ -176,6 +232,10 @@ export function createResearchFeature(ctx) {
         }
     }
 
+    /**
+     * Reset research prompt from default server-side file.
+     * @returns {Promise<void>}
+     */
     async function resetResearchPrompt() {
         const confirmed = window.confirm(
             "Reset research prompt to default? This will overwrite the current research prompt file.",
@@ -213,6 +273,10 @@ export function createResearchFeature(ctx) {
         }
     }
 
+    /**
+     * Copy the active research output pane content to clipboard.
+     * @returns {Promise<void>}
+     */
     async function copyResearchOutputToClipboard() {
         const sourceText =
             state.activeResearchOutputTab === "command"
