@@ -1,29 +1,17 @@
 {
   "companyName": "New company",
   "provider": "openai",
-  "model": "gpt-4o-mini",
+  "model": "gpt-5.6-luna",
   "urls": [
     "https://builtin.com/job/founding-ai-engineer/7869823",
     "https://bjak.my/en"
   ],
-  "generatedAt": "2026-08-04T11:01:45.892243+00:00",
+  "generatedAt": "2026-08-04T11:07:48.993883+00:00",
   "dryRun": false,
   "output": "",
   "modelAttempts": [
     {
-      "model": "gpt-4.1-mini",
-      "exitCode": 429,
-      "retryable": true,
-      "hardQuota": false
-    },
-    {
-      "model": "gpt-4.1",
-      "exitCode": 429,
-      "retryable": true,
-      "hardQuota": false
-    },
-    {
-      "model": "gpt-4o-mini",
+      "model": "gpt-5.6-luna",
       "exitCode": 429,
       "retryable": true,
       "hardQuota": false

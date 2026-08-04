@@ -62,10 +62,12 @@ OPENAI_TIMEOUT_SECONDS = 180
 DEFAULT_SWIFTLET_MODEL = "qwen3_5_moe_text"
 DEFAULT_SWIFTLET_FALLBACK_MODELS = []
 SWIFTLET_TIMEOUT_SECONDS = 240
-DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
+DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
 DEFAULT_OPENAI_FALLBACK_MODELS = [
-    "gpt-4.1",
-    "gpt-4o-mini",
+    "gpt-5.6-terra",
+    "gpt-5.6-sol",
+    "gpt-5.5",
+    "gpt-4.1-mini",
 ]
 
 
