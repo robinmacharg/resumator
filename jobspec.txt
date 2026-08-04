@@ -1,37 +1,52 @@
-Role: Graph Data Engineer / SPARQL Developer
+Mobile Engineer | iOS or Android (Remote - UK)
 
-Location: CO (REMOTE)
+Mobile Engineer | iOS or Android
+AI Product | Early Stage Incubator
+Remote First - London Office
+Competitive, flexible salary dependent on experience
+We're partnering with an ambitious AI startup, a new spin off from a larger, successful global brand building a next-generation consumer product that combines intelligent automation, conversational AI and modern mobile experiences.
 
-Employment Type: Full-Time
+Following continued global growth, they're looking to hire multiple Mobile Engineers, specialising in either iOS or Android to help shape the next generation of their mobile platform.
 
- 
+This is a genuine opportunity to join a small, high-calibre engineering team where mobile isn't an afterthought, it's at the heart of the product. You'll work alongside backend and machine learning engineers to build AI-powered experiences used by real customers, helping define how intelligent software feels on modern mobile devices.
 
-Must Have Technical/Functional Skills
+If you enjoy solving challenging engineering problems, shipping polished products and working in an environment where you can influence technical direction, this is the sort of opportunity that's difficult to find.
 
-·         Technical: 
 
-o   SPARQL, RDF, OWL, semantic web technologies
+The Role
 
-o   Graph databases (e.g., Stardog, Neo4j)
+You'll take ownership of native mobile features from design through to production, helping build applications that are fast, reliable and intuitive to use.
 
-o   SQL, Python, JavaScript for data processing and visualization
+You'll be involved in initiatives such as:
 
-o   EXFO Ontology (PRONTO) – Necessary but if no resource have this above three are mandatory 
+Building and maintaining native mobile applications using either Swift or Kotlin
+Delivering AI-powered features including conversational experiences, intelligent workflows and real-time interactions
+Collaborating with backend and ML engineers to build scalable product features
+Improving application performance, responsiveness and reliability
+Designing resilient user experiences that handle latency, streaming responses and partial failures gracefully
+Contributing to product decisions within a collaborative engineering team
 
-·         Domain Knowledge: 
+What You'll Bring
 
-o   Telecom network architecture, Service Fulfilment (Provisioning and Activation)
+Commercial experience developing native iOS or Android applications
+Strong experience with Swift/SwiftUI or Kotlin
+Experience shipping production mobile applications
+Experience integrating backend APIs
+A strong appreciation for performance, usability and product quality
+Interest in AI-powered products and emerging technologies
+Confidence working autonomously whilst collaborating closely with engineers across multiple disciplines
+Experience with mobile machine learning, AI integrations or modern mobile architectures also beneficial
+If you're a Mobile Engineer looking to build AI-first products alongside an exceptional engineering team, we'd love to hear from you.
 
-o   OSS/BSS integration, CMDB, network inventory
+Mobile Engineer | iOS or Android (Remote - UK)
 
-o   Event-driven and real-time data architectures (Kafka, REST APIs) 
-
- 
-
-Roles & Responsibilities
-
-·         Design and development of API using SPARQL and Python 
-
-·         Generic Managerial Skills, If any
-
-·         Good Customer communication
+Company Benefits
+Company benefits are highly specific, full details available during the process.
+Interview Process
+3 Stages, more details available in process.
+Skills of candidates in conversation
+Swift
+iOS
+MVVM
+UIKit
+Java

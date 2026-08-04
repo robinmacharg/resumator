@@ -451,18 +451,14 @@ function populateProviderAndModelSelect(providersPayload, modelsPayload) {
             ? providersPayload.options
                   .filter(
                       (item) =>
-                          item &&
-                          typeof item.value === "string" &&
-                          typeof item.label === "string",
+                          item && typeof item.value === "string" && typeof item.label === "string",
                   )
                   .map((item) => ({
                       value: item.value.trim(),
                       label: item.label.trim(),
                       enabled: item.enabled !== false,
                       disabledReason:
-                          typeof item.disabledReason === "string"
-                              ? item.disabledReason.trim()
-                              : "",
+                          typeof item.disabledReason === "string" ? item.disabledReason.trim() : "",
                   }))
                   .filter((item) => item.value && item.label)
             : [{ value: "gemini", label: "Gemini", enabled: true, disabledReason: "" }];
@@ -496,13 +492,15 @@ function populateProviderAndModelSelect(providersPayload, modelsPayload) {
             : {};
 
     const savedProvider = (localStorage.getItem(LS_KEYS.selected_provider) || "").trim();
-        const enabledProviders = providerOptions.filter((item) => item.enabled).map((item) => item.value);
-        const fallbackProviders = providerOptions.map((item) => item.value);
-        const selectedProvider = enabledProviders.includes(savedProvider)
+    const enabledProviders = providerOptions
+        .filter((item) => item.enabled)
+        .map((item) => item.value);
+    const fallbackProviders = providerOptions.map((item) => item.value);
+    const selectedProvider = enabledProviders.includes(savedProvider)
         ? savedProvider
-                : enabledProviders.includes(defaultProvider)
+        : enabledProviders.includes(defaultProvider)
           ? defaultProvider
-                    : enabledProviders[0] || fallbackProviders[0] || "gemini";
+          : enabledProviders[0] || fallbackProviders[0] || "gemini";
     setSelectedProvider(selectedProvider);
     refreshModelSelectOptions();
 }

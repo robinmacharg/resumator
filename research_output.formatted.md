@@ -1,203 +1,205 @@
 # Research Notes
 
-Generated At: 2026-08-04 15:02:14
+Generated At: 2026-08-04 16:09:35
 
 ## 1) Company and role context overview (evidence-oriented)
 
-### What the company does (from provided URLs)
-- **URL-derived fact:** One provided link is `https://bjak.my/en`, which is the primary company domain for **BJAK**.
-- **Inference (not verified in-page here):** BJAK appears to be a consumer-facing financial/insurance technology company in Southeast Asia (commonly associated with insurance comparison/distribution).
-- **URL-derived fact:** Another link is a Built In posting URL: `https://builtin.com/job/founding-ai-engineer/7869823`, indicating a **Founding AI Engineer** listing exists/existed at that path.
+### What the company does
+- **URL provided:** `https://www.boostworks.co.uk`
+- **URL-derived facts (high confidence):**
+  - This is Boostworks’ UK corporate domain.
+- **URL-content extraction status:**
+  - Live page content was **not available in this workspace**, so detailed website claims cannot be verified from-page here.
+- **Inference (from job spec + candidate CV context):**
+  - Boostworks appears to operate in **employee perks/rewards/engagement** software, with mobile apps used by enterprise clients.
 
 ### Role summary from URLs
-- **Role summary from URLs: partially available / mismatched.**
-  - The Built In URL path references **“founding-ai-engineer”**, not explicitly **Graph Data Engineer / SPARQL Developer**.
-  - Because of this mismatch, detailed role scope for the target role is **not reliably available from URLs alone**.
+- **Role summary from URLs: not available.**
+  No role-posting content was supplied from linked pages in the prompt.
 
-### Fallback role summary (from Job Spec)
-- Build APIs using **SPARQL + Python**.
-- Work with **RDF/OWL/semantic web** and graph databases (**Stardog/Neo4j**).
-- Use **SQL, Python, JavaScript** for processing/visualization.
-- Domain focus: **telecom network architecture**, **Service Fulfilment (Provisioning/Activation)**, **OSS/BSS**, **CMDB/network inventory**, and **event-driven real-time architectures** (Kafka, REST).
-
-
-## 2) Role-specific insights that matter to this candidate
-
-- **Primary gap:** CV is strong in mobile/platform engineering, but lacks explicit **SPARQL/RDF/OWL** and **telecom OSS/BSS** delivery examples.
-- **Transferable strengths:** Strong **Python, SQL, API design, data tooling automation, cross-system integration**, and customer-facing delivery.
-- **Interview risk:** Team may question immediate effectiveness in semantic graph modeling and telecom fulfillment workflows.
-- **Best positioning:** Present as a senior systems engineer who can ramp quickly on graph semantics, with proven success in new domains and production hardening.
+### Role summary (from Job Spec fallback)
+- Early-stage **AI product incubator** role; hiring **native Mobile Engineers** (iOS or Android), remote UK.
+- Mobile is core to product: build native Swift or Kotlin features end-to-end.
+- Expected to ship AI-powered UX (conversational flows, intelligent workflows, real-time interactions).
+- Strong focus on **performance, reliability, resilient UX under latency/partial failure**, and cross-functional work with backend + ML.
 
 
-## 3) Targeted interview questions (with exemplar answers, research topics, prior-role evidence)
+## 2) Role-specific insights that matter for this candidate
 
-### Theme A — Semantic web / graph fundamentals
-
-1) **How would you model telecom inventory in RDF for querying service activation readiness?**
-**Why useful:** Tests core fit to RDF/SPARQL + telecom domain.
-**Exemplar answer:** “Model entities as classes (device, port, service, customer endpoint), define relationships for topology and dependencies, and keep lifecycle state as typed properties. Use named graphs for source/system boundaries and provenance.”
-**Research next:** RDF schema design patterns, SHACL validation, telecom SID alignment.
-**Relevant CV roles:** RMS Services (asset discovery/data modeling), This One (schema + backend design).
-
-2) **What SPARQL query patterns would you use for path/dependency traversal?**
-**Why useful:** Assesses practical SPARQL depth.
-**Exemplar answer:** “Use property paths for multi-hop traversal, optional blocks for sparse metadata, and subqueries for staged filtering. Add pagination and bounded traversals to control runtime.”
-**Research next:** SPARQL 1.1 property paths, query optimization on Stardog/Neo4j adapters.
-**Relevant CV roles:** MySpace middleware, Boostworks API/data automation.
-
-3) **How do OWL ontologies help beyond plain graph storage?**
-**Why useful:** Distinguishes ontology engineering from simple graph DB use.
-**Exemplar answer:** “OWL enables formal semantics and inference (class hierarchy, equivalence, constraints) so downstream apps can reason over implicit facts, not only explicit edges.”
-**Research next:** OWL profiles (EL/QL/RL), reasoning cost trade-offs.
-**Relevant CV roles:** Cross-platform architecture leadership (conceptual modeling strength), AI degree foundation.
+- This is a strong fit for a candidate who has already shipped at scale and worked with ambiguity.
+- Team likely values engineers who can:
+  - own features from concept to production,
+  - make product trade-offs quickly,
+  - handle unreliable AI/backend response patterns gracefully on mobile.
+- The strongest differentiator will be showing:
+  1. **Native depth** (Swift/SwiftUI, architecture, performance),
+  2. **AI-adjacent product thinking** (streaming, fallbacks, trust UX),
+  3. **Early-stage execution speed** with production quality.
+- Candidate’s **Boostworks lead role**, **Sky SDK scale**, and **This One AI startup** experience are highly relevant anchors.
 
 
-### Theme B — API and data architecture
+## 3) Targeted interview questions (with exemplar answers, research topics, and role evidence)
 
-4) **Design an API layer that exposes SPARQL safely to downstream systems.**
-**Why useful:** Directly maps to role responsibility.
-**Exemplar answer:** “Expose task-oriented REST endpoints backed by parameterized SPARQL templates, enforce authz per graph scope, validate inputs, and add caching for stable read paths.”
-**Research next:** SPARQL injection defenses, API gateway policy, observability for query latency.
-**Relevant CV roles:** Boostworks (OpenAPI pipelines), This One (Flask mock/backend).
+### A) Native architecture and product delivery
 
-5) **How would you handle near-real-time graph updates from Kafka events?**
-**Why useful:** Validates event-driven integration capability.
-**Exemplar answer:** “Use an ingest service to normalize events, enforce idempotency keys, and apply upserts to graph triples with replay-safe offsets. Track DLQ handling and consistency SLAs.”
-**Research next:** Kafka exactly-once semantics limits, CDC-to-graph patterns.
-**Relevant CV roles:** Large-scale CI/CD and automation at Boostworks; middleware experience at MySpace.
+1. **How would you design a native iOS architecture for an AI-first feature with streaming responses?**
+   - **Exemplar answer:** MVVM/TCA-style state management, async streams, explicit loading/partial/failed states, local caching, retry policies, telemetry hooks.
+   - **CV evidence:** Floww (TCA/SwiftUI), Sky (SDK + scale), This One (startup iOS architecture).
+   - **Further research:** Apple `AsyncSequence`, structured concurrency cancellation, streaming UI patterns.
 
-6) **How would you balance SQL stores and graph stores in one architecture?**
-**Why useful:** Tests polyglot persistence judgment.
-**Exemplar answer:** “Use SQL for transactional/reporting workloads and graph for relationship-heavy traversal/inference. Maintain contract-defined synchronization with lineage and freshness metrics.”
-**Research next:** Data product boundaries, eventual consistency playbooks.
-**Relevant CV roles:** Python + PostgreSQL history, backend integration roles.
+2. **Describe a feature you owned from design to production and what trade-offs you made.**
+   - **Exemplar answer:** Pick Boostworks white-label feature; explain scope control, sequencing, quality gates, release strategy.
+   - **CV evidence:** Boostworks (sole maintainer, multi-tenant apps), Dyson (greenfield to production in 8 weeks).
+   - **Further research:** STAR framing with measurable outcomes.
 
+3. **How do you keep UI responsive while waiting on slow/variable backend or model outputs?**
+   - **Exemplar answer:** Progressive rendering, placeholder states, optimistic UX where safe, timeout budgets, cancellation, back-pressure.
+   - **CV evidence:** Sky (video SDK reliability), Living Map (offline/background support).
+   - **Further research:** latency budgets, skeleton/loading heuristics.
 
-### Theme C — Telecom domain application
+### B) Reliability, performance, and quality
 
-7) **What data is critical for provisioning/activation decisions in OSS/BSS flows?**
-**Why useful:** Checks domain readiness.
-**Exemplar answer:** “Service intent, inventory availability, topology constraints, compatibility rules, and current operational state/events. Activation should be policy-gated and auditable.”
-**Research next:** OSS/BSS order-to-activate lifecycle, TM Forum concepts.
-**Relevant CV roles:** QoS/network analytics history (Actual Experience), low-level network work.
+4. **What is your approach to mobile performance tuning in production?**
+   - **Exemplar answer:** Define KPIs (startup time, frame drops, memory), instrument first, isolate regressions, automate checks in CI.
+   - **CV evidence:** Floww (startup improvements), Boostworks (CI/CD automation), Bugsnag (crash diagnostics).
+   - **Further research:** Instruments workflows, signposts, release guardrails.
 
-8) **How would you integrate CMDB and network inventory with graph ontology?**
-**Why useful:** Core requirement in spec.
-**Exemplar answer:** “Map CMDB CIs and inventory objects into ontology classes, preserve source IDs for traceability, and reconcile conflicts using source-priority and timestamp rules.”
-**Research next:** CI reconciliation strategies, canonical model governance.
-**Relevant CV roles:** Asset discovery at RMS; enterprise integration at Dyson/Boostworks.
+5. **How do you design for partial failures in AI-powered conversational flows?**
+   - **Exemplar answer:** Distinguish recoverable/unrecoverable states, preserve user intent, transparent messaging, fallbacks to deterministic flows.
+   - **CV evidence:** This One (ML product), enterprise integrations at Boostworks.
+   - **Further research:** trust/safety UX for AI failure modes.
 
+6. **How do you ensure release quality in a fast-moving team?**
+   - **Exemplar answer:** test pyramid, feature flags, staged rollout, crash monitoring, release checklist ownership.
+   - **CV evidence:** Sky bi-weekly releases, Boostworks Fastlane/Azure pipelines, Dyson high test coverage.
+   - **Further research:** phased release strategy for App Store/TestFlight.
 
-### Theme D — Delivery, collaboration, customer communication
+### C) Collaboration with backend/ML and cross-discipline teams
 
-9) **A customer reports slow activation decisions; how do you troubleshoot?**
-**Why useful:** Tests production ownership and communication.
-**Exemplar answer:** “Segment by data freshness, query performance, and downstream API latency. Provide incident timeline, short-term mitigation, and measurable remediation plan.”
-**Research next:** Graph query profiling in Stardog/Neo4j, SLO design.
-**Relevant CV roles:** Bugsnag support, Boostworks client-facing ownership.
+7. **How do you collaborate with backend and ML engineers when API behavior is evolving quickly?**
+   - **Exemplar answer:** schema contracts (OpenAPI), mock services, versioning discipline, early error-model alignment.
+   - **CV evidence:** Boostworks OpenAPI automation; This One Flask mock backend.
+   - **Further research:** API contract testing, backward compatibility patterns.
 
-10) **How do you lead when domain expertise is initially incomplete?**
-**Why useful:** Evaluates ramp strategy for career-pivot profile.
-**Exemplar answer:** “Define a 30/60/90 learning-delivery plan: ontology spike, one production API slice, then reliability hardening; pair weekly with domain SMEs and publish decision logs.”
-**Research next:** Telecom glossary build-out, sample OSS/BSS integration case studies.
-**Relevant CV roles:** Multiple rapid ramp-ups in contract/startup environments.
+8. **How would you evaluate and integrate a new AI capability into an existing mobile product?**
+   - **Exemplar answer:** define user value + constraints, prototype thin slice, measure outcomes, then harden for scale/security.
+   - **CV evidence:** This One founding team, Boostworks AI-assisted delivery practices.
+   - **Further research:** experiment design and success metrics for AI features.
 
+### D) Senior ownership and operating style
 
-## 4) Why these questions are useful (summary)
+9. **Tell us about a time you influenced technical direction without formal authority.**
+   - **Exemplar answer:** discuss Boostworks insourcing/migration and engineering cost reduction; link to stakeholder alignment.
+   - **CV evidence:** Boostworks transformation, Floww best-practice rollout.
+   - **Further research:** concise change-management narrative.
 
-- They directly test the job’s hard requirements: **SPARQL/RDF/OWL, graph DBs, telecom workflows, event-driven APIs**.
-- They expose readiness for a likely concern: **domain and semantic-web depth vs strong general engineering seniority**.
-- They let the candidate demonstrate **transferable production leadership** despite non-linear background.
-
-
-## 5) Questions the candidate should ask the company (grouped by theme, with fit + follow-ups)
-
-### Theme A — Role scope and success criteria
-1) **“In the first 90 days, what production outcomes define success for this role?”**
-Why this demonstrates fit: Shows delivery focus and onboarding discipline.
-Follow-ups:
-- “Is success measured by API throughput/latency, data quality, or provisioning accuracy?”
-- “Which milestone is highest risk today?”
-
-2) **“How much of the role is ontology design vs API/data engineering?”**
-Why this demonstrates fit: Aligns skill depth with day-to-day expectations.
-Follow-ups:
-- “Who owns ontology governance decisions?”
-- “Are reasoning rules already established or still evolving?”
-
-### Theme B — Data/platform architecture
-3) **“Which graph stack is live today (Stardog, Neo4j, hybrid), and what are current bottlenecks?”**
-Why this demonstrates fit: Signals practical platform thinking.
-Follow-ups:
-- “Where do you see most latency: ingest, query, or inference?”
-- “What observability exists for SPARQL performance?”
-
-4) **“How are Kafka events normalized before graph ingestion?”**
-Why this demonstrates fit: Connects event architecture to data reliability.
-Follow-ups:
-- “How are duplicates and out-of-order events handled?”
-- “Is there a dead-letter queue replay process?”
-
-### Theme C — Telecom domain and integration
-5) **“Which OSS/BSS and CMDB systems are in scope for integration first?”**
-Why this demonstrates fit: Targets integration sequencing and complexity.
-Follow-ups:
-- “Is there a canonical model already defined?”
-- “What is the current reconciliation strategy across systems?”
-
-6) **“How is provisioning/activation policy represented today—code, rules engine, or ontology?”**
-Why this demonstrates fit: Probes decisioning architecture maturity.
-Follow-ups:
-- “Who signs off on policy changes?”
-- “How is auditability handled for activation decisions?”
-
-### Theme D — Team and customer interaction
-7) **“How customer-facing is this role during incident analysis or solution design?”**
-Why this demonstrates fit: Matches strong stakeholder communication background.
-Follow-ups:
-- “Will this role join customer technical workshops?”
-- “What communication cadence is expected during incidents?”
-
-8) **“What domain upskilling support exists for telecom semantics (documents, SMEs, sandbox data)?”**
-Why this demonstrates fit: Shows proactive ramp planning.
-Follow-ups:
-- “Can I pair with a telecom architect in the first month?”
-- “Are there internal ontology standards I should follow?”
+10. **How do you operate autonomously in a remote-first environment?**
+   - **Exemplar answer:** decision logs, async updates, clear ADRs (Architecture Decision Records), proactive risk surfacing.
+   - **CV evidence:** multiple remote senior/lead roles; direct client technical liaison (Living Map).
+   - **Further research:** remote collaboration rituals for small engineering teams.
 
 
-## 6) Follow-up points for candidate questions
-- Included above under each question as **follow-ups** for live discussion steering.
+## 4) Why these interview questions are useful
+
+- They test whether the candidate can deliver **native mobile excellence** in an **AI-first** product context.
+- They probe practical capability in **latency-tolerant UX**, **resilience**, and **production quality**.
+- They validate ability to work across product/backend/ML boundaries, not just write app code.
+- They reveal seniority through ownership, trade-offs, and autonomous execution in a small team.
 
 
-## 7) Candidate revision focus (before interview)
+## 5) Questions the candidate should ask the company (grouped by theme)
 
-- Prepare a **clear transition narrative**: mobile principal engineer → graph/API engineer with deep integration and reliability experience.
-- Build 2–3 **SPARQL examples** (joins, traversal, aggregation, filtering) and be ready to explain performance considerations.
-- Create a concise **telecom primer**: OSS/BSS flow, CMDB linkage, provisioning vs activation distinction.
-- Map CV stories to role needs:
-  - **Boostworks:** API automation, scale, client communication.
-  - **RMS/MySpace:** backend/data/middleware credibility.
-  - **Bugsnag/Dyson:** production support, security, enterprise rigor.
-- Be explicit about **learning plan** for RDF/OWL/EXFO PRONTO.
+### Product + AI behavior
+1. **“Which user journeys are most AI-critical today, and where are current failure points?”**
+   - **Why this shows fit:** Demonstrates focus on real user value and reliability, not novelty AI.
+   - **Follow-ups:**
+     - “Do you track completion vs abandonment by latency band?”
+     - “Where do users most need deterministic fallback paths?”
+
+2. **“How are AI responses delivered on mobile—request/response or streaming—and what SLAs are realistic?”**
+   - **Why this shows fit:** Signals practical implementation thinking for UX and architecture.
+   - **Follow-ups:**
+     - “What timeout and retry strategy is currently used?”
+     - “How are partial responses represented in API contracts?”
+
+### Engineering architecture + standards
+3. **“What is the expected architecture baseline for iOS/Android (state management, modularization, testing)?”**
+   - **Why this shows fit:** Shows intent to align with team standards quickly.
+   - **Follow-ups:**
+     - “Where is the main technical debt today?”
+     - “Any planned platform rewrites or major refactors?”
+
+4. **“How do mobile, backend, and ML teams agree interface contracts and versioning?”**
+   - **Why this shows fit:** Targets cross-team friction points early.
+   - **Follow-ups:**
+     - “Is OpenAPI or schema-first used?”
+     - “Who owns breaking-change governance?”
+
+### Delivery + quality
+5. **“What does ‘good release quality’ mean here in measurable terms?”**
+   - **Why this shows fit:** Demonstrates metrics-driven engineering maturity.
+   - **Follow-ups:**
+     - “Which KPIs are tracked: crash-free sessions, startup, ANR rates, retention?”
+     - “How are rollbacks handled?”
+
+6. **“What does the 3-stage interview evaluate at each step?”**
+   - **Why this shows fit:** Shows structured preparation and respect for process.
+   - **Follow-ups:**
+     - “Will there be a system-design/mobile architecture discussion?”
+     - “Any take-home or pair-programming component?”
+
+### Team + scope
+7. **“What ownership would this role have in the first 90 days?”**
+   - **Why this shows fit:** Signals delivery orientation and onboarding clarity.
+   - **Follow-ups:**
+     - “Which feature area is highest priority?”
+     - “What dependencies might block fast impact?”
 
 
-## 8) Brief glossary (role-relevant, concise)
+## 6) Follow-up points to drive discussion and signal fit
 
-- **SPARQL (SPARQL Protocol and RDF Query Language):** Query language for graph data in RDF; candidate should relate to SQL fluency and API work.
-- **RDF (Resource Description Framework):** Triple-based data model (subject-predicate-object) for linked data; similar to candidate’s schema/integration work.
-- **OWL (Web Ontology Language):** Semantic modeling language enabling inference over RDF data; relevant to architecture strengths but likely new tool depth.
-- **Ontology:** Formal domain model of entities/relations/rules; comparable to domain-driven modeling the candidate has done in backend/mobile systems.
-- **Stardog:** Enterprise graph database/knowledge graph platform supporting SPARQL and reasoning; likely a target stack to upskill.
-- **Neo4j:** Graph database commonly using Cypher (and integrations); relevant if team uses mixed graph tooling.
-- **OSS/BSS (Operations Support Systems / Business Support Systems):** Telecom operational + commercial systems that drive service lifecycle.
-- **CMDB (Configuration Management Database):** System of record for configuration items and relationships; maps naturally into graph structures.
-- **Provisioning vs Activation:** Provisioning allocates/configures resources; activation turns service on for use/billing.
-- **EXFO PRONTO:** Telecom-focused ontology/model reference mentioned in spec; candidate should request internal schema examples early.
-- **Kafka:** Distributed event streaming platform for real-time pipelines; candidate can connect to prior middleware/automation patterns.
+- Link answers back to candidate evidence:
+  - **Scale + ownership:** Boostworks 13-app white-label estate.
+  - **AI-startup context:** This One greenfield ML product.
+  - **Reliability at scale:** Sky SDK and Bugsnag crash diagnostics.
+- Emphasize willingness to:
+  - define technical standards,
+  - improve release confidence,
+  - partner tightly with backend/ML on contract clarity.
+
+
+## 7) Candidate revision focus (CV areas to sharpen)
+
+- Prepare a concise **native-first narrative** despite recent React Native leadership.
+- Build 2-3 STAR stories around:
+  - AI-adjacent mobile UX under latency/failure,
+  - performance improvements with measurable metrics,
+  - cross-functional API/contract alignment.
+- Be ready to quantify:
+  - startup time/perf gains,
+  - crash/stability improvements,
+  - release cadence and incident reduction.
+- Refresh deep Swift topics likely to come up:
+  - concurrency, memory/performance, SwiftUI state management trade-offs.
+- Prepare clear explanation of when to choose **native vs cross-platform** in AI product contexts.
+
+
+## 8) Brief glossary (role/CV-relevant)
+
+- **TCA (The Composable Architecture):** A Redux-like Swift architecture for predictable state and effects; used in Floww.
+- **KMM (Kotlin Multiplatform Mobile):** Sharing business logic between iOS and Android while keeping native UI; used at Sky.
+- **XCFramework:** Apple packaging format for distributing binary frameworks across platforms/architectures; used at Living Map.
+- **White-label app:** One core app customized for multiple client brands/tenants; central to Boostworks role.
+- **OpenAPI:** Machine-readable API specification enabling generated clients/models and contract alignment; used in Boostworks automation.
+- **CI/CD (Continuous Integration/Continuous Delivery):** Automated build/test/release pipelines; used across Boostworks, Floww, Sky.
+- **ANR (Application Not Responding):** Android freeze condition metric for responsiveness; relevant for cross-platform quality targets.
+- **Feature flag:** Runtime switch to enable/disable features safely without full redeploy; useful for staged AI rollout.
+- **Fallback UX:** Backup user path when AI/backend output fails or is delayed; core to this job spec.
 
 
 ## 9) Risk and uncertainty notes
 
-- **High uncertainty:** Live content of both URLs could not be fully verified here; Built In slug suggests a different role (**Founding AI Engineer**) than provided spec.
-- **Likely mismatch risk:** Company name is listed as “New company,” while one URL points to BJAK; confirm legal entity and hiring team.
-- **Action:** Validate exact role posting, reporting line, stack (Stardog vs Neo4j), and telecom domain expectations in recruiter screen.
+- **Primary uncertainty:** Website content from `boostworks.co.uk` could not be directly verified in this workspace.
+- **Implication:** Company summary relies partly on job spec and CV context; treat as informed inference, not confirmed website extraction.
+- **Role detail confidence:** High for responsibilities/requirements, because job spec is explicit.
+- **Interview-process detail confidence:** Low beyond “3 stages,” as no additional source details were provided.
