@@ -6,6 +6,7 @@ const state = {
     defaultProvider: "gemini",
     modelsByProvider: {},
     activeTab: "cv",
+    activeCvTab: "cv",
     activeLogTab: "run",
     activeResearchOutputTab: "console",
     isDraggingSplitter: false,
@@ -57,13 +58,17 @@ const els = {
     fileLoadButtons: Array.from(document.querySelectorAll(".file-load-btn")),
     fileSaveButtons: Array.from(document.querySelectorAll(".file-save-btn")),
     tabPanels: {
+        cv: document.getElementById("panel-top-cv"),
+        research: document.getElementById("tab-research"),
+        logs: document.getElementById("tab-logs"),
+    },
+    cvTabButtons: Array.from(document.querySelectorAll(".cv-subtab-btn")),
+    cvTabPanels: {
         cv: document.getElementById("tab-cv"),
         prompt: document.getElementById("tab-prompt"),
-        research: document.getElementById("tab-research"),
         jobspec: document.getElementById("tab-jobspec"),
         env: document.getElementById("tab-env"),
         tailored: document.getElementById("tab-tailored"),
-        logs: document.getElementById("tab-logs"),
     },
     logTabButtons: Array.from(document.querySelectorAll(".log-tab-btn")),
     researchOutputTabButtons: Array.from(document.querySelectorAll(".research-output-tab-btn")),
@@ -114,6 +119,8 @@ const LS_KEYS = {
     jobspec: "cvweb.jobspec",
     env: "cvweb.env",
     active_tab: "cvweb.active_tab",
+    active_cv_tab: "cvweb.active_cv_tab",
+    active_log_tab: "cvweb.active_log_tab",
     research_output_tab: "cvweb.research_output_tab",
     selected_provider: "cvweb.selected_provider",
     selected_model: "cvweb.selected_model",
@@ -1292,11 +1299,32 @@ function setActiveTab(tabName) {
 
     if (tabName === "logs") {
         refreshLogs();
-    } else if (tabName === "tailored") {
-        refreshTailoredOutput();
     }
 
     updatePreviewCacheBuster();
+}
+
+function setActiveCvTab(tabName) {
+    if (!els.cvTabPanels[tabName]) {
+        return;
+    }
+
+    state.activeCvTab = tabName;
+    localStorage.setItem(LS_KEYS.active_cv_tab, tabName);
+
+    els.cvTabButtons.forEach((button) => {
+        const isActive = button.dataset.cvTab === tabName;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
+    Object.entries(els.cvTabPanels).forEach(([name, panel]) => {
+        panel.classList.toggle("active", name === tabName);
+    });
+
+    if (tabName === "tailored") {
+        refreshTailoredOutput();
+    }
 }
 
 function setActiveLogTab(tabName) {
@@ -1305,6 +1333,7 @@ function setActiveLogTab(tabName) {
     }
 
     state.activeLogTab = tabName;
+    localStorage.setItem(LS_KEYS.active_log_tab, tabName);
     els.logTabButtons.forEach((button) => {
         const isActive = button.dataset.logTab === tabName;
         button.classList.toggle("active", isActive);
@@ -1450,6 +1479,20 @@ async function initialize() {
             setActiveTab("cv");
         }
 
+        const savedCvTab = localStorage.getItem(LS_KEYS.active_cv_tab);
+        if (savedCvTab && els.cvTabPanels[savedCvTab]) {
+            setActiveCvTab(savedCvTab);
+        } else {
+            setActiveCvTab("cv");
+        }
+
+        const savedLogTab = localStorage.getItem(LS_KEYS.active_log_tab);
+        if (savedLogTab && els.logPanels[savedLogTab]) {
+            setActiveLogTab(savedLogTab);
+        } else {
+            setActiveLogTab("run");
+        }
+
         const savedResearchOutputTab = localStorage.getItem(LS_KEYS.research_output_tab);
         if (savedResearchOutputTab && els.researchOutputPanels[savedResearchOutputTab]) {
             setActiveResearchOutputTab(savedResearchOutputTab);
@@ -1479,6 +1522,9 @@ els.refreshLogsBtn.addEventListener("click", refreshLogs);
 els.logSelect.addEventListener("change", loadSelectedDebugLog);
 els.tabButtons.forEach((button) => {
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
+});
+els.cvTabButtons.forEach((button) => {
+    button.addEventListener("click", () => setActiveCvTab(button.dataset.cvTab));
 });
 els.logTabButtons.forEach((button) => {
     button.addEventListener("click", () => setActiveLogTab(button.dataset.logTab));
