@@ -1,3 +1,4 @@
+/* Defines the three-row research workspace layout with draggable split proportions. */
 #tab-research {
   --research-top-size: 33.3333%;
   --research-middle-size: 33.3333%;
@@ -14,11 +15,13 @@
   min-height: 0;
 }
 
+/* Keeps the URL input comfortably tall while allowing manual vertical resize. */
 #researchUrlsInput {
   min-height: 92px;
   resize: vertical;
 }
 
+/* Wraps input tabs and panel content in a constrained grid container. */
 .research-input-wrap {
   min-height: 0;
   display: grid;
@@ -27,66 +30,31 @@
   overflow: hidden;
 }
 
+/* Provides the horizontal drag handle between research sections. */
 .research-section-splitter {
-  position: relative;
   width: 100%;
-  min-height: 0;
   cursor: row-resize;
-  user-select: none;
-  touch-action: none;
-  border: 0;
-  background: transparent;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
+/* Sizes the visual grip used by the research section splitter. */
 .research-section-splitter .splitter-grip {
   width: 52px;
   height: 6px;
 }
 
+/* Maintains a transparent splitter background while dragging. */
 .research-section-splitter.dragging {
   background: transparent;
 }
 
-.research-input-tabbar {
-  display: flex;
-  gap: 0.35rem;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 0;
-}
-
-.research-input-tab-btn {
-  border: 1px solid var(--line);
-  border-bottom: 0;
-  background: #f7f2ec;
-  color: var(--muted);
-  border-radius: 0.45rem 0.45rem 0 0;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.research-input-tab-btn.active {
-  background: #fff;
-  color: var(--ink);
-  font-weight: 600;
-}
-
+/* Lays out each research input panel with header content and a fill area. */
 .research-input-panel {
-  display: none;
-  min-height: 0;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 0.4rem;
   padding-top: 0.5rem;
 }
 
-.research-input-panel.active {
-  display: grid;
-}
-
+/* Forces research editors to stretch to panel height without overflow collapse. */
 #researchPromptEditor,
 #researchJobspecEditor,
 #researchCvEditor {
@@ -94,27 +62,21 @@
   height: 100%;
 }
 
+/* Styles the research control card that holds company, provider, and action controls. */
 .research-controls {
-  border: 1px solid var(--line);
-  border-radius: 0.6rem;
-  background: #fff;
   padding: 0.65rem;
   display: grid;
   gap: 0.65rem;
-  min-height: 0;
   overflow: auto;
 }
 
+/* Stacks form fields in the research control grid with compact spacing. */
 .research-input-grid {
   display: grid;
   gap: 0.35rem;
 }
 
-.research-input-grid label {
-  font-weight: 600;
-  color: var(--muted);
-}
-
+/* Applies consistent input field styling for research form inputs. */
 .research-input-grid input {
   width: 100%;
   border: 1px solid var(--line);
@@ -123,6 +85,7 @@
   font-size: 0.88rem;
 }
 
+/* Arranges research action buttons and toggles in a wrapping inline row. */
 .research-actions {
   display: flex;
   align-items: center;
@@ -130,6 +93,7 @@
   gap: 0.45rem;
 }
 
+/* Styles inline toggle controls used in research action rows. */
 .inline-toggle {
   display: inline-flex;
   align-items: center;
@@ -139,11 +103,13 @@
   color: var(--muted);
 }
 
+/* Formats short status text for research run feedback. */
 #researchStatusText {
   font-size: 0.85rem;
   color: var(--muted);
 }
 
+/* Defines the research output area with header, tabs, and content regions. */
 .research-output-wrap {
   min-height: 0;
   display: grid;
@@ -152,6 +118,7 @@
   overflow: hidden;
 }
 
+/* Aligns research output heading elements and action controls. */
 .research-output-head {
   display: flex;
   align-items: center;
@@ -159,51 +126,19 @@
   gap: 0.45rem;
 }
 
+/* Pushes the trailing output icon button to the far right. */
 .research-output-head .icon-btn {
   margin-left: auto;
 }
 
-.research-output-tabbar {
-  display: flex;
-  gap: 0.35rem;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 0;
-}
-
-.research-output-tab-btn {
-  border: 1px solid var(--line);
-  border-bottom: 0;
-  background: #f7f2ec;
-  color: var(--muted);
-  border-radius: 0.45rem 0.45rem 0 0;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.research-output-tab-btn.active {
-  background: #fff;
-  color: var(--ink);
-  font-weight: 600;
-}
-
+/* Configures each research output panel as a full-height single-row grid. */
 .research-output-panel {
-  display: none;
-  min-height: 0;
   height: 100%;
   grid-template-rows: minmax(0, 1fr);
 }
 
-.research-output-panel.active {
-  display: grid;
-}
-
-#researchOutput {
-  max-height: none;
-  height: 100%;
-}
-
-#researchBuiltQueryOutput {
+/* Ensures output pre/textarea elements fully occupy the output panel height. */
+.research-output-panel > :is(pre, textarea) {
   max-height: none;
   height: 100%;
 }

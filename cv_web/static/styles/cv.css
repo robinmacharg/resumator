@@ -1,3 +1,4 @@
+/* Defines the top CV editor panel layout with actions, subtabs, and content area. */
 #panel-top-cv {
   padding: 0.75rem;
   grid-template-rows: auto auto minmax(0, 1fr);
@@ -5,6 +6,7 @@
   min-height: 0;
 }
 
+/* Arranges CV action controls in a responsive horizontal row. */
 .cv-actions-row {
   display: flex;
   align-items: center;
@@ -12,45 +14,18 @@
   gap: 0.5rem;
 }
 
-.cv-subtabbar {
-  display: flex;
-  gap: 0.35rem;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 0;
-}
-
-.cv-subtab-btn {
-  border: 1px solid var(--line);
-  border-bottom: 0;
-  background: #f7f2ec;
-  color: var(--muted);
-  border-radius: 0.45rem 0.45rem 0 0;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.cv-subtab-btn.active {
-  background: #fff;
-  color: var(--ink);
-  font-weight: 600;
-}
-
+/* Hosts CV subpanels in a grid container that preserves available height. */
 .cv-subpanels {
   min-height: 0;
   display: grid;
 }
 
+/* Ensures each CV subpanel spans the available panel width. */
 .cv-subpanel {
-  display: none;
-  min-height: 0;
   width: 100%;
 }
 
-.cv-subpanel.active {
-  display: grid;
-}
-
+/* Applies a consistent padded two-row layout to all main CV tab panes. */
 #tab-cv,
 #tab-prompt,
 #tab-jobspec,

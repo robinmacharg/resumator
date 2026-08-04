@@ -1,5 +1,6 @@
+/* Defines the logs tab shell with header, controls, and panel content regions. */
 .logs {
-  background: #fffdf9;
+  --section-surface-bg: #fffdf9;
   padding: 0.75rem;
   display: grid;
   grid-template-rows: auto auto 1fr;
@@ -8,6 +9,7 @@
   min-height: 0;
 }
 
+/* Aligns log header title/actions on a single horizontal row. */
 .logs-header {
   display: flex;
   justify-content: flex-start;
@@ -15,70 +17,48 @@
   gap: 0.5rem;
 }
 
+/* Pushes the primary logs header button to the end of the row. */
 .logs-header .btn {
   margin-left: auto;
 }
 
+/* Lays out log filter and tab controls inline. */
 .logs-controls {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.logs-tabbar {
-  display: flex;
-  gap: 0.35rem;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 0;
-}
-
-.log-tab-btn {
-  border: 1px solid var(--line);
-  border-bottom: 0;
-  background: #f7f2ec;
-  color: var(--muted);
-  border-radius: 0.45rem 0.45rem 0 0;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.log-tab-btn.active {
-  background: #fff;
-  color: var(--ink);
-  font-weight: 600;
-}
-
+/* Keeps each log panel filling available height in the logs area. */
 .log-panel {
-  display: none;
-  min-height: 0;
   height: 100%;
 }
 
-.log-panel.active {
-  display: grid;
-}
-
+/* Uses a single full-height row for the run log panel. */
 #log-panel-run {
   grid-template-rows: 1fr;
 }
 
+/* Splits debug log panel into selector row plus expandable output area. */
 #log-panel-debug {
   grid-template-rows: auto 1fr;
   gap: 0.5rem;
 }
 
+/* Lets log preformatted output stretch to panel height without clipping. */
 .logs pre {
   max-height: none;
   height: 100%;
   min-height: 0;
 }
 
+/* Stacks preview header and preview body vertically inside the preview pane. */
 .preview-pane {
   display: flex;
   flex-direction: column;
 }
 
+/* Styles the preview header row and separator line. */
 .preview-header {
   display: flex;
   justify-content: space-between;
@@ -87,11 +67,13 @@
   border-bottom: 1px solid var(--line);
 }
 
+/* Applies link styling for preview header actions. */
 .preview-header a {
   color: var(--brand);
   font-size: 0.85rem;
 }
 
+/* Sizes and displays the embedded PDF preview frame. */
 #pdfPreview {
   border: 0;
   width: 100%;
@@ -100,6 +82,7 @@
   background: #fff;
 }
 
+/* Styles the empty-state placeholder shown when no PDF is available. */
 .pdf-placeholder {
   display: none;
   align-items: center;
@@ -111,10 +94,12 @@
   background: #fffcf7;
 }
 
+/* Reveals the placeholder when preview content is unavailable. */
 .pdf-placeholder.visible {
   display: flex;
 }
 
+/* Hides the PDF frame when placeholder state is active. */
 #pdfPreview.hidden {
   display: none;
 }

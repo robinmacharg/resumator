@@ -1,3 +1,4 @@
+/* Declares global design tokens used by all static UI styles. */
 :root {
   --bg: #f4efe8;
   --panel: #fffaf3;
@@ -7,12 +8,21 @@
   --brand: #005f73;
   --brand-strong: #0a9396;
   --danger: #b42318;
+  --subtab-gap: 0.35rem;
+  --subtab-border-radius: 0.45rem 0.45rem 0 0;
+  --subtab-padding: 0.3rem 0.65rem;
+  --subtab-font-size: 0.8rem;
+  --subtab-bg: #f7f2ec;
+  --subtab-active-bg: #fff;
+  --subtab-active-weight: 600;
 }
 
+/* Applies border-box sizing globally for predictable layout math. */
 * {
   box-sizing: border-box;
 }
 
+/* Sets document-wide typography, base colors, and full-height canvas behavior. */
 html,
 body {
   margin: 0;
@@ -23,11 +33,13 @@ body {
   background: radial-gradient(circle at top right, #e6f4f1 0%, var(--bg) 45%);
 }
 
+/* Makes body a vertical flex container so header and layout panes stack cleanly. */
 body {
   display: flex;
   flex-direction: column;
 }
 
+/* Styles the sticky-like top bar container with spacing and subtle backdrop treatment. */
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -39,17 +51,20 @@ body {
   backdrop-filter: blur(6px);
 }
 
+/* Defines title heading spacing and scale in the top bar. */
 .title-wrap h1 {
   margin: 0;
   font-size: 1.5rem;
 }
 
+/* Styles subtitle/help text displayed beneath the main title. */
 .title-wrap p {
   margin: 0.25rem 0 0;
   color: var(--muted);
   font-size: 0.95rem;
 }
 
+/* Arranges right-side topbar controls with responsive wrapping. */
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -58,6 +73,7 @@ body {
   gap: 0.5rem;
 }
 
+/* Groups provider/model controls into a compact inline picker. */
 .model-picker {
   display: inline-flex;
   align-items: center;
@@ -66,6 +82,7 @@ body {
   color: var(--muted);
 }
 
+/* Styles provider/model select controls in the top action area. */
 .model-picker select {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -76,11 +93,13 @@ body {
   color: var(--ink);
 }
 
+/* Dims and disables pointer behavior for unavailable model selections. */
 .model-picker select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
+/* Provides baseline button shape, spacing, and interaction transitions. */
 .btn {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -90,33 +109,39 @@ body {
   transition: transform 120ms ease, opacity 120ms ease;
 }
 
+/* Adds subtle hover lift to interactive buttons. */
 .btn:hover {
   transform: translateY(-1px);
 }
 
+/* Applies disabled-state visuals and removes hover motion for buttons. */
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
 }
 
+/* Styles primary action buttons with brand gradient emphasis. */
 .btn-primary {
   background: linear-gradient(120deg, var(--brand), var(--brand-strong));
   color: #fff;
   border-color: transparent;
 }
 
+/* Styles neutral secondary action buttons. */
 .btn-secondary {
   background: #fff;
   color: var(--ink);
 }
 
+/* Styles destructive action buttons with danger gradient emphasis. */
 .btn-danger {
   background: linear-gradient(120deg, #b42318, #d92d20);
   color: #fff;
   border-color: transparent;
 }
 
+/* Styles lightweight text-like ghost action buttons. */
 .btn-ghost {
   border-color: transparent;
   background: transparent;
@@ -124,6 +149,7 @@ body {
   text-decoration: underline;
 }
 
+/* Defines compact icon-only button dimensions and centering. */
 .icon-btn {
   border-radius: 0.45rem;
   padding: 0.28rem;
@@ -134,11 +160,13 @@ body {
   justify-content: center;
 }
 
+/* Normalizes inline SVG icon sizing inside icon buttons. */
 .icon-btn svg {
   width: 1rem;
   height: 1rem;
 }
 
+/* Creates the main two-pane app layout with adjustable splitter track. */
 .layout {
   --left-pane-width: 58%;
   --splitter-width: 4px;
@@ -150,6 +178,7 @@ body {
   flex: 1;
 }
 
+/* Applies shared shell styling for editor and preview pane containers. */
 .editor-pane,
 .preview-pane {
   min-height: 0;
@@ -159,6 +188,7 @@ body {
   overflow: hidden;
 }
 
+/* Styles the vertical pane splitter used to resize editor and preview widths. */
 .pane-splitter {
   position: relative;
   width: var(--splitter-width);
@@ -174,6 +204,21 @@ body {
   justify-content: center;
 }
 
+/* Shares common interactive splitter affordances for pane and research splitters. */
+:is(.pane-splitter, .research-section-splitter) {
+  position: relative;
+  min-height: 0;
+  user-select: none;
+  touch-action: none;
+  border-radius: 999px;
+  background: transparent;
+  border: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Draws the dotted visual grip inside splitter controls. */
 .splitter-grip {
   width: 6px;
   height: 52px;
@@ -183,15 +228,23 @@ body {
   background-position: center;
 }
 
+/* Preserves transparent background while pane splitter is actively dragged. */
 .pane-splitter.dragging {
   background: transparent;
 }
 
+/* Preserves transparent background while any shared splitter is actively dragged. */
+:is(.pane-splitter, .research-section-splitter).dragging {
+  background: transparent;
+}
+
+/* Makes the editor pane a vertical stack of status, tabs, and content. */
 .editor-pane {
   display: flex;
   flex-direction: column;
 }
 
+/* Styles the status row shown above tab navigation. */
 .status-row {
   display: flex;
   justify-content: flex-start;
@@ -201,6 +254,7 @@ body {
   font-size: 0.9rem;
 }
 
+/* Styles the primary tab bar strip shared by top-level tabs. */
 .tabbar {
   display: flex;
   gap: 0.35rem;
@@ -208,6 +262,7 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
+/* Styles individual primary tab buttons. */
 .tab-btn {
   border: 1px solid var(--line);
   border-bottom: 0;
@@ -219,46 +274,103 @@ body {
   cursor: pointer;
 }
 
+/* Highlights the active primary tab button. */
 .tab-btn.active {
   background: #fff;
   color: var(--ink);
   font-weight: 600;
 }
 
+/* Hosts top-level tab panels and allows them to fill remaining editor height. */
 .tab-panels {
   min-height: 0;
   flex: 1;
   display: flex;
 }
 
+/* Hides inactive top-level tab panels by default. */
 .tab-panel {
   display: none;
   min-height: 0;
   width: 100%;
 }
 
+/* Reveals active top-level tab panels as grid containers. */
 .tab-panel.active {
   display: grid;
 }
 
+/* Keeps logs panel hidden when not active inside shared tab system. */
 .tab-panel.logs {
   display: none;
 }
 
+/* Reveals logs panel when selected in shared tab system. */
 .tab-panel.logs.active {
   display: grid;
 }
 
+/* Provides shared bordered card shell for logs and research control surfaces. */
+:is(.logs, .research-controls) {
+  --section-surface-bg: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: var(--section-surface-bg);
+  min-height: 0;
+}
+
+/* Styles shared secondary tab bars used by CV, logs, and research areas. */
+:is(.cv-subtabbar, .logs-tabbar, .research-input-tabbar, .research-output-tabbar) {
+  display: flex;
+  gap: var(--subtab-gap);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0;
+}
+
+/* Styles shared secondary tab buttons used by CV, logs, and research areas. */
+:is(.cv-subtab-btn, .log-tab-btn, .research-input-tab-btn, .research-output-tab-btn) {
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  background: var(--subtab-bg);
+  color: var(--muted);
+  border-radius: var(--subtab-border-radius);
+  padding: var(--subtab-padding);
+  font-size: var(--subtab-font-size);
+  cursor: pointer;
+}
+
+/* Highlights active shared secondary tab buttons. */
+:is(.cv-subtab-btn, .log-tab-btn, .research-input-tab-btn, .research-output-tab-btn).active {
+  background: var(--subtab-active-bg);
+  color: var(--ink);
+  font-weight: var(--subtab-active-weight);
+}
+
+/* Hides inactive secondary panels across CV, logs, and research contexts. */
+:is(.cv-subpanel, .log-panel, .research-input-panel, .research-output-panel) {
+  display: none;
+  min-height: 0;
+}
+
+/* Reveals active secondary panels across CV, logs, and research contexts. */
+:is(.cv-subpanel, .log-panel, .research-input-panel, .research-output-panel).active {
+  display: grid;
+}
+
+/* Applies default label emphasis inside top-level tab panels. */
 .tab-panel label {
   font-weight: 600;
   color: var(--muted);
 }
 
-.cv-subpanel label {
+/* Applies label emphasis for CV subpanels and research input grids. */
+.cv-subpanel label,
+.research-input-grid label {
   font-weight: 600;
   color: var(--muted);
 }
 
+/* Aligns per-editor heading content and action controls. */
 .editor-head {
   display: flex;
   align-items: center;
@@ -266,6 +378,7 @@ body {
   gap: 0.75rem;
 }
 
+/* Aligns file-level action buttons at the right edge of editor headers. */
 .file-actions {
   display: flex;
   align-items: center;
@@ -273,11 +386,13 @@ body {
   gap: 0.4rem;
 }
 
+/* Compacts button sizing for inline file action controls. */
 .file-actions .btn {
   padding: 0.3rem 0.65rem;
   font-size: 0.8rem;
 }
 
+/* Styles all textareas with shared code-editor-like visual treatment. */
 textarea {
   width: 100%;
   min-height: 0;
@@ -292,10 +407,12 @@ textarea {
   line-height: 1.35;
 }
 
+/* Differentiates readonly textareas with muted background fill. */
 textarea[readonly] {
   background: #f8f7f4;
 }
 
+/* Styles generic select controls used within panels. */
 select {
   border: 1px solid var(--line);
   border-radius: 0.5rem;
@@ -303,6 +420,7 @@ select {
   max-width: 280px;
 }
 
+/* Styles preformatted output blocks with dark terminal-like theme. */
 pre {
   margin: 0;
   border: 1px solid var(--line);
@@ -316,6 +434,7 @@ pre {
   line-height: 1.35;
 }
 
+/* Styles the auto-scroll status pill shown near streaming output. */
 .autoscroll-indicator {
   display: none;
   border: 1px solid #facc15;
@@ -328,20 +447,25 @@ pre {
   white-space: nowrap;
 }
 
+/* Reveals auto-scroll status pill when active. */
 .autoscroll-indicator.visible {
   display: inline-flex;
   align-items: center;
 }
 
+/* Collapses to a single-column layout and hides splitter on narrower screens. */
 @media (max-width: 1100px) {
+  /* Stacks editor and preview panes vertically on smaller viewports. */
   .layout {
     grid-template-columns: 1fr;
   }
 
+  /* Hides drag splitter when panes are no longer side-by-side. */
   .pane-splitter {
     display: none;
   }
 
+  /* Ensures preview area remains usable height on narrow screens. */
   .preview-pane {
     min-height: 50vh;
   }
