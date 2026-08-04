@@ -464,6 +464,49 @@ def append_current_research_output(chunk: str) -> None:
         CURRENT_RESEARCH_RUN["output"] = existing + chunk
 
 
+def update_current_research_run_fields(**fields: Any) -> None:
+    with RESEARCH_STATE_LOCK:
+        if not CURRENT_RESEARCH_RUN:
+            return
+        CURRENT_RESEARCH_RUN.update(fields)
+
+
+def run_research_format_for_active_run_streaming() -> int:
+    command = [
+        sys.executable,
+        str(ROOT_DIR / "research_format.py"),
+    ]
+
+    append_current_research_output("Auto-formatting research PDF...\n")
+    append_current_research_output(
+        f"Formatting command: {' '.join(command)}\n"
+    )
+
+    proc = subprocess.Popen(
+        command,
+        cwd=ROOT_DIR,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+        start_new_session=True,
+    )
+
+    stdout_thread = threading.Thread(target=stream_pipe_research, args=(proc.stdout,), daemon=True)
+    stderr_thread = threading.Thread(
+        target=stream_pipe_research,
+        args=(proc.stderr, "[stderr] "),
+        daemon=True,
+    )
+    stdout_thread.start()
+    stderr_thread.start()
+
+    return_code = proc.wait()
+    stdout_thread.join()
+    stderr_thread.join()
+    return return_code
+
+
 def finalize_current_research_run(return_code: int) -> dict[str, Any] | None:
     with RESEARCH_STATE_LOCK:
         if not CURRENT_RESEARCH_RUN:
@@ -478,6 +521,7 @@ def finalize_current_research_run(return_code: int) -> dict[str, Any] | None:
         CURRENT_RESEARCH_RUN["elapsedSeconds"] = elapsed
         CURRENT_RESEARCH_RUN["success"] = return_code == 0
         CURRENT_RESEARCH_RUN["stoppedByUser"] = bool(CURRENT_RESEARCH_RUN.get("stopRequested", False))
+        CURRENT_RESEARCH_RUN["formattedPdfMtime"] = file_mtime(RESEARCH_FORMATTED_PDF)
 
         snapshot = {
             key: value
@@ -614,6 +658,7 @@ def run_research_subprocess_streaming(
     company_name: str,
     urls: list[str],
     dry_run: bool,
+    auto_format_pdf: bool,
     selected_provider: str = "",
     selected_model: str = "",
 ) -> dict[str, Any]:
@@ -648,6 +693,10 @@ def run_research_subprocess_streaming(
             "success": None,
             "running": True,
             "output": "",
+            "autoFormatPdf": auto_format_pdf,
+            "formatAttempted": False,
+            "formatSuccess": None,
+            "formatExitCode": None,
             "selectedProvider": selected_provider,
             "selectedModel": selected_model,
             "_startedMonotonic": started_monotonic,
@@ -676,6 +725,34 @@ def run_research_subprocess_streaming(
         stderr_thread.join()
     finally:
         set_current_research_proc(None)
+
+    if return_code == 0 and not dry_run and auto_format_pdf:
+        format_exit_code = run_research_format_for_active_run_streaming()
+        format_success = format_exit_code == 0
+        update_current_research_run_fields(
+            formatAttempted=True,
+            formatSuccess=format_success,
+            formatExitCode=format_exit_code,
+        )
+        if format_success:
+            append_current_research_output("Research PDF formatting complete.\n")
+        else:
+            append_current_research_output(
+                "[stderr] Research succeeded, but PDF auto-format failed. "
+                "Use Format Research PDF to retry.\n"
+            )
+    elif return_code == 0 and not dry_run:
+        update_current_research_run_fields(
+            formatAttempted=False,
+            formatSuccess=None,
+            formatExitCode=None,
+        )
+    elif dry_run:
+        update_current_research_run_fields(
+            formatAttempted=False,
+            formatSuccess=None,
+            formatExitCode=None,
+        )
 
     run_result = finalize_current_research_run(return_code)
     if run_result is None:
@@ -748,6 +825,7 @@ def run_research_subprocess_async(
     company_name: str,
     urls: list[str],
     dry_run: bool,
+    auto_format_pdf: bool,
     selected_provider: str = "",
     selected_model: str = "",
 ) -> None:
@@ -756,6 +834,7 @@ def run_research_subprocess_async(
             company_name=company_name,
             urls=urls,
             dry_run=dry_run,
+            auto_format_pdf=auto_format_pdf,
             selected_provider=selected_provider,
             selected_model=selected_model,
         )
@@ -767,6 +846,7 @@ def run_research_subprocess_async(
                 "companyName": company_name,
                 "urls": urls,
                 "dryRun": dry_run,
+                "autoFormatPdf": auto_format_pdf,
                 "selectedProvider": selected_provider,
                 "selectedModel": selected_model,
                 "exitCode": 1,
@@ -1060,6 +1140,10 @@ class CVWebHandler(BaseHTTPRequestHandler):
                     urls.append(cleaned)
 
             dry_run = bool(payload.get("dryRun", False))
+            auto_format_pdf = payload.get("autoFormatPdf", True)
+            if not isinstance(auto_format_pdf, bool):
+                self._json_response({"error": "autoFormatPdf must be a boolean"}, status=400)
+                return
 
             if not RESEARCH_RUN_LOCK.acquire(blocking=False):
                 self._json_response({"error": "A research run is already in progress"}, status=409)
@@ -1068,7 +1152,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
             try:
                 thread = threading.Thread(
                     target=run_research_subprocess_async,
-                    args=(company_name, urls, dry_run, selected_provider, selected_model),
+                    args=(
+                        company_name,
+                        urls,
+                        dry_run,
+                        auto_format_pdf,
+                        selected_provider,
+                        selected_model,
+                    ),
                     daemon=True,
                 )
                 thread.start()

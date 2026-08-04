@@ -876,6 +876,13 @@ function summarizeResearchOutput(run) {
         `Exit: ${exit}`,
         `Elapsed: ${elapsed}`,
         `Dry Run: ${run.dryRun ? "yes" : "no"}`,
+        run.autoFormatPdf ? "Auto Format PDF: enabled" : "Auto Format PDF: disabled",
+        run.formatAttempted === true
+            ? `Format Exit: ${run.formatExitCode === null || run.formatExitCode === undefined ? "-" : run.formatExitCode}`
+            : null,
+        run.formatAttempted === true
+            ? `Format Status: ${run.formatSuccess ? "success" : "failed"}`
+            : null,
         run.success
             ? `Generated At: ${formatTimestampToSecond(run.finishedAt || run.startedAt)}`
             : null,
@@ -1123,6 +1130,7 @@ async function runResearch() {
                 companyName,
                 urls,
                 dryRun: Boolean(els.researchDryRunCheckbox.checked),
+                autoFormatPdf: true,
                 selectedProvider: state.selectedProvider || "gemini",
                 selectedModel: state.selectedModel || "",
             }),
