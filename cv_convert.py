@@ -604,6 +604,9 @@ def convert_markdown_outputs(
     pdf_margin_header = "```{=typst}\n#set page(margin: 1.5cm)\n```\n\n"
     pdf_export_text = pdf_margin_header + pdf_export_text
     pdf_export_path = sanitized_markdown_path or markdown_path.with_suffix(".export.md")
+    pdf_export_path.parent.mkdir(parents=True, exist_ok=True)
+    output_pdf.parent.mkdir(parents=True, exist_ok=True)
+    output_docx.parent.mkdir(parents=True, exist_ok=True)
     pdf_export_path.write_text(pdf_export_text + "\n", encoding="utf-8")
 
     pdf_ok = compile_pdf(pdf_export_path, output_pdf, chosen_font)
@@ -632,22 +635,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "markdown",
         nargs="?",
-        default="tailored.md",
-        help="Input markdown file (default: tailored.md)",
+        default="output/tailored.md",
+        help="Input markdown file (default: output/tailored.md)",
     )
     parser.add_argument(
         "--pdf",
-        default="tailored_dev.pdf",
-        help="Output PDF path (default: tailored_dev.pdf)",
+        default="output/tailored_dev.pdf",
+        help="Output PDF path (default: output/tailored_dev.pdf)",
     )
     parser.add_argument(
         "--docx",
-        default="tailored_dev.docx",
-        help="Output DOCX path (default: tailored_dev.docx)",
+        default="output/tailored_dev.docx",
+        help="Output DOCX path (default: output/tailored_dev.docx)",
     )
     parser.add_argument(
         "--sanitized-markdown",
-        default="tailored.export.md",
+        default="output/tailored.export.md",
         help="Path for sanitized export markdown when frontmatter is stripped",
     )
     parser.add_argument(

@@ -22,15 +22,17 @@ from provider_catalog import load_provider_catalog, provider_map
 
 TEMPLATES_DIR = APP_DIR / "templates"
 STATIC_DIR = APP_DIR / "static"
-LOG_DIR = ROOT_DIR / "gemini_debug_logs"
-RESEARCH_COMPANY_FILE = ROOT_DIR / "research_company.txt"
-RESEARCH_URLS_FILE = ROOT_DIR / "research_urls.txt"
-RESEARCH_PROMPT_DEFAULT_FILE = ROOT_DIR / "research_prompt.default.md"
-RESEARCH_OUTPUT_MD = ROOT_DIR / "research_output.md"
-RESEARCH_OUTPUT_JSON = ROOT_DIR / "research_output.json"
-RESEARCH_PROMPT_BUILT_FILE = ROOT_DIR / "research_prompt.built.txt"
-RESEARCH_FORMATTED_MD = ROOT_DIR / "research_output.formatted.md"
-RESEARCH_FORMATTED_PDF = ROOT_DIR / "research_output.formatted.pdf"
+INPUT_DIR = ROOT_DIR / "input"
+OUTPUT_DIR = ROOT_DIR / "output"
+LOG_DIR = OUTPUT_DIR / "gemini_debug_logs"
+RESEARCH_COMPANY_FILE = INPUT_DIR / "research_company.txt"
+RESEARCH_URLS_FILE = INPUT_DIR / "research_urls.txt"
+RESEARCH_PROMPT_DEFAULT_FILE = INPUT_DIR / "research_prompt.default.md"
+RESEARCH_OUTPUT_MD = OUTPUT_DIR / "research_output.md"
+RESEARCH_OUTPUT_JSON = OUTPUT_DIR / "research_output.json"
+RESEARCH_PROMPT_BUILT_FILE = OUTPUT_DIR / "research_prompt.built.txt"
+RESEARCH_FORMATTED_MD = OUTPUT_DIR / "research_output.formatted.md"
+RESEARCH_FORMATTED_PDF = OUTPUT_DIR / "research_output.formatted.pdf"
 
 HOST = "127.0.0.1"
 PORT = 8765
@@ -38,10 +40,10 @@ ENV_FILE_PATH = ROOT_DIR / ".env"
 MODEL_CATALOG_PATH = ROOT_DIR / "model_providers.json"
 
 EDITOR_FILES = {
-    "cv": ROOT_DIR / "CV.md",
-    "prompt": ROOT_DIR / "prompt.md",
-    "research_prompt": ROOT_DIR / "research_prompt.md",
-    "jobspec": ROOT_DIR / "jobspec.txt",
+    "cv": INPUT_DIR / "CV.md",
+    "prompt": INPUT_DIR / "prompt.md",
+    "research_prompt": INPUT_DIR / "research_prompt.md",
+    "jobspec": INPUT_DIR / "jobspec.txt",
     "env": ROOT_DIR / ".env",
 }
 
@@ -88,6 +90,7 @@ def read_text(path: Path) -> str:
 
 
 def write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
 
@@ -225,8 +228,8 @@ def file_mtime(path: Path) -> float | None:
 
 def build_state() -> dict[str, Any]:
     files = {key: read_text(path) for key, path in EDITOR_FILES.items()}
-    output_pdf = ROOT_DIR / "tailored_dev.pdf"
-    output_docx = ROOT_DIR / "tailored_dev.docx"
+    output_pdf = OUTPUT_DIR / "tailored_dev.pdf"
+    output_docx = OUTPUT_DIR / "tailored_dev.docx"
     catalog = load_catalog()
     provider_options = build_provider_options()
     enabled_options = [item for item in provider_options if item.get("enabled", True)]
@@ -340,11 +343,11 @@ def make_command(kind: str, selected_provider: str = "", selected_model: str = "
         return [
             sys.executable,
             str(ROOT_DIR / "cv_convert.py"),
-            "tailored.md",
+            "output/tailored.md",
             "--pdf",
-            "tailored_dev.pdf",
+            "output/tailored_dev.pdf",
             "--docx",
-            "tailored_dev.docx",
+            "output/tailored_dev.docx",
         ]
 
     raise ValueError(f"Unsupported run kind: {kind}")
@@ -399,8 +402,8 @@ def finalize_current_run(return_code: int) -> dict[str, Any] | None:
         CURRENT_RUN["finishedAt"] = utc_now_iso()
         CURRENT_RUN["elapsedSeconds"] = elapsed
         CURRENT_RUN["success"] = return_code == 0
-        CURRENT_RUN["pdfMtime"] = file_mtime(ROOT_DIR / "tailored_dev.pdf")
-        CURRENT_RUN["docxMtime"] = file_mtime(ROOT_DIR / "tailored_dev.docx")
+        CURRENT_RUN["pdfMtime"] = file_mtime(OUTPUT_DIR / "tailored_dev.pdf")
+        CURRENT_RUN["docxMtime"] = file_mtime(OUTPUT_DIR / "tailored_dev.docx")
 
         snapshot = {
             key: value
@@ -545,8 +548,8 @@ def run_subprocess_streaming(kind: str, selected_provider: str = "", selected_mo
             "output": "",
             "selectedProvider": selected_provider,
             "selectedModel": selected_model,
-            "pdfMtime": file_mtime(ROOT_DIR / "tailored_dev.pdf"),
-            "docxMtime": file_mtime(ROOT_DIR / "tailored_dev.docx"),
+            "pdfMtime": file_mtime(OUTPUT_DIR / "tailored_dev.pdf"),
+            "docxMtime": file_mtime(OUTPUT_DIR / "tailored_dev.docx"),
             "_startedMonotonic": started_monotonic,
         }
     )
@@ -593,8 +596,8 @@ def run_subprocess_async(kind: str, selected_provider: str = "", selected_model:
                 "output": f"Wrapper failed to execute run: {exc}",
                 "selectedProvider": selected_provider,
                 "selectedModel": selected_model,
-                "pdfMtime": file_mtime(ROOT_DIR / "tailored_dev.pdf"),
-                "docxMtime": file_mtime(ROOT_DIR / "tailored_dev.docx"),
+                "pdfMtime": file_mtime(OUTPUT_DIR / "tailored_dev.pdf"),
+                "docxMtime": file_mtime(OUTPUT_DIR / "tailored_dev.docx"),
             }
         )
         snapshot = get_current_run_snapshot()
@@ -954,7 +957,7 @@ class CVWebHandler(BaseHTTPRequestHandler):
             if name not in ALLOWED_OUTPUT_FILES:
                 self.send_error(HTTPStatus.NOT_FOUND, "Unknown output file")
                 return
-            output_path = ROOT_DIR / name
+            output_path = OUTPUT_DIR / name
             content_type = {
                 ".pdf": "application/pdf",
                 ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -1169,6 +1172,9 @@ class CVWebHandler(BaseHTTPRequestHandler):
 
 
 def run_server() -> None:
+    INPUT_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
     server = ThreadingHTTPServer((HOST, PORT), CVWebHandler)
     print(f"CV wrapper running on http://{HOST}:{PORT}")
     print("Press Ctrl+C to stop.")

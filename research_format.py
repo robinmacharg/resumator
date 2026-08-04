@@ -89,6 +89,8 @@ def run(input_md: Path, output_md: Path, output_pdf: Path, heading: str) -> int:
     processed = re.sub(r"(?m)^---+$", "", processed)
     processed = normalize_markdown(processed)
 
+    output_md.parent.mkdir(parents=True, exist_ok=True)
+    output_pdf.parent.mkdir(parents=True, exist_ok=True)
     output_md.write_text(processed + "\n", encoding="utf-8")
     print(f"Wrote formatted markdown: {output_md}")
 
@@ -110,18 +112,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "input_md",
         nargs="?",
-        default="research_output.md",
-        help="Input research markdown path (default: research_output.md)",
+        default="output/research_output.md",
+        help="Input research markdown path (default: output/research_output.md)",
     )
     parser.add_argument(
         "--output-md",
-        default="research_output.formatted.md",
-        help="Formatted markdown output path (default: research_output.formatted.md)",
+        default="output/research_output.formatted.md",
+        help="Formatted markdown output path (default: output/research_output.formatted.md)",
     )
     parser.add_argument(
         "--pdf",
-        default="research_output.formatted.pdf",
-        help="Output PDF path (default: research_output.formatted.pdf)",
+        default="output/research_output.formatted.pdf",
+        help="Output PDF path (default: output/research_output.formatted.pdf)",
     )
     parser.add_argument(
         "--title",

@@ -14,18 +14,20 @@ from backend_registry import get_backend_or_raise
 from provider_catalog import load_provider_catalog, provider_map
 from provider_clients import AttemptResult
 
-# File paths in current working directory
-CV_FILE = Path("CV.md")
-JOBSPEC_FILE = Path("jobspec.txt")
-PROMPT_FILE = Path("prompt.md")
+INPUT_DIR = Path("input")
+OUTPUT_DIR = Path("output")
+
+CV_FILE = INPUT_DIR / "CV.md"
+JOBSPEC_FILE = INPUT_DIR / "jobspec.txt"
+PROMPT_FILE = INPUT_DIR / "prompt.md"
 ENV_FILE = Path(".env")
-TAILORED_MD = Path("tailored.md")
-RAW_MODEL_OUTPUT_FILE = Path("tailored.model-output.txt")
-RAW_MODEL_JSON_FILE = Path("tailored.model.json")
-OUTPUT_PDF = Path("tailored_dev.pdf")
-OUTPUT_DOCX = Path("tailored_dev.docx")
+TAILORED_MD = OUTPUT_DIR / "tailored.md"
+RAW_MODEL_OUTPUT_FILE = OUTPUT_DIR / "tailored.model-output.txt"
+RAW_MODEL_JSON_FILE = OUTPUT_DIR / "tailored.model.json"
+OUTPUT_PDF = OUTPUT_DIR / "tailored_dev.pdf"
+OUTPUT_DOCX = OUTPUT_DIR / "tailored_dev.docx"
 GEMINI_HEARTBEAT_SECONDS = 15
-DEBUG_LOG_DIR = Path("gemini_debug_logs")
+DEBUG_LOG_DIR = OUTPUT_DIR / "gemini_debug_logs"
 MAX_FAST_CV_CHARS = 18000
 REQUIRED_SEMANTIC_TAG_KEYS = [
     "candidate_name",
@@ -665,6 +667,9 @@ def apply_fast_mode_prompt_rules(full_prompt: str, fast_mode: bool) -> str:
 def main() -> None:
     args = parse_args()
 
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    DEBUG_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
     # 1. Verify input files exist
     missing = [str(path) for path in (CV_FILE, JOBSPEC_FILE, PROMPT_FILE) if not path.exists()]
     if missing:
@@ -790,7 +795,7 @@ def main() -> None:
     except ValueError:
         print(
             "Could not extract JSON payload from raw model output; "
-            "inspect tailored.model-output.txt.",
+            f"inspect {RAW_MODEL_OUTPUT_FILE}.",
             file=sys.stderr,
         )
 
@@ -799,7 +804,7 @@ def main() -> None:
     except ValueError as exc:
         print(f"Generated output failed JSON contract validation: {exc}", file=sys.stderr)
         print(
-            "Inspect tailored.model-output.txt and tailored.model.json for raw output details.",
+            f"Inspect {RAW_MODEL_OUTPUT_FILE} and {RAW_MODEL_JSON_FILE} for raw output details.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -814,7 +819,7 @@ def main() -> None:
         markdown_path=TAILORED_MD,
         output_pdf=OUTPUT_PDF,
         output_docx=OUTPUT_DOCX,
-        sanitized_markdown_path=Path("tailored.export.md"),
+        sanitized_markdown_path=OUTPUT_DIR / "tailored.export.md",
     )
 
     if conversion_result.used_sanitized_markdown:

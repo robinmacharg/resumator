@@ -5,13 +5,13 @@ Resumator is a local web tool that helps you tailor your CV to a role, run the g
 ## What this project does
 
 - Lets you edit source files in the browser:
-  - CV.md
-  - prompt.md
-  - jobspec.txt
+  - input/CV.md
+  - input/prompt.md
+  - input/jobspec.txt
   - .env
 - Runs CV generation or formatting from the UI.
 - Shows live run progress and logs.
-- Produces output files such as tailored.md, tailored_dev.pdf, and tailored_dev.docx.
+- Produces output files in output/, such as output/tailored.md, output/tailored_dev.pdf, and output/tailored_dev.docx.
 
 ## Prerequisites
 
@@ -92,19 +92,19 @@ To stop the server, press Ctrl+C.
 3. Click Run Full Pipeline to generate tailored output.
 4. Watch progress in the Logs tab (Run Log updates in real time).
 5. Review:
-   - Tailored tab for tailored.md
-   - PDF Preview pane for tailored_dev.pdf
+  - Tailored tab for output/tailored.md
+  - PDF Preview pane for output/tailored_dev.pdf
 
 ## Output files
 
-Generated files are written in the project root, including:
+Generated files are written in output/, including:
 
-- tailored.md
-- tailored.model-output.txt
-- tailored.model.json
-- tailored.export.md
-- tailored_dev.pdf
-- tailored_dev.docx
+- output/tailored.md
+- output/tailored.model-output.txt
+- output/tailored.model.json
+- output/tailored.export.md
+- output/tailored_dev.pdf
+- output/tailored_dev.docx
 
 ## Troubleshooting
 

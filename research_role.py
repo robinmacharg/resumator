@@ -15,17 +15,20 @@ from backend_registry import get_backend_or_raise
 from provider_catalog import load_provider_catalog, provider_map
 from provider_clients import AttemptResult
 
-CV_FILE = Path("CV.md")
-JOBSPEC_FILE = Path("jobspec.txt")
-PROMPT_FILE = Path("research_prompt.md")
-PROMPT_DEFAULT_FILE = Path("research_prompt.default.md")
+INPUT_DIR = Path("input")
+OUTPUT_DIR = Path("output")
+
+CV_FILE = INPUT_DIR / "CV.md"
+JOBSPEC_FILE = INPUT_DIR / "jobspec.txt"
+PROMPT_FILE = INPUT_DIR / "research_prompt.md"
+PROMPT_DEFAULT_FILE = INPUT_DIR / "research_prompt.default.md"
 ENV_FILE = Path(".env")
-URLS_FILE = Path("research_urls.txt")
-COMPANY_FILE = Path("research_company.txt")
-OUTPUT_MD = Path("research_output.md")
-OUTPUT_JSON = Path("research_output.json")
-OUTPUT_PROMPT = Path("research_prompt.built.txt")
-DEBUG_LOG_DIR = Path("gemini_debug_logs")
+URLS_FILE = INPUT_DIR / "research_urls.txt"
+COMPANY_FILE = INPUT_DIR / "research_company.txt"
+OUTPUT_MD = OUTPUT_DIR / "research_output.md"
+OUTPUT_JSON = OUTPUT_DIR / "research_output.json"
+OUTPUT_PROMPT = OUTPUT_DIR / "research_prompt.built.txt"
+DEBUG_LOG_DIR = OUTPUT_DIR / "gemini_debug_logs"
 RESEARCH_GEMINI_TIMEOUT_SECONDS = 300
 RESEARCH_HEARTBEAT_SECONDS = 15
 RESEARCH_MAX_429_LINES_BEFORE_FALLBACK = 3
@@ -439,6 +442,8 @@ def read_company_name(company_file: Path) -> str:
 
 
 def persist_inputs(company_file: Path, company_name: str, urls_file: Path, urls: list[str]) -> None:
+    company_file.parent.mkdir(parents=True, exist_ok=True)
+    urls_file.parent.mkdir(parents=True, exist_ok=True)
     company_file.write_text(company_name.strip() + "\n", encoding="utf-8")
     if urls:
         urls_file.write_text("\n".join(urls) + "\n", encoding="utf-8")
@@ -447,6 +452,7 @@ def persist_inputs(company_file: Path, company_name: str, urls_file: Path, urls:
 def reset_prompt_file(prompt_default_path: Path, prompt_path: Path) -> None:
     if not prompt_default_path.exists():
         raise FileNotFoundError(f"Default prompt file not found: {prompt_default_path}")
+    prompt_path.parent.mkdir(parents=True, exist_ok=True)
     prompt_path.write_text(prompt_default_path.read_text(encoding="utf-8"), encoding="utf-8")
 
 
@@ -511,8 +517,12 @@ def parse_args() -> argparse.Namespace:
         default=str(COMPANY_FILE),
         help="Path to persisted company name file",
     )
-    parser.add_argument("--cv", default=str(CV_FILE), help="Path to CV file (default: CV.md)")
-    parser.add_argument("--jobspec", default=str(JOBSPEC_FILE), help="Path to job spec file (default: jobspec.txt)")
+    parser.add_argument("--cv", default=str(CV_FILE), help="Path to CV file (default: input/CV.md)")
+    parser.add_argument(
+        "--jobspec",
+        default=str(JOBSPEC_FILE),
+        help="Path to job spec file (default: input/jobspec.txt)",
+    )
     parser.add_argument("--prompt", default=str(PROMPT_FILE), help="Path to editable research prompt")
     parser.add_argument(
         "--prompt-default",
@@ -545,6 +555,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    DEBUG_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     cv_path = Path(args.cv)
     jobspec_path = Path(args.jobspec)
@@ -591,6 +604,7 @@ def main() -> None:
 
     print("Building research prompt...", flush=True)
     prompt_text = build_prompt(prompt_template, company_name, cv_content, jobspec_content, urls)
+    OUTPUT_PROMPT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_PROMPT.write_text(prompt_text, encoding="utf-8")
     print(
         f"Prepared prompt for '{company_name}' with {len(urls)} URL(s). Saved to: {OUTPUT_PROMPT.resolve()}",
@@ -659,6 +673,7 @@ def main() -> None:
         envelope["output"] = "[dry-run] prompt built successfully"
         envelope["promptPreview"] = prompt_text[:6000]
         envelope["modelAttempts"] = []
+        output_json.parent.mkdir(parents=True, exist_ok=True)
         output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
         print(f"Dry run complete. JSON written to: {output_json.resolve()}")
         return
@@ -741,6 +756,7 @@ def main() -> None:
             envelope["modelAttempts"] = model_attempts
             envelope["output"] = ""
             envelope["stderr"] = "Model attempt failed unexpectedly. See per-attempt debug log."
+            output_json.parent.mkdir(parents=True, exist_ok=True)
             output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
             print_attempt_summary(attempt_results, sys.stderr)
             sys.exit(1)
@@ -786,6 +802,7 @@ def main() -> None:
                     "Aborted remaining model attempts after consecutive hard quota failures. "
                     "Check billing/quota, then retry later."
                 )
+                output_json.parent.mkdir(parents=True, exist_ok=True)
                 output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
                 print_attempt_summary(attempt_results, sys.stderr)
                 sys.exit(1)
@@ -814,6 +831,7 @@ def main() -> None:
             envelope["fatalReportPath"] = report_path
         if report_content:
             envelope["fatalReportContent"] = report_content
+        output_json.parent.mkdir(parents=True, exist_ok=True)
         output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
         print_attempt_summary(attempt_results, sys.stderr)
         sys.exit(proc.returncode)
@@ -824,6 +842,7 @@ def main() -> None:
         envelope["modelAttempts"] = model_attempts
         envelope["output"] = ""
         envelope["stderr"] = "All model attempts failed. See modelAttempts for details."
+        output_json.parent.mkdir(parents=True, exist_ok=True)
         output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
         print_attempt_summary(attempt_results, sys.stderr)
         sys.exit(1)
@@ -834,17 +853,20 @@ def main() -> None:
         envelope["model"] = selected_model or model_sequence[0]
         envelope["modelAttempts"] = model_attempts
         envelope["output"] = ""
+        output_json.parent.mkdir(parents=True, exist_ok=True)
         output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
         sys.exit(1)
 
     print("Gemini completed. Writing research outputs...", flush=True)
     generated_at = local_now_to_second()
     stamped_output = f"Generated At: {generated_at}\n\n{output_text.strip()}\n"
+    output_md.parent.mkdir(parents=True, exist_ok=True)
     output_md.write_text(stamped_output, encoding="utf-8")
     envelope["model"] = selected_model or model_sequence[0]
     envelope["modelAttempts"] = model_attempts
     envelope["output"] = output_text
     envelope["generatedAt"] = generated_at
+    output_json.parent.mkdir(parents=True, exist_ok=True)
     output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
 
     print(f"Research markdown written to: {output_md.resolve()}")
