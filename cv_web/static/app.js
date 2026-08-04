@@ -1,10 +1,7 @@
 import { api, fetchText } from "./js/api-client.js";
+import { createCvPipelineFeature } from "./js/cv-pipeline-feature.js";
 import { createResearchFeature } from "./js/research-feature.js";
-import {
-    formatCommandForDisplay,
-    formatTimestampToSecond,
-    sleep,
-} from "./js/app-utils.js";
+import { formatCommandForDisplay, formatTimestampToSecond, sleep } from "./js/app-utils.js";
 
 const state = {
     isRunning: false,
@@ -1021,26 +1018,6 @@ async function refreshLogs() {
     }
 }
 
-async function fetchRunStatus() {
-    return api("/api/run/status");
-}
-
-async function waitForRunCompletion() {
-    while (true) {
-        const status = await fetchRunStatus();
-        const run = status.run || null;
-        if (run) {
-            setRunLogOutput(summarizeRun(run));
-        }
-
-        if (!status.running) {
-            return run;
-        }
-
-        await sleep(1000);
-    }
-}
-
 const researchFeature = createResearchFeature({
     state,
     els,
@@ -1056,6 +1033,24 @@ const researchFeature = createResearchFeature({
     setResearchCommandOutput,
     renderResearchState,
     summarizeResearchOutput,
+});
+
+const cvPipelineFeature = createCvPipelineFeature({
+    api,
+    currentFiles,
+    writeDraftToLocalStorage,
+    state,
+    setRunning,
+    startRunStatusTimer,
+    stopRunStatusTimer,
+    setRunLogOutput,
+    setStatus,
+    updateDiskSnapshot,
+    applyCvOutputState,
+    updatePreviewCacheBuster,
+    refreshTailoredOutput,
+    refreshLogs,
+    summarizeRun,
 });
 
 async function loadSelectedDebugLog() {
@@ -1092,55 +1087,6 @@ async function saveToDisk() {
     } catch (err) {
         setStatus(`Save failed: ${err.message}`, true);
     } finally {
-        setRunning(false);
-    }
-}
-
-async function runPipeline(kind) {
-    setRunning(true);
-    startRunStatusTimer(
-        kind === "full" ? "Running full pipeline..." : "Running formatting only...",
-    );
-    setRunLogOutput("Starting run...");
-
-    try {
-        writeDraftToLocalStorage();
-        const kickoff = await api(kind === "full" ? "/api/run/full" : "/api/run/format", {
-            method: "POST",
-            body: JSON.stringify({
-                files: currentFiles(),
-                selectedProvider: state.selectedProvider || "gemini",
-                selectedModel: state.selectedModel || "",
-            }),
-        });
-        if (kickoff.run) {
-            setRunLogOutput(summarizeRun(kickoff.run));
-        }
-
-        const run = await waitForRunCompletion();
-
-        const refreshedState = await api("/api/state");
-        if (refreshedState.files) {
-            updateDiskSnapshot(refreshedState.files);
-        }
-        applyCvOutputState(refreshedState);
-
-        updatePreviewCacheBuster();
-        await refreshTailoredOutput();
-        await refreshLogs();
-
-        stopRunStatusTimer();
-        if (run && run.success) {
-            setStatus(`Run complete (${run.elapsedSeconds}s).`);
-        } else {
-            setStatus("Run failed. Open logs for details.", true);
-        }
-    } catch (err) {
-        stopRunStatusTimer();
-        setStatus(`Run failed: ${err.message}`, true);
-        setRunLogOutput(err.stack || err.message);
-    } finally {
-        stopRunStatusTimer();
         setRunning(false);
     }
 }
@@ -1535,8 +1481,8 @@ async function initialize() {
     }
 }
 
-els.runFormatBtn.addEventListener("click", () => runPipeline("format"));
-els.runFullBtn.addEventListener("click", () => runPipeline("full"));
+els.runFormatBtn.addEventListener("click", () => cvPipelineFeature.runPipeline("format"));
+els.runFullBtn.addEventListener("click", () => cvPipelineFeature.runPipeline("full"));
 if (els.restartServerBtn) {
     els.restartServerBtn.addEventListener("click", restartServerFromWeb);
 }
@@ -1547,7 +1493,9 @@ if (els.formatResearchBtn) {
     els.formatResearchBtn.addEventListener("click", () => researchFeature.formatResearchPdf());
 }
 if (els.resetResearchPromptBtn) {
-    els.resetResearchPromptBtn.addEventListener("click", () => researchFeature.resetResearchPrompt());
+    els.resetResearchPromptBtn.addEventListener("click", () =>
+        researchFeature.resetResearchPrompt(),
+    );
 }
 if (els.copyResearchOutputBtn) {
     els.copyResearchOutputBtn.addEventListener("click", () =>

@@ -52,7 +52,10 @@ export function createResearchFeature(ctx) {
 
         const researchPrompt = (els.researchPromptEditor.value || "").trim();
         if (!researchPrompt) {
-            setStatus("Research prompt is empty. Reset prompt or add content before running.", true);
+            setStatus(
+                "Research prompt is empty. Reset prompt or add content before running.",
+                true,
+            );
             setResearchStatus("Research prompt is empty.", true);
             setResearchOutput(
                 "Research prompt is empty. Use 'Reset Prompt to Default' or enter a custom prompt.",
