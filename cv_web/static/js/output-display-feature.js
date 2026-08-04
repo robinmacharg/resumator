@@ -26,8 +26,13 @@
  * @returns {{setStatus: (message: string, isError?: boolean) => void, updateAutoScrollIndicators: () => void, setRunLogOutput: (text: string) => void, setDebugLogOutput: (text: string) => void, setResearchStatus: (message: string, isError?: boolean) => void, setResearchOutput: (text: string) => void, setResearchBuiltQueryOutput: (text: string) => void, setResearchCommandOutput: (command: any) => void, summarizeRun: (run: any) => string, summarizeResearchOutput: (run: any) => string, renderResearchState: (payload: any) => void}}
  */
 export function createOutputDisplayFeature(ctx) {
-    const { state, els, formatCommandForDisplay, formatTimestampToSecond, applyResearchPreviewState } =
-        ctx;
+    const {
+        state,
+        els,
+        formatCommandForDisplay,
+        formatTimestampToSecond,
+        applyResearchPreviewState,
+    } = ctx;
 
     const AUTO_SCROLL_BOTTOM_TOLERANCE_PX = 6;
     const autoScrollTrackerByEl = new WeakMap();

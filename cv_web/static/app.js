@@ -8,6 +8,7 @@
  */
 
 import { api, fetchText } from "./js/api-client.js";
+import { createAppOperationsFeature } from "./js/app-operations-feature.js";
 import { createCvPipelineFeature } from "./js/cv-pipeline-feature.js";
 import { createDraftFilesFeature } from "./js/draft-files-feature.js";
 import { createLogsFeature } from "./js/logs-feature.js";
@@ -162,13 +163,6 @@ const LS_KEYS = {
     selected_model: "cvweb.selected_model",
 };
 
-const AUTO_SCROLL_BOTTOM_TOLERANCE_PX = 6;
-const autoScrollTrackerByEl = new WeakMap();
-
-function getAutoScrollTracker(el) {
-    if (!el) {
-        return null;
-
 const outputDisplayFeature = createOutputDisplayFeature({
     state,
     els,
@@ -195,6 +189,12 @@ const {
  * @param {string} message Status message prefix.
  * @returns {void}
  */
+function startRunStatusTimer(message) {
+    stopRunStatusTimer();
+    state.runStatusMessage = message;
+    state.runStatusStartMs = Date.now();
+
+    const render = () => {
         const elapsedSeconds = Math.floor((Date.now() - state.runStatusStartMs) / 1000);
         setStatus(`${state.runStatusMessage} [${elapsedSeconds}s]`);
     };
@@ -310,81 +310,30 @@ const {
     bindAutosave,
 } = draftFilesFeature;
 
-/**
- * Refresh tailored markdown output viewer from generated file.
- * @returns {Promise<void>}
- */
-async function refreshTailoredOutput() {
-    if (!els.tailoredViewer) {
-        return;
-    }
+const appOperationsFeature = createAppOperationsFeature({
+    els,
+    editableFiles: EDITABLE_FILES,
+    api,
+    fetchText,
+    sleep,
+    currentFiles,
+    writeDraftToLocalStorage,
+    updateDiskSnapshot,
+    applyFilesToEditors,
+    applyCvOutputState: previewFeature.applyCvOutputState,
+    updatePreview: previewFeature.updatePreview,
+    setRunning,
+    setStatus,
+});
 
-    try {
-        const text = await fetchText(`/output/tailored.md?ts=${Date.now()}`);
-        els.tailoredViewer.value = text;
-    } catch (_err) {
-        els.tailoredViewer.value = "output/tailored.md not found yet. Run full pipeline first.";
-    }
-}
-
-/**
- * Save a single editable file to disk.
- * @param {string} fileKey Editable file key.
- * @returns {Promise<void>}
- */
-async function saveSingleFile(fileKey) {
-    if (!EDITABLE_FILES[fileKey]) {
-        return;
-    }
-
-    const payload = { files: { [fileKey]: currentFiles()[fileKey] } };
-    setRunning(true);
-    setStatus(`Saving ${EDITABLE_FILES[fileKey].tabLabel}...`);
-    try {
-        writeDraftToLocalStorage();
-        const result = await api("/api/save", {
-            method: "POST",
-            body: JSON.stringify(payload),
-        });
-        const files = (result.state && result.state.files) || {};
-        if (Object.keys(files).length > 0) {
-            updateDiskSnapshot(files);
-            applyFilesToEditors(files);
-        }
-        setStatus(`${EDITABLE_FILES[fileKey].tabLabel} saved.`);
-    } catch (err) {
-        setStatus(`Save failed: ${err.message}`, true);
-    } finally {
-        setRunning(false);
-    }
-}
-
-/**
- * Reload a single editable file from disk.
- * @param {string} fileKey Editable file key.
- * @returns {Promise<void>}
- */
-async function loadSingleFile(fileKey) {
-    if (!EDITABLE_FILES[fileKey]) {
-        return;
-    }
-
-    setRunning(true);
-    setStatus(`Loading ${EDITABLE_FILES[fileKey].tabLabel} from disk...`);
-    try {
-        const result = await api("/api/state");
-        const files = result.files || {};
-        const editor = EDITABLE_FILES[fileKey].editor();
-        editor.value = files[fileKey] || "";
-        writeDraftToLocalStorage();
-        updateDiskSnapshot(files);
-        setStatus(`${EDITABLE_FILES[fileKey].tabLabel} loaded from disk.`);
-    } catch (err) {
-        setStatus(`Load failed: ${err.message}`, true);
-    } finally {
-        setRunning(false);
-    }
-}
+const {
+    refreshTailoredOutput,
+    saveSingleFile,
+    loadSingleFile,
+    saveToDisk,
+    reloadFromDisk,
+    restartServerFromWeb,
+} = appOperationsFeature;
 
 const researchFeature = createResearchFeature({
     state,
@@ -444,93 +393,6 @@ const cvPipelineFeature = createCvPipelineFeature({
     refreshLogs: logsFeature.refreshLogs,
     summarizeRun,
 });
-
-/**
- * Save all editable files to disk.
- * @returns {Promise<void>}
- */
-async function saveToDisk() {
-    setRunning(true);
-    setStatus("Saving files...");
-    try {
-        writeDraftToLocalStorage();
-        await api("/api/save", {
-            method: "POST",
-            body: JSON.stringify({ files: currentFiles() }),
-        });
-        setStatus("Saved to disk.");
-    } catch (err) {
-        setStatus(`Save failed: ${err.message}`, true);
-    } finally {
-        setRunning(false);
-    }
-}
-
-/**
- * Reload all editable files from disk and refresh related UI outputs.
- * @returns {Promise<void>}
- */
-async function reloadFromDisk() {
-    setRunning(true);
-    setStatus("Reloading from disk...");
-
-    try {
-        const payload = await api("/api/state");
-        applyFilesToEditors(payload.files || {});
-        updateDiskSnapshot(payload.files || {});
-        previewFeature.applyCvOutputState(payload);
-        writeDraftToLocalStorage();
-        previewFeature.updatePreview();
-        await refreshTailoredOutput();
-        setStatus("Reloaded from disk.");
-    } catch (err) {
-        setStatus(`Reload failed: ${err.message}`, true);
-    } finally {
-        setRunning(false);
-    }
-}
-
-/**
- * Request backend server restart and wait for it to become reachable again.
- * @returns {Promise<void>}
- */
-async function restartServerFromWeb() {
-    const confirmed = window.confirm("Restart the CV web server now?");
-    if (!confirmed) {
-        return;
-    }
-
-    if (els.restartServerBtn) {
-        els.restartServerBtn.disabled = true;
-    }
-    setStatus("Restart requested. Waiting for server...");
-
-    try {
-        await api("/api/server/restart", {
-            method: "POST",
-            body: JSON.stringify({}),
-        });
-    } catch (_err) {
-        // If the server restarts quickly, request may abort. Continue to polling.
-    }
-
-    const start = Date.now();
-    const maxWaitMs = 20_000;
-    while (Date.now() - start < maxWaitMs) {
-        try {
-            await api("/api/state");
-            window.location.reload();
-            return;
-        } catch (_err) {
-            await sleep(600);
-        }
-    }
-
-    if (els.restartServerBtn) {
-        els.restartServerBtn.disabled = false;
-    }
-    setStatus("Server restart timed out. Refresh the page manually.", true);
-}
 
 /**
  * Initialize app state, tabs, providers/models, logs, and research state.
