@@ -128,7 +128,9 @@ export function createProviderModelFeature(ctx) {
         const savedSelection = (localStorage.getItem(localStorageKeys.selected_model) || "").trim();
         const currentSelection = (state.selectedModel || "").trim();
         const selectedCandidate = currentSelection || savedSelection;
-        const selected = deduped.includes(selectedCandidate) ? selectedCandidate : defaultOptionValue;
+        const selected = deduped.includes(selectedCandidate)
+            ? selectedCandidate
+            : defaultOptionValue;
         setSelectedModel(selected);
     }
 
@@ -150,14 +152,18 @@ export function createProviderModelFeature(ctx) {
                 ? providersPayload.options
                       .filter(
                           (item) =>
-                              item && typeof item.value === "string" && typeof item.label === "string",
+                              item &&
+                              typeof item.value === "string" &&
+                              typeof item.label === "string",
                       )
                       .map((item) => ({
                           value: item.value.trim(),
                           label: item.label.trim(),
                           enabled: item.enabled !== false,
                           disabledReason:
-                              typeof item.disabledReason === "string" ? item.disabledReason.trim() : "",
+                              typeof item.disabledReason === "string"
+                                  ? item.disabledReason.trim()
+                                  : "",
                       }))
                       .filter((item) => item.value && item.label)
                 : [{ value: "gemini", label: "Gemini", enabled: true, disabledReason: "" }];
@@ -177,7 +183,9 @@ export function createProviderModelFeature(ctx) {
         }
 
         state.modelsByProvider =
-            modelsPayload && modelsPayload.byProvider && typeof modelsPayload.byProvider === "object"
+            modelsPayload &&
+            modelsPayload.byProvider &&
+            typeof modelsPayload.byProvider === "object"
                 ? Object.fromEntries(
                       Object.entries(modelsPayload.byProvider).map(([provider, models]) => {
                           const cleaned = Array.isArray(models)
@@ -190,7 +198,9 @@ export function createProviderModelFeature(ctx) {
                   )
                 : {};
 
-        const savedProvider = (localStorage.getItem(localStorageKeys.selected_provider) || "").trim();
+        const savedProvider = (
+            localStorage.getItem(localStorageKeys.selected_provider) || ""
+        ).trim();
         const enabledProviders = providerOptions
             .filter((item) => item.enabled)
             .map((item) => item.value);

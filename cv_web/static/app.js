@@ -11,6 +11,7 @@ import { api, fetchText } from "./js/api-client.js";
 import { createCvPipelineFeature } from "./js/cv-pipeline-feature.js";
 import { createDraftFilesFeature } from "./js/draft-files-feature.js";
 import { createLogsFeature } from "./js/logs-feature.js";
+import { createOutputDisplayFeature } from "./js/output-display-feature.js";
 import { createPdfPreviewFeature } from "./js/pdf-preview-feature.js";
 import { createProviderModelFeature } from "./js/provider-model-feature.js";
 import { createResearchFeature } from "./js/research-feature.js";
@@ -167,110 +168,33 @@ const autoScrollTrackerByEl = new WeakMap();
 function getAutoScrollTracker(el) {
     if (!el) {
         return null;
-    }
-    let tracker = autoScrollTrackerByEl.get(el);
-    if (tracker) {
-        return tracker;
-    }
 
-    tracker = { hasUserScrolled: false, programmaticScrollInProgress: false };
-    el.addEventListener("scroll", () => {
-        if (tracker.programmaticScrollInProgress) {
-            return;
-        }
-        tracker.hasUserScrolled = true;
-        updateAutoScrollIndicators();
-    });
-    autoScrollTrackerByEl.set(el, tracker);
-    return tracker;
-}
+const outputDisplayFeature = createOutputDisplayFeature({
+    state,
+    els,
+    formatCommandForDisplay,
+    formatTimestampToSecond,
+    applyResearchPreviewState: previewFeature.applyResearchOutputState,
+});
 
-function isAutoscrollPaused(el) {
-    const tracker = getAutoScrollTracker(el);
-    return Boolean(tracker && tracker.hasUserScrolled && !isAtBottom(el));
-}
+const {
+    setStatus,
+    updateAutoScrollIndicators,
+    setRunLogOutput,
+    setDebugLogOutput,
+    setResearchStatus,
+    setResearchOutput,
+    setResearchCommandOutput,
+    summarizeRun,
+    summarizeResearchOutput,
+    renderResearchState,
+} = outputDisplayFeature;
 
-function setAutoscrollIndicator(el, paused) {
-    if (!el) {
-        return;
-    }
-    const nextText = paused ? "Auto-scroll paused" : "";
-    el.textContent = nextText;
-    el.classList.toggle("visible", paused);
-    el.setAttribute("aria-hidden", paused ? "false" : "true");
-}
-
-function getActiveResearchOutputElement() {
-    if (state.activeResearchOutputTab === "built_query") {
-        return els.researchBuiltQueryOutput;
-    }
-    if (state.activeResearchOutputTab === "command") {
-        return els.researchCommandOutput;
-    }
-    return els.researchOutput;
-}
-
-function getActiveLogElement() {
-    if (state.activeLogTab === "debug") {
-        return els.debugLogOutput;
-    }
-    return els.runLogOutput;
-}
-
-function updateAutoScrollIndicators() {
-    setAutoscrollIndicator(
-        els.researchAutoscrollIndicator,
-        isAutoscrollPaused(getActiveResearchOutputElement()),
-    );
-    setAutoscrollIndicator(els.logsAutoscrollIndicator, isAutoscrollPaused(getActiveLogElement()));
-}
-
-function isAtBottom(el) {
-    if (!el) {
-        return true;
-    }
-    const distanceFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop;
-    return distanceFromBottom <= AUTO_SCROLL_BOTTOM_TOLERANCE_PX;
-}
-
-function setOutputContentWithSmartAutoscroll(el, text, useValueProperty = false) {
-    if (!el) {
-        return;
-    }
-
-    const tracker = getAutoScrollTracker(el);
-    const shouldAutoscroll = !tracker || !tracker.hasUserScrolled || isAtBottom(el);
-
-    if (useValueProperty) {
-        el.value = text;
-    } else {
-        el.textContent = text;
-    }
-
-    if (!shouldAutoscroll || !tracker) {
-        updateAutoScrollIndicators();
-        return;
-    }
-
-    tracker.programmaticScrollInProgress = true;
-    el.scrollTop = el.scrollHeight;
-    requestAnimationFrame(() => {
-        tracker.programmaticScrollInProgress = false;
-        updateAutoScrollIndicators();
-    });
-}
-
-function setStatus(message, isError = false) {
-    els.statusText.textContent = message;
-    els.statusText.style.color = isError ? "#b42318" : "#1f1f1f";
-}
-
-function startRunStatusTimer(message) {
-    stopRunStatusTimer();
-    state.runStatusMessage = message;
-    state.runStatusStartMs = Date.now();
-
-    const render = () => {
+/**
+ * Start global run status timer message.
+ * @param {string} message Status message prefix.
+ * @returns {void}
+ */
         const elapsedSeconds = Math.floor((Date.now() - state.runStatusStartMs) / 1000);
         setStatus(`${state.runStatusMessage} [${elapsedSeconds}s]`);
     };
@@ -279,6 +203,10 @@ function startRunStatusTimer(message) {
     state.runStatusTimerId = window.setInterval(render, 1000);
 }
 
+/**
+ * Stop and clear global run status timer state.
+ * @returns {void}
+ */
 function stopRunStatusTimer() {
     if (state.runStatusTimerId !== null) {
         clearInterval(state.runStatusTimerId);
@@ -288,6 +216,10 @@ function stopRunStatusTimer() {
     state.runStatusMessage = "";
 }
 
+/**
+ * Apply disabled state to app controls during active runs.
+ * @returns {void}
+ */
 function applyControlDisabledState() {
     const disabled = state.isRunning || state.isResearchRunning;
     [
@@ -318,16 +250,30 @@ function applyControlDisabledState() {
     syncResearchPrimaryButton();
 }
 
+/**
+ * Set CV run active state.
+ * @param {boolean} running
+ * @returns {void}
+ */
 function setRunning(running) {
     state.isRunning = running;
     applyControlDisabledState();
 }
 
+/**
+ * Set research run active state.
+ * @param {boolean} running
+ * @returns {void}
+ */
 function setResearchRunning(running) {
     state.isResearchRunning = running;
     applyControlDisabledState();
 }
 
+/**
+ * Update research primary button label/style based on running state.
+ * @returns {void}
+ */
 function syncResearchPrimaryButton() {
     if (!els.runResearchBtn) {
         return;
@@ -364,159 +310,10 @@ const {
     bindAutosave,
 } = draftFilesFeature;
 
-function setRunLogOutput(text) {
-    setOutputContentWithSmartAutoscroll(els.runLogOutput, text);
-}
-
-function setDebugLogOutput(text) {
-    setOutputContentWithSmartAutoscroll(els.debugLogOutput, text);
-}
-
-function setResearchStatus(message, isError = false) {
-    if (!els.researchStatusText) {
-        return;
-    }
-    els.researchStatusText.textContent = message;
-    els.researchStatusText.style.color = isError ? "#b42318" : "#57534e";
-}
-
-function setResearchOutput(text) {
-    if (!els.researchOutput) {
-        return;
-    }
-    setOutputContentWithSmartAutoscroll(els.researchOutput, text);
-}
-
-function setResearchBuiltQueryOutput(text) {
-    if (!els.researchBuiltQueryOutput) {
-        return;
-    }
-    setOutputContentWithSmartAutoscroll(els.researchBuiltQueryOutput, text);
-}
-
-function setResearchCommandOutput(command) {
-    if (!els.researchCommandOutput) {
-        return;
-    }
-    const rendered = Array.isArray(command)
-        ? formatCommandForDisplay(command)
-        : String(command || "");
-    setOutputContentWithSmartAutoscroll(
-        els.researchCommandOutput,
-        rendered || "No command yet. Run Research first.",
-        true,
-    );
-}
-
-function summarizeRun(run) {
-    if (!run || typeof run !== "object") {
-        return "No run output yet.";
-    }
-
-    const isRunning = Boolean(run.running);
-    const exitDisplay =
-        run.exitCode === null || run.exitCode === undefined ? "running" : run.exitCode;
-    const elapsedDisplay =
-        run.elapsedSeconds === null || run.elapsedSeconds === undefined
-            ? "-"
-            : `${run.elapsedSeconds}s`;
-
-    const summary = [
-        `Kind: ${run.kind}`,
-        `Exit: ${exitDisplay}`,
-        `Elapsed: ${elapsedDisplay}`,
-        `Status: ${isRunning ? "running" : run.success ? "success" : "failed"}`,
-        "",
-    ];
-
-    if (run.output) {
-        summary.push(run.output);
-    } else {
-        summary.push("(No process output)");
-    }
-
-    return summary.join("\n");
-}
-
-function summarizeResearchOutput(run) {
-    if (!run) {
-        return "No research run output yet.";
-    }
-    const status = run.running
-        ? "running"
-        : run.stoppedByUser
-          ? "stopped"
-          : run.success
-            ? "success"
-            : "failed";
-    const elapsed =
-        run.elapsedSeconds === null || run.elapsedSeconds === undefined
-            ? "-"
-            : `${run.elapsedSeconds}s`;
-    const exit = run.exitCode === null || run.exitCode === undefined ? "running" : run.exitCode;
-
-    const operation = run.kind === "research_format" ? "format" : "research";
-    const company = run.kind === "research_format" ? "(n/a)" : run.companyName || "(unknown)";
-
-    const lines = [
-        `Operation: ${operation}`,
-        `Company: ${company}`,
-        `Status: ${status}`,
-        `Exit: ${exit}`,
-        `Elapsed: ${elapsed}`,
-        `Dry Run: ${run.dryRun ? "yes" : "no"}`,
-        run.autoFormatPdf ? "Auto Format PDF: enabled" : "Auto Format PDF: disabled",
-        run.formatAttempted === true
-            ? `Format Exit: ${run.formatExitCode === null || run.formatExitCode === undefined ? "-" : run.formatExitCode}`
-            : null,
-        run.formatAttempted === true
-            ? `Format Status: ${run.formatSuccess ? "success" : "failed"}`
-            : null,
-        run.success
-            ? `Generated At: ${formatTimestampToSecond(run.finishedAt || run.startedAt)}`
-            : null,
-        "",
-        run.output || "(No process output)",
-    ].filter((line) => line !== null);
-    return lines.join("\n");
-}
-
-function renderResearchState(payload) {
-    if (!payload || typeof payload !== "object") {
-        return;
-    }
-
-    previewFeature.applyResearchOutputState(payload);
-
-    if (typeof payload.companyName === "string") {
-        els.researchCompanyInput.value = payload.companyName;
-    }
-
-    if (Array.isArray(payload.urls)) {
-        els.researchUrlsInput.value = payload.urls.join("\n");
-    }
-
-    const output = payload.output || {};
-    if (typeof output.builtPrompt === "string" && output.builtPrompt.trim()) {
-        setResearchBuiltQueryOutput(output.builtPrompt);
-    } else {
-        setResearchBuiltQueryOutput("No built query yet. Run Research first.");
-    }
-
-    if (typeof output.markdown === "string" && output.markdown.trim()) {
-        setResearchOutput(output.markdown);
-    } else if (typeof output.json === "string" && output.json.trim()) {
-        setResearchOutput(output.json);
-    }
-
-    if (payload.lastRun) {
-        setResearchOutput(summarizeResearchOutput(payload.lastRun));
-        setResearchCommandOutput(payload.lastRun.command || []);
-    } else {
-        setResearchCommandOutput([]);
-    }
-}
-
+/**
+ * Refresh tailored markdown output viewer from generated file.
+ * @returns {Promise<void>}
+ */
 async function refreshTailoredOutput() {
     if (!els.tailoredViewer) {
         return;
@@ -530,6 +327,11 @@ async function refreshTailoredOutput() {
     }
 }
 
+/**
+ * Save a single editable file to disk.
+ * @param {string} fileKey Editable file key.
+ * @returns {Promise<void>}
+ */
 async function saveSingleFile(fileKey) {
     if (!EDITABLE_FILES[fileKey]) {
         return;
@@ -557,6 +359,11 @@ async function saveSingleFile(fileKey) {
     }
 }
 
+/**
+ * Reload a single editable file from disk.
+ * @param {string} fileKey Editable file key.
+ * @returns {Promise<void>}
+ */
 async function loadSingleFile(fileKey) {
     if (!EDITABLE_FILES[fileKey]) {
         return;
@@ -638,6 +445,10 @@ const cvPipelineFeature = createCvPipelineFeature({
     summarizeRun,
 });
 
+/**
+ * Save all editable files to disk.
+ * @returns {Promise<void>}
+ */
 async function saveToDisk() {
     setRunning(true);
     setStatus("Saving files...");
@@ -655,6 +466,10 @@ async function saveToDisk() {
     }
 }
 
+/**
+ * Reload all editable files from disk and refresh related UI outputs.
+ * @returns {Promise<void>}
+ */
 async function reloadFromDisk() {
     setRunning(true);
     setStatus("Reloading from disk...");
@@ -675,6 +490,10 @@ async function reloadFromDisk() {
     }
 }
 
+/**
+ * Request backend server restart and wait for it to become reachable again.
+ * @returns {Promise<void>}
+ */
 async function restartServerFromWeb() {
     const confirmed = window.confirm("Restart the CV web server now?");
     if (!confirmed) {
@@ -713,6 +532,10 @@ async function restartServerFromWeb() {
     setStatus("Server restart timed out. Refresh the page manually.", true);
 }
 
+/**
+ * Initialize app state, tabs, providers/models, logs, and research state.
+ * @returns {Promise<void>}
+ */
 async function initialize() {
     setStatus("Loading editor state...");
     try {

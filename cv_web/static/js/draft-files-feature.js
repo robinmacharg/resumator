@@ -116,7 +116,10 @@ export function createDraftFilesFeature(ctx) {
         localStorage.setItem(localStorageKeys.cv, files.cv);
         localStorage.setItem(localStorageKeys.prompt, files.prompt);
         localStorage.setItem(localStorageKeys.research_prompt, files.research_prompt);
-        localStorage.setItem(localStorageKeys.research_company, els.researchCompanyInput.value || "");
+        localStorage.setItem(
+            localStorageKeys.research_company,
+            els.researchCompanyInput.value || "",
+        );
         localStorage.setItem(localStorageKeys.research_urls, els.researchUrlsInput.value || "");
         localStorage.setItem(localStorageKeys.jobspec, files.jobspec);
         localStorage.setItem(localStorageKeys.env, files.env);
