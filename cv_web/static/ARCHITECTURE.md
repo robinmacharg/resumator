@@ -187,6 +187,51 @@ This keeps startup behavior easy to reason about and prevents hidden side effect
 3. `app-startup-feature.js` runs startup sequence.
 4. `app-initialization-feature.js` loads API/local state and restores UI.
 
+## Appendix: Backend Reference
+
+The backend entrypoint has been decomposed into focused modules under `cv_web`.
+
+| Module | Responsibility |
+|---|---|
+| `server.py` | Composition root and HTTP server startup. Exposes compatibility wrappers and wires dependencies into extracted modules. |
+| `server_http_handlers.py` | Route dispatch and HTTP action handlers for GET/POST API/static endpoints. |
+| `server_process_runners.py` | Subprocess execution, stdout/stderr streaming, async wrappers, and run finalization orchestration. |
+| `server_state_helpers.py` | State payload builders, shared file I/O helpers, and debug log index/content helpers. |
+| `server_request_parsing.py` | Request payload/dataclass parsing and provider/model normalization. |
+| `server_run_helpers.py` | Command builders and run-state payload shape builders. |
+| `server_runtime_state.py` | Mutable runtime state ownership, locks, snapshots, mutation/finalization helpers, and stop handling. |
+
+### Backend Dependency Direction
+
+```mermaid
+flowchart TD
+  Server[server.py]\ncomposition root
+  Http[server_http_handlers.py]
+  Proc[server_process_runners.py]
+  State[server_state_helpers.py]
+  Parse[server_request_parsing.py]
+  RunHelpers[server_run_helpers.py]
+  Runtime[server_runtime_state.py]
+
+  Server --> Http
+  Server --> Proc
+  Server --> State
+  Server --> Parse
+  Server --> RunHelpers
+  Server --> Runtime
+
+  Http --> Parse
+  Http --> State
+  Http --> Proc
+  Http --> Runtime
+
+  Proc --> RunHelpers
+  Proc --> Runtime
+
+  State --> Parse
+  State --> Runtime
+```
+
 ## Notes for Future Changes
 
 - Prefer adding behavior to an existing feature module before extending `app.js`.
