@@ -24,7 +24,9 @@ Output requirements (markdown only):
 	- Include a short "Role summary from URLs" subsection when role details are present in linked pages.
 	- If role details are missing from URLs, include "Role summary from URLs: not available" and use Job Spec context.
 2. Role-specific insights that matter to a candidate joining this team
-3. 8-12 targeted possible interview questions that might be put to the candidate, grouped by theme. Also provide exemplar answers with further research topics.
+3. 8-12 targeted possible interview questions that might be put to the candidate, grouped by theme. 
+        - Also provide exemplar answers with further research topics.
+        - Include previous roles that highlight this skill.
 4. Why each interview question is useful (short rationale)
 5. Questions the candidate should ask the company, grouped by theme
 6. Follow-up points for each candidate question to drive useful discussion and signal good fit

@@ -1,0 +1,60 @@
+{
+  "name": "cvgen-vscode-bridge",
+  "displayName": "CVGen VS Code Bridge",
+  "description": "Local HTTP bridge that forwards requests to Copilot models from inside VS Code.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "private": true,
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cvBridge.start",
+        "title": "CV Bridge: Start"
+      },
+      {
+        "command": "cvBridge.stop",
+        "title": "CV Bridge: Stop"
+      }
+    ],
+    "configuration": {
+      "title": "CV Bridge",
+      "properties": {
+        "cvBridge.port": {
+          "type": "number",
+          "default": 8766,
+          "description": "Local port for the bridge server."
+        },
+        "cvBridge.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-start the bridge server when VS Code activates the extension."
+        },
+        "cvBridge.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Optional API key required from callers via the x-api-key header."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/vscode": "^1.100.0",
+    "typescript": "^5.8.3"
+  }
+}

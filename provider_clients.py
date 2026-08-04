@@ -1210,3 +1210,216 @@ def run_openai_attempt(
             "exceptionType": final_exception_type,
         },
     )
+
+
+def run_vscodebridge_attempt(
+    *,
+    model_name: str,
+    prompt_text: str,
+    env: dict[str, str],
+    timeout_seconds: int,
+    heartbeat_seconds: int,
+    attempt_index: int,
+    debug_log_dir: Path,
+    log_prefix: str = "attempt",
+    emit_live_output: bool = True,
+) -> AttemptResult:
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    safe_model = model_name.replace("/", "_")
+    log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log"
+
+    api_url = (env.get("VSCODE_BRIDGE_API_URL") or "http://127.0.0.1:8766/generate").strip()
+    api_key = (env.get("VSCODE_BRIDGE_API_KEY") or "").strip()
+    system_prompt = (env.get("VSCODE_BRIDGE_SYSTEM_PROMPT") or "").strip()
+
+    payload: dict[str, Any] = {
+        "prompt": prompt_text,
+    }
+    if system_prompt:
+        payload["systemPrompt"] = system_prompt
+
+    payload_json = json.dumps(payload)
+    payload_bytes = payload_json.encode("utf-8")
+    prompt_chars = len(prompt_text)
+    payload_size_bytes = len(payload_bytes)
+
+    max_retries = max(0, int((env.get("VSCODE_BRIDGE_MAX_RETRIES") or "1").strip() or "1"))
+    initial_backoff_seconds = max(
+        1,
+        int((env.get("VSCODE_BRIDGE_INITIAL_BACKOFF_SECONDS") or "1").strip() or "1"),
+    )
+
+    timed_out = False
+    stdout_text = ""
+    stderr_text = ""
+    return_code = 1
+    total_start = time.monotonic()
+    retry_count = 0
+    final_exception_type = ""
+
+    if emit_live_output:
+        print(
+            f"Attempt {attempt_index}: invoking VS Code bridge model {model_name} via {api_url} "
+            f"(prompt chars: {prompt_chars}, payload bytes: {payload_size_bytes})",
+            file=sys.stderr,
+            flush=True,
+        )
+
+    for inner_attempt in range(1, max_retries + 2):
+        try:
+            headers = {
+                "Content-Type": "application/json",
+            }
+            if api_key:
+                headers["x-api-key"] = api_key
+
+            req = request.Request(
+                api_url,
+                data=payload_bytes,
+                headers=headers,
+                method="POST",
+            )
+
+            inner_start = time.monotonic()
+            with request.urlopen(req, timeout=timeout_seconds) as response:
+                body = response.read().decode("utf-8", errors="replace")
+                parsed = json.loads(body) if body else {}
+                if not isinstance(parsed, dict):
+                    return_code = 1
+                    stderr_text = "Bridge response was not a JSON object."
+                    stdout_text = ""
+                else:
+                    ok_value = bool(parsed.get("ok"))
+                    output_value = parsed.get("output")
+                    error_value = parsed.get("error")
+                    if ok_value and isinstance(output_value, str):
+                        return_code = 0
+                        stdout_text = output_value
+                        stderr_text = ""
+                    else:
+                        return_code = 1
+                        stdout_text = ""
+                        stderr_text = str(error_value or "Bridge returned an unsuccessful response.").strip()
+
+            if emit_live_output:
+                elapsed_inner = time.monotonic() - inner_start
+                print(
+                    f"Attempt {attempt_index}.{inner_attempt}: bridge call completed in {elapsed_inner:.1f}s",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+            if return_code == 0 and stdout_text.strip():
+                break
+
+            if inner_attempt <= max_retries:
+                retry_count += 1
+                backoff = initial_backoff_seconds * (2 ** (inner_attempt - 1))
+                if emit_live_output:
+                    print(
+                        f"Attempt {attempt_index}.{inner_attempt}: unsuccessful bridge response; "
+                        f"retrying in {backoff}s. Error: {stderr_text[:240]}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                time.sleep(backoff)
+                continue
+
+            break
+        except error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+            status = int(exc.code or 1)
+            final_exception_type = type(exc).__name__
+            return_code = status
+            stdout_text = ""
+
+            parsed_message = ""
+            try:
+                parsed = json.loads(body) if body else {}
+                if isinstance(parsed, dict):
+                    parsed_message = str(parsed.get("error") or "").strip()
+            except Exception:
+                parsed_message = ""
+            details = parsed_message or body.strip() or "Unknown bridge HTTP error"
+            stderr_text = f"HTTP {status}: {details}"
+
+            retryable = _is_hf_retryable_http_status(status)
+            if retryable and inner_attempt <= max_retries:
+                retry_count += 1
+                backoff = initial_backoff_seconds * (2 ** (inner_attempt - 1))
+                if emit_live_output:
+                    print(
+                        f"Attempt {attempt_index}.{inner_attempt}: transient bridge HTTP failure; "
+                        f"retrying in {backoff}s. Error: {stderr_text[:240]}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                time.sleep(backoff)
+                continue
+            break
+        except Exception as exc:
+            final_exception_type = type(exc).__name__
+            message = str(exc).strip()
+            stdout_text = ""
+            return_code = 1
+
+            lowered = message.lower()
+            timed_out = "timed out" in lowered
+            if timed_out:
+                stderr_text = f"Timed out waiting for VS Code bridge response after {timeout_seconds}s."
+            else:
+                stderr_text = f"{type(exc).__name__}: {message}" if message else type(exc).__name__
+
+            retryable = _is_hf_retryable_exception_message(message)
+            if retryable and inner_attempt <= max_retries:
+                retry_count += 1
+                backoff = initial_backoff_seconds * (2 ** (inner_attempt - 1))
+                if emit_live_output:
+                    print(
+                        f"Attempt {attempt_index}.{inner_attempt}: transient bridge exception; "
+                        f"retrying in {backoff}s. Error: {stderr_text[:240]}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                time.sleep(backoff)
+                continue
+            break
+
+    elapsed = time.monotonic() - total_start
+    _write_attempt_log(
+        log_path,
+        [
+            "provider=vscodebridge",
+            f"model={model_name}",
+            f"attempt={attempt_index}",
+            f"return_code={return_code}",
+            f"elapsed_seconds={elapsed:.2f}",
+            f"timed_out={timed_out}",
+            f"api_url={api_url}",
+            f"prompt_chars={prompt_chars}",
+            f"payload_bytes={payload_size_bytes}",
+            f"retries_used={retry_count}",
+            f"exception_type={final_exception_type or 'none'}",
+            "--- STDOUT ---",
+            stdout_text,
+            "--- STDERR ---",
+            stderr_text,
+        ],
+    )
+
+    return AttemptResult(
+        provider="vscodebridge",
+        model=model_name,
+        returncode=return_code,
+        stdout=stdout_text,
+        stderr=stderr_text,
+        elapsed_seconds=elapsed,
+        log_path=log_path,
+        timed_out=timed_out,
+        metadata={
+            "promptChars": prompt_chars,
+            "payloadBytes": payload_size_bytes,
+            "retriesUsed": retry_count,
+            "exceptionType": final_exception_type,
+        },
+    )

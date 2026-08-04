@@ -19,6 +19,7 @@ from provider_clients import (
     run_huggingface_attempt,
     run_openai_attempt,
     run_swiftlet_attempt,
+    run_vscodebridge_attempt,
 )
 
 CV_FILE = Path("CV.md")
@@ -62,6 +63,9 @@ OPENAI_TIMEOUT_SECONDS = 180
 DEFAULT_SWIFTLET_MODEL = "qwen3_5_moe_text"
 DEFAULT_SWIFTLET_FALLBACK_MODELS = []
 SWIFTLET_TIMEOUT_SECONDS = 240
+DEFAULT_VSCODE_BRIDGE_MODEL = "copilot-vscode"
+DEFAULT_VSCODE_BRIDGE_FALLBACK_MODELS = []
+VSCODE_BRIDGE_TIMEOUT_SECONDS = 240
 DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
 DEFAULT_OPENAI_FALLBACK_MODELS = [
     "gpt-5.6-terra",
@@ -409,6 +413,11 @@ def build_model_sequence(
         fallback_raw = process_env.get("SWIFTLET_MODEL_FALLBACKS", "").strip()
         env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
         defaults = DEFAULT_SWIFTLET_FALLBACK_MODELS
+    elif provider == "vscodebridge":
+        primary = process_env.get("VSCODE_BRIDGE_MODEL", "").strip() or DEFAULT_VSCODE_BRIDGE_MODEL
+        fallback_raw = process_env.get("VSCODE_BRIDGE_MODEL_FALLBACKS", "").strip()
+        env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
+        defaults = DEFAULT_VSCODE_BRIDGE_FALLBACK_MODELS
     else:
         primary = process_env.get("GEMINI_MODEL", "").strip()
         if not primary:
@@ -560,7 +569,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--url", action="append", default=[], help="Additional URL (repeatable)")
     parser.add_argument("--output-md", default=str(OUTPUT_MD), help="Markdown output path")
     parser.add_argument("--output-json", default=str(OUTPUT_JSON), help="JSON output path")
-    parser.add_argument("--provider", default="", help="Model provider override (gemini, huggingface, openai, or swiftlet)")
+    parser.add_argument(
+        "--provider",
+        default="",
+        help="Model provider override (gemini, huggingface, openai, swiftlet, or vscodebridge)",
+    )
     parser.add_argument("--model", default="", help="Model name (optional override)")
     parser.add_argument(
         "--dry-run",
@@ -777,6 +790,18 @@ def main() -> None:
                     prompt_text=prompt_text,
                     env=process_env,
                     timeout_seconds=SWIFTLET_TIMEOUT_SECONDS,
+                    heartbeat_seconds=heartbeat_seconds,
+                    attempt_index=idx,
+                    debug_log_dir=DEBUG_LOG_DIR,
+                    log_prefix="research-attempt",
+                    emit_live_output=True,
+                )
+            elif selected_provider == "vscodebridge":
+                proc = run_vscodebridge_attempt(
+                    model_name=model_name,
+                    prompt_text=prompt_text,
+                    env=process_env,
+                    timeout_seconds=VSCODE_BRIDGE_TIMEOUT_SECONDS,
                     heartbeat_seconds=heartbeat_seconds,
                     attempt_index=idx,
                     debug_log_dir=DEBUG_LOG_DIR,

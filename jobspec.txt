@@ -1,57 +1,37 @@
-I'm reaching out about a permanent Senior iOS Developer opportunity with a cybersecurity company that builds hardware-level security for mobile, IoT, and digital finance for millions worldwide. Think Trusted Execution Environments (TEE) and secure device identity, the kind of tech that protects billions of smartphones and users globally.
+Role: Graph Data Engineer / SPARQL Developer
 
-The company is on track to hit £100m revenue in the next 12 months. This is not just ambition, and you'll be joining at a moment your work will shape, and have real impact on that trajectory.
+Location: CO (REMOTE)
 
-What you'll be doing
-
-·        Build products with real social impact, used at scale across global markets
-
-·        Collaborate with talented international teams in a highly collaborative engineering culture
-
-·        Own features end-to-end. Your work will be visible and your impact felt from day one
-
-What you will get
-
-Benefit
-
-Detail
-
-Flexibility
-
-Primarily remote — occasional visits to offices near Reading
-
-Time off
-
-Unlimited holiday
-
-Health
-
-Private healthcare (you and your family)
-
-Growth
-
-Excellent career development, upskilling, + genuine influence on product direction
-
-Package
-
-£70-90k base + 10% bonus + comprehensive benefits
+Employment Type: Full-Time
 
  
 
-Tech Stack and Experience
+Must Have Technical/Functional Skills
 
-They're looking for someone who can hit the ground running with:
+·         Technical: 
 
-·        Native iOS — Swift and/or Objective-C
+o   SPARQL, RDF, OWL, semantic web technologies
 
-·        Shipping experience — apps live on the Apple App Store
+o   Graph databases (e.g., Stardog, Neo4j)
 
-·        Tooling — iOS SDK, Xcode, TestFlight, App Store Connect
+o   SQL, Python, JavaScript for data processing and visualization
 
-·        Architecture — MVVM, Clean Architecture, or similar modern patterns
+o   EXFO Ontology (PRONTO) – Necessary but if no resource have this above three are mandatory 
 
-·        Performance — Security, optimisation, and scalable development
+·         Domain Knowledge: 
 
-·        Delivery — Git, Agile practices, collaborative workflows
+o   Telecom network architecture, Service Fulfilment (Provisioning and Activation)
 
-This is not only an opportunity to build and ship a real world app using iOS 27. It's a chance to join a business in a significant growth phase, influence product direction, and deliver features that make a tangible difference to users around the world.
+o   OSS/BSS integration, CMDB, network inventory
+
+o   Event-driven and real-time data architectures (Kafka, REST APIs) 
+
+ 
+
+Roles & Responsibilities
+
+·         Design and development of API using SPARQL and Python 
+
+·         Generic Managerial Skills, If any
+
+·         Good Customer communication

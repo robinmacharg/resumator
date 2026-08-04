@@ -48,6 +48,14 @@
       "models": [
         "qwen3_5_moe_text"
       ]
+    },
+    {
+      "id": "vscodebridge",
+      "label": "VS Code Bridge",
+      "defaultModel": "copilot-vscode",
+      "models": [
+        "copilot-vscode"
+      ]
     }
   ]
 }

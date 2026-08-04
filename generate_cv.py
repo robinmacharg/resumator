@@ -18,6 +18,7 @@ from provider_clients import (
     run_huggingface_attempt,
     run_openai_attempt,
     run_swiftlet_attempt,
+    run_vscodebridge_attempt,
 )
 
 # File paths in current working directory
@@ -34,6 +35,7 @@ GEMINI_TIMEOUT_SECONDS = 300
 HUGGINGFACE_TIMEOUT_SECONDS = 180
 OPENAI_TIMEOUT_SECONDS = 180
 SWIFTLET_TIMEOUT_SECONDS = 240
+VSCODE_BRIDGE_TIMEOUT_SECONDS = 240
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_FALLBACK_MODELS = [
     "gemini-3.5-flash",
@@ -66,6 +68,8 @@ DEFAULT_OPENAI_FALLBACK_MODELS = [
 ]
 DEFAULT_SWIFTLET_MODEL = "qwen3_5_moe_text"
 DEFAULT_SWIFTLET_FALLBACK_MODELS = []
+DEFAULT_VSCODE_BRIDGE_MODEL = "copilot-vscode"
+DEFAULT_VSCODE_BRIDGE_FALLBACK_MODELS = []
 MAX_FAST_CV_CHARS = 18000
 REQUIRED_SEMANTIC_TAG_KEYS = [
     "candidate_name",
@@ -125,6 +129,11 @@ def build_model_sequence(process_env: dict, provider: str, explicit_model: str =
         fallback_raw = process_env.get("SWIFTLET_MODEL_FALLBACKS", "")
         fallback_from_env = [item.strip() for item in fallback_raw.split(",") if item.strip()]
         fallback_defaults = DEFAULT_SWIFTLET_FALLBACK_MODELS
+    elif provider == "vscodebridge":
+        primary = process_env.get("VSCODE_BRIDGE_MODEL", DEFAULT_VSCODE_BRIDGE_MODEL).strip()
+        fallback_raw = process_env.get("VSCODE_BRIDGE_MODEL_FALLBACKS", "")
+        fallback_from_env = [item.strip() for item in fallback_raw.split(",") if item.strip()]
+        fallback_defaults = DEFAULT_VSCODE_BRIDGE_FALLBACK_MODELS
     else:
         default_primary = DEFAULT_FAST_MODEL if fast_mode else DEFAULT_GEMINI_MODEL
         primary = process_env.get("GEMINI_MODEL", default_primary).strip()
@@ -142,7 +151,11 @@ def build_model_sequence(process_env: dict, provider: str, explicit_model: str =
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate a tailored CV via Gemini CLI")
-    parser.add_argument("--provider", default="", help="Model provider override (gemini, huggingface, openai, or swiftlet)")
+    parser.add_argument(
+        "--provider",
+        default="",
+        help="Model provider override (gemini, huggingface, openai, swiftlet, or vscodebridge)",
+    )
     parser.add_argument("--model", default="", help="Explicit model override")
     return parser.parse_args()
 
@@ -832,6 +845,18 @@ def main() -> None:
                 prompt_text=full_prompt,
                 env=process_env,
                 timeout_seconds=SWIFTLET_TIMEOUT_SECONDS,
+                heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
+                attempt_index=index,
+                debug_log_dir=DEBUG_LOG_DIR,
+                log_prefix="cv-attempt",
+                emit_live_output=True,
+            )
+        elif selected_provider == "vscodebridge":
+            completed = run_vscodebridge_attempt(
+                model_name=model_name,
+                prompt_text=full_prompt,
+                env=process_env,
+                timeout_seconds=VSCODE_BRIDGE_TIMEOUT_SECONDS,
                 heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
                 attempt_index=index,
                 debug_log_dir=DEBUG_LOG_DIR,

@@ -173,6 +173,7 @@ synchronization, and direct client consultation.
 * **Pycel / Excel Formula Parser:** Python-based Excel dependency graph and formula parser ([GitHub](https://github.com/dgorissen/pycel))[cite: 1].
 * **RMHelpfulLabel & Photoshop Scripts:** iOS custom UI components and batch export scripts[cite: 1].
 * **Thingiverse Designs:** Parametric 3D CAD models and physical design prints ([Designs](https://www.thingiverse.com/robinmacharg/designs))[cite: 1].
+* **Resumator:** AI-powered resume tailoring and role research tool. Private repo.
 
 ---
 
