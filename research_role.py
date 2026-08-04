@@ -13,7 +13,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from provider_catalog import load_provider_catalog, provider_map
-from provider_clients import AttemptResult, run_gemini_attempt, run_huggingface_attempt
+from provider_clients import (
+    AttemptResult,
+    run_gemini_attempt,
+    run_huggingface_attempt,
+    run_swiftlet_attempt,
+)
 
 CV_FILE = Path("CV.md")
 JOBSPEC_FILE = Path("jobspec.txt")
@@ -52,6 +57,9 @@ DEFAULT_HUGGINGFACE_FALLBACK_MODELS = [
     "google/gemma-2-9b-it",
 ]
 HUGGINGFACE_TIMEOUT_SECONDS = 180
+DEFAULT_SWIFTLET_MODEL = "qwen3_5_moe_text"
+DEFAULT_SWIFTLET_FALLBACK_MODELS = []
+SWIFTLET_TIMEOUT_SECONDS = 240
 
 
 def utc_now_iso() -> str:
@@ -382,6 +390,11 @@ def build_model_sequence(
         fallback_raw = process_env.get("HUGGINGFACE_MODEL_FALLBACKS", "").strip()
         env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
         defaults = DEFAULT_HUGGINGFACE_FALLBACK_MODELS
+    elif provider == "swiftlet":
+        primary = process_env.get("SWIFTLET_MODEL", "").strip() or DEFAULT_SWIFTLET_MODEL
+        fallback_raw = process_env.get("SWIFTLET_MODEL_FALLBACKS", "").strip()
+        env_fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
+        defaults = DEFAULT_SWIFTLET_FALLBACK_MODELS
     else:
         primary = process_env.get("GEMINI_MODEL", "").strip()
         if not primary:
@@ -533,8 +546,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--url", action="append", default=[], help="Additional URL (repeatable)")
     parser.add_argument("--output-md", default=str(OUTPUT_MD), help="Markdown output path")
     parser.add_argument("--output-json", default=str(OUTPUT_JSON), help="JSON output path")
-    parser.add_argument("--provider", default="", help="Model provider override (gemini or huggingface)")
-    parser.add_argument("--model", default="", help="Gemini model name (optional override)")
+    parser.add_argument("--provider", default="", help="Model provider override (gemini, huggingface, or swiftlet)")
+    parser.add_argument("--model", default="", help="Model name (optional override)")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -721,6 +734,18 @@ def main() -> None:
                     prompt_text=prompt_text,
                     env=process_env,
                     timeout_seconds=HUGGINGFACE_TIMEOUT_SECONDS,
+                    heartbeat_seconds=heartbeat_seconds,
+                    attempt_index=idx,
+                    debug_log_dir=DEBUG_LOG_DIR,
+                    log_prefix="research-attempt",
+                    emit_live_output=True,
+                )
+            elif selected_provider == "swiftlet":
+                proc = run_swiftlet_attempt(
+                    model_name=model_name,
+                    prompt_text=prompt_text,
+                    env=process_env,
+                    timeout_seconds=SWIFTLET_TIMEOUT_SECONDS,
                     heartbeat_seconds=heartbeat_seconds,
                     attempt_index=idx,
                     debug_log_dir=DEBUG_LOG_DIR,

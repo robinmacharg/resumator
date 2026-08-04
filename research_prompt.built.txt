@@ -3,7 +3,7 @@ You are a role research assistant.
 Your task is to synthesize role context and produce interview preparation notes for a candidate.
 
 Use these inputs:
-- Company Name: A1/BJAK
+- Company Name: New company
 - URLs: - https://builtin.com/job/founding-ai-engineer/7869823
 - https://bjak.my/en
 - Job Spec: I'm reaching out about a permanent Senior iOS Developer opportunity with a cybersecurity company that builds hardware-level security for mobile, IoT, and digital finance for millions worldwide. Think Trusted Execution Environments (TEE) and secure device identity, the kind of tech that protects billions of smartphones and users globally.
@@ -264,7 +264,7 @@ Output requirements (markdown only):
 	- Include a short "Role summary from URLs" subsection when role details are present in linked pages.
 	- If role details are missing from URLs, include "Role summary from URLs: not available" and use Job Spec context.
 2. Role-specific insights that matter to a candidate joining this team
-3. 8-12 targeted interview questions, grouped by theme
+3. 8-12 targeted possible interview questions that might be put to the candidate, grouped by theme. Also provide exemplar answers with further research topics.
 4. Why each interview question is useful (short rationale)
 5. Questions the candidate should ask the company, grouped by theme
 6. Follow-up points for each candidate question to drive useful discussion and signal good fit

@@ -12,7 +12,12 @@ from pathlib import Path
 
 from cv_convert import convert_markdown_outputs
 from provider_catalog import load_provider_catalog, provider_map
-from provider_clients import AttemptResult, run_gemini_attempt, run_huggingface_attempt
+from provider_clients import (
+    AttemptResult,
+    run_gemini_attempt,
+    run_huggingface_attempt,
+    run_swiftlet_attempt,
+)
 
 # File paths in current working directory
 CV_FILE = Path("CV.md")
@@ -26,6 +31,7 @@ OUTPUT_PDF = Path("tailored_dev.pdf")
 OUTPUT_DOCX = Path("tailored_dev.docx")
 GEMINI_TIMEOUT_SECONDS = 300
 HUGGINGFACE_TIMEOUT_SECONDS = 180
+SWIFTLET_TIMEOUT_SECONDS = 240
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_FALLBACK_MODELS = [
     "gemini-3.5-flash",
@@ -49,6 +55,8 @@ DEFAULT_HUGGINGFACE_FALLBACK_MODELS = [
     "mistralai/Mistral-7B-Instruct-v0.3",
     "google/gemma-2-9b-it",
 ]
+DEFAULT_SWIFTLET_MODEL = "qwen3_5_moe_text"
+DEFAULT_SWIFTLET_FALLBACK_MODELS = []
 MAX_FAST_CV_CHARS = 18000
 REQUIRED_SEMANTIC_TAG_KEYS = [
     "candidate_name",
@@ -98,6 +106,11 @@ def build_model_sequence(process_env: dict, provider: str, explicit_model: str =
         fallback_raw = process_env.get("HUGGINGFACE_MODEL_FALLBACKS", "")
         fallback_from_env = [item.strip() for item in fallback_raw.split(",") if item.strip()]
         fallback_defaults = DEFAULT_HUGGINGFACE_FALLBACK_MODELS
+    elif provider == "swiftlet":
+        primary = process_env.get("SWIFTLET_MODEL", DEFAULT_SWIFTLET_MODEL).strip()
+        fallback_raw = process_env.get("SWIFTLET_MODEL_FALLBACKS", "")
+        fallback_from_env = [item.strip() for item in fallback_raw.split(",") if item.strip()]
+        fallback_defaults = DEFAULT_SWIFTLET_FALLBACK_MODELS
     else:
         default_primary = DEFAULT_FAST_MODEL if fast_mode else DEFAULT_GEMINI_MODEL
         primary = process_env.get("GEMINI_MODEL", default_primary).strip()
@@ -115,8 +128,8 @@ def build_model_sequence(process_env: dict, provider: str, explicit_model: str =
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate a tailored CV via Gemini CLI")
-    parser.add_argument("--provider", default="", help="Model provider override (gemini or huggingface)")
-    parser.add_argument("--model", default="", help="Explicit Gemini model override")
+    parser.add_argument("--provider", default="", help="Model provider override (gemini, huggingface, or swiftlet)")
+    parser.add_argument("--model", default="", help="Explicit model override")
     return parser.parse_args()
 
 
@@ -781,6 +794,18 @@ def main() -> None:
                 log_prefix="cv-attempt",
                 emit_live_output=True,
             )
+        elif selected_provider == "swiftlet":
+            completed = run_swiftlet_attempt(
+                model_name=model_name,
+                prompt_text=full_prompt,
+                env=process_env,
+                timeout_seconds=SWIFTLET_TIMEOUT_SECONDS,
+                heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
+                attempt_index=index,
+                debug_log_dir=DEBUG_LOG_DIR,
+                log_prefix="cv-attempt",
+                emit_live_output=True,
+            )
         else:
             completed = run_gemini_attempt(
                 model_name=model_name,
@@ -824,7 +849,7 @@ def main() -> None:
 
     if process is None:
         print(
-            "Gemini API failed across all configured models due to load/quota limits.",
+            "Provider call failed across all configured models due to load/quota or model errors.",
             file=sys.stderr,
         )
         print_attempt_summary(attempt_results, sys.stderr)

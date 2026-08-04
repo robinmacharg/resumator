@@ -1,21 +1,21 @@
 {
-  "companyName": "A1/BJAK",
-  "provider": "huggingface",
-  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "companyName": "New company",
+  "provider": "swiftlet",
+  "model": "qwen3_5_moe_text",
   "urls": [
     "https://builtin.com/job/founding-ai-engineer/7869823",
     "https://bjak.my/en"
   ],
-  "generatedAt": "2026-08-03T14:47:20.044891+00:00",
+  "generatedAt": "2026-08-04T10:28:19.096779+00:00",
   "dryRun": false,
   "output": "",
   "modelAttempts": [
     {
-      "model": "meta-llama/Llama-3.1-8B-Instruct",
-      "exitCode": 402,
+      "model": "qwen3_5_moe_text",
+      "exitCode": 1,
       "retryable": false,
       "hardQuota": false
     }
   ],
-  "stderr": "HTTP 402: You have depleted your monthly included credits. Purchase pre-paid credits to continue using Inference Providers. Alternatively, subscribe to PRO to get 20x more included usage.\nGuidance: Hugging Face router rejected the request due to depleted included credits. Purchase inference credits, upgrade plan, or switch provider/model."
+  "stderr": "URLError: <urlopen error [Errno 61] Connection refused>\nSwiftlet server appears unavailable. Start it, for example: cd /Volumes/SSD3/AI/Swiftlet && .build/release/swiftlet-server --model ./models/qwen3.6-35b.qpack --port 8080"
 }

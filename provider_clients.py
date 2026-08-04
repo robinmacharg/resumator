@@ -680,3 +680,247 @@ def run_huggingface_attempt(
             "exceptionType": final_exception_type,
         },
     )
+
+
+def run_swiftlet_attempt(
+    *,
+    model_name: str,
+    prompt_text: str,
+    env: dict[str, str],
+    timeout_seconds: int,
+    heartbeat_seconds: int,
+    attempt_index: int,
+    debug_log_dir: Path,
+    log_prefix: str = "attempt",
+    emit_live_output: bool = True,
+) -> AttemptResult:
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    safe_model = model_name.replace("/", "_")
+    log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log"
+
+    api_url = (
+        env.get("SWIFTLET_API_URL")
+        or "http://127.0.0.1:8080/v1/chat/completions"
+    ).strip()
+
+    payload = {
+        "model": model_name,
+        "messages": [{"role": "user", "content": prompt_text}],
+        "temperature": 0.2,
+    }
+    payload_json = json.dumps(payload)
+    payload_bytes = payload_json.encode("utf-8")
+    prompt_chars = len(prompt_text)
+    payload_size_bytes = len(payload_bytes)
+
+    max_retries = max(0, int((env.get("SWIFTLET_MAX_RETRIES") or "2").strip() or "2"))
+    initial_backoff_seconds = max(
+        1,
+        int((env.get("SWIFTLET_INITIAL_BACKOFF_SECONDS") or "2").strip() or "2"),
+    )
+
+    timed_out = False
+    stdout_text = ""
+    stderr_text = ""
+    return_code = 1
+    total_start = time.monotonic()
+    retry_count = 0
+    final_exception_type = ""
+
+    if emit_live_output:
+        print(
+            f"Attempt {attempt_index}: invoking Swiftlet model {model_name} via {api_url} "
+            f"(prompt chars: {prompt_chars}, payload bytes: {payload_size_bytes})",
+            file=sys.stderr,
+            flush=True,
+        )
+
+    for inner_attempt in range(1, max_retries + 2):
+        inner_result: dict[str, Any] = {
+            "done": False,
+            "status": 1,
+            "stdout": "",
+            "stderr": "",
+            "retryable": False,
+            "exceptionType": "",
+            "traceback": "",
+        }
+
+        req = request.Request(
+            api_url,
+            data=payload_bytes,
+            headers={
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+
+        def do_request() -> None:
+            try:
+                with request.urlopen(req, timeout=timeout_seconds) as response:
+                    body = response.read().decode("utf-8", errors="replace")
+                    parsed = json.loads(body)
+                    text = _extract_hf_text(parsed)
+                    if not text:
+                        inner_result["status"] = 1
+                        inner_result["stderr"] = (
+                            "Swiftlet response did not include usable text. "
+                            f"Raw body: {body[:1000]}"
+                        )
+                    else:
+                        inner_result["status"] = 0
+                        inner_result["stdout"] = text
+            except error.HTTPError as exc:
+                body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+                status = int(exc.code or 1)
+                inner_result["status"] = status
+                inner_result["exceptionType"] = type(exc).__name__
+                message, _guidance = _extract_hf_error_details(body)
+                lowered = message.lower()
+                deterministic_model_error = "missingtensor(" in lowered or "missingfile(" in lowered
+                inner_result["retryable"] = _is_hf_retryable_http_status(status) and not deterministic_model_error
+                lines = [f"HTTP {status}: {message}"]
+                if status == 404:
+                    lines.append(
+                        "Check SWIFTLET_API_URL path. Swiftlet expects /v1/chat/completions.",
+                    )
+                if deterministic_model_error:
+                    lines.append(
+                        "Swiftlet reported a model/container mismatch. Verify the --model path points to a valid Swiftlet .qpack container.",
+                    )
+                inner_result["stderr"] = "\n".join(lines).strip()
+            except Exception as exc:
+                message = str(exc)
+                inner_result["status"] = 1
+                inner_result["retryable"] = _is_hf_retryable_exception_message(message)
+                inner_result["exceptionType"] = type(exc).__name__
+                inner_result["traceback"] = traceback.format_exc(limit=4)
+                lines = [f"{type(exc).__name__}: {message}".strip()]
+                lowered = message.lower()
+                if "connection refused" in lowered:
+                    lines.append(
+                        "Swiftlet server appears unavailable. Start it, for example: "
+                        "cd /Volumes/SSD3/AI/Swiftlet && .build/release/swiftlet-server --model ./models/qwen3.6-35b.qpack --port 8080",
+                    )
+                inner_result["stderr"] = "\n".join(lines)
+            finally:
+                inner_result["done"] = True
+
+        inner_start = time.monotonic()
+        thread = threading.Thread(target=do_request, daemon=True)
+        thread.start()
+
+        while thread.is_alive():
+            elapsed_inner = time.monotonic() - inner_start
+            if elapsed_inner >= timeout_seconds:
+                timed_out = True
+                break
+            wait = min(heartbeat_seconds, max(timeout_seconds - elapsed_inner, 0))
+            if wait > 0:
+                thread.join(timeout=wait)
+            if emit_live_output and thread.is_alive():
+                print(
+                    f"Attempt {attempt_index}.{inner_attempt}: waiting on Swiftlet model {model_name} "
+                    f"({int(time.monotonic() - inner_start)}s elapsed)...",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+        if timed_out:
+            break
+
+        stdout_text = str(inner_result.get("stdout", ""))
+        stderr_text = str(inner_result.get("stderr", ""))
+        return_code = int(inner_result.get("status", 1))
+        final_exception_type = str(inner_result.get("exceptionType", ""))
+
+        if return_code == 0 and stdout_text.strip():
+            break
+
+        retryable = bool(inner_result.get("retryable", False))
+        has_more_retries = inner_attempt <= max_retries
+        if retryable and has_more_retries:
+            retry_count += 1
+            backoff = initial_backoff_seconds * (2 ** (inner_attempt - 1))
+            if emit_live_output:
+                print(
+                    f"Attempt {attempt_index}.{inner_attempt}: transient Swiftlet failure; "
+                    f"retrying in {backoff}s. Error: {stderr_text[:240]}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            time.sleep(backoff)
+            continue
+
+        break
+
+    elapsed = time.monotonic() - total_start
+    if timed_out:
+        stderr_text = f"Timed out waiting for Swiftlet response after {timeout_seconds}s."
+        _write_attempt_log(
+            log_path,
+            [
+                "provider=swiftlet",
+                f"model={model_name}",
+                f"attempt={attempt_index}",
+                "return_code=124",
+                f"elapsed_seconds={elapsed:.2f}",
+                "timed_out=True",
+                f"api_url={api_url}",
+                f"prompt_chars={prompt_chars}",
+                f"payload_bytes={payload_size_bytes}",
+                f"retries_used={retry_count}",
+                "--- STDOUT ---",
+                "",
+                "--- STDERR ---",
+                stderr_text,
+            ],
+        )
+        return AttemptResult(
+            provider="swiftlet",
+            model=model_name,
+            returncode=124,
+            stdout="",
+            stderr=stderr_text,
+            elapsed_seconds=elapsed,
+            log_path=log_path,
+            timed_out=True,
+        )
+
+    _write_attempt_log(
+        log_path,
+        [
+            "provider=swiftlet",
+            f"model={model_name}",
+            f"attempt={attempt_index}",
+            f"return_code={return_code}",
+            f"elapsed_seconds={elapsed:.2f}",
+            "timed_out=False",
+            f"api_url={api_url}",
+            f"prompt_chars={prompt_chars}",
+            f"payload_bytes={payload_size_bytes}",
+            f"retries_used={retry_count}",
+            f"exception_type={final_exception_type or 'none'}",
+            "--- STDOUT ---",
+            stdout_text,
+            "--- STDERR ---",
+            stderr_text,
+        ],
+    )
+
+    return AttemptResult(
+        provider="swiftlet",
+        model=model_name,
+        returncode=return_code,
+        stdout=stdout_text,
+        stderr=stderr_text,
+        elapsed_seconds=elapsed,
+        log_path=log_path,
+        timed_out=False,
+        metadata={
+            "promptChars": prompt_chars,
+            "payloadBytes": payload_size_bytes,
+            "retriesUsed": retry_count,
+            "exceptionType": final_exception_type,
+        },
+    )
