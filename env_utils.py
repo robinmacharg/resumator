@@ -14,6 +14,18 @@ from pathlib import Path
 
 
 def parse_dotenv_file(path: Path) -> dict[str, str]:
+    """Parse dotenv-style key/value pairs from a file.
+
+    Inputs:
+    - path: Location of the `.env`-style file.
+
+    Returns:
+    - Dictionary of parsed environment values.
+
+    Boundaries:
+    - Ignores blank/comment lines, optional `export` prefix, malformed rows,
+      and strips matching quote wrappers around values.
+    """
     env_vars: dict[str, str] = {}
     if not path.exists():
         return env_vars

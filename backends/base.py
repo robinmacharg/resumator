@@ -21,9 +21,26 @@ class Backend(Protocol):
     timeout_seconds: int
 
     def interrogate(self, env: dict[str, str]) -> BackendStatus:
+        """Report backend readiness and available models for current environment.
+
+        Inputs:
+        - env: Runtime environment values.
+
+        Returns:
+        - Backend status with enabled flag, reason, and model metadata.
+        """
         ...
 
     def model_sequence(self, env: dict[str, str], explicit_model: str = "") -> list[str]:
+        """Return ordered model candidates for attempts.
+
+        Inputs:
+        - env: Runtime environment values.
+        - explicit_model: Optional forced model id.
+
+        Returns:
+        - Ordered list of model ids to try.
+        """
         ...
 
     def run_attempt(
@@ -40,4 +57,20 @@ class Backend(Protocol):
         emit_live_output: bool,
         **extra_options: object,
     ) -> AttemptResult:
+        """Execute one provider attempt for the supplied prompt payload.
+
+        Inputs:
+        - model_name: Selected model id for this attempt.
+        - prompt_text: Prompt body sent to provider.
+        - env: Runtime environment values.
+        - timeout_seconds: Per-attempt timeout limit.
+        - heartbeat_seconds: Output heartbeat interval for hanging detection.
+        - attempt_index: 1-based attempt index.
+        - debug_log_dir: Destination directory for per-attempt logs.
+        - log_prefix: Prefix for emitted log file names.
+        - emit_live_output: Whether to stream subprocess/provider output.
+
+        Returns:
+        - Normalized attempt result payload.
+        """
         ...

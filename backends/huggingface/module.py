@@ -14,10 +14,12 @@ DEFAULT_FALLBACK_MODELS = [
 
 
 def _split_csv(raw: str) -> list[str]:
+    """Split comma-separated config value into trimmed tokens."""
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
 def _dedupe(items: list[str]) -> list[str]:
+    """Return ordered unique non-empty strings."""
     seen: set[str] = set()
     out: list[str] = []
     for item in items:
@@ -34,6 +36,7 @@ class HuggingFaceBackend(Backend):
     timeout_seconds = 180
 
     def model_sequence(self, env: dict[str, str], explicit_model: str = "") -> list[str]:
+        """Build ordered Hugging Face model candidates from config and defaults."""
         explicit = explicit_model.strip()
         if explicit:
             return [explicit]
@@ -42,6 +45,7 @@ class HuggingFaceBackend(Backend):
         return _dedupe([primary, *fallback_env, *DEFAULT_FALLBACK_MODELS])
 
     def interrogate(self, env: dict[str, str]) -> BackendStatus:
+        """Report backend status, disabling when API token configuration is missing."""
         token = (env.get("HF_API_TOKEN") or env.get("HUGGINGFACE_API_TOKEN") or "").strip()
         models = self.model_sequence(env, "")
         if not token:
@@ -67,6 +71,7 @@ class HuggingFaceBackend(Backend):
         emit_live_output: bool,
         **extra_options: object,
     ) -> AttemptResult:
+        """Execute one Hugging Face provider attempt via shared request runner."""
         return run_huggingface_attempt(
             model_name=model_name,
             prompt_text=prompt_text,
@@ -81,4 +86,5 @@ class HuggingFaceBackend(Backend):
 
 
 def get_backend() -> Backend:
+    """Construct backend instance for dynamic backend discovery."""
     return HuggingFaceBackend()

@@ -50,6 +50,14 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
     }
 
     def typst_escape(text: str) -> str:
+        """Purpose: Execute typst escape for this module's workflow.
+        
+        Inputs:
+        - text: See type hints and call site for expected value.
+        
+        Returns:
+        - `str` value representing the operation result.
+        """
         return text.replace("\\", "\\\\").replace('"', '\\"')
 
     def typst_content_escape(text: str) -> str:
@@ -110,6 +118,14 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         return cleaned
 
     def normalize_tel_url(url: str) -> str:
+        """Purpose: Execute normalize tel url for this module's workflow.
+        
+        Inputs:
+        - url: See type hints and call site for expected value.
+        
+        Returns:
+        - `str` value representing the operation result.
+        """
         phone = url[4:]
         phone = phone.replace("%2B", "+").replace("%2b", "+")
         return phone
@@ -119,6 +135,14 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 
         def repl(match: re.Match[str]) -> str:
+            """Purpose: Execute repl for this module's workflow.
+            
+            Inputs:
+            - match: See type hints and call site for expected value.
+            
+            Returns:
+            - `str` value representing the operation result.
+            """
             label = match.group(1).strip()
             url = match.group(2).strip()
             if url.lower().startswith("mailto:"):
@@ -148,6 +172,15 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         return payload
 
     def extract_first_tag_payload(line_text: str, tags: list[str]) -> str | None:
+        """Purpose: Execute extract first tag payload for this module's workflow.
+        
+        Inputs:
+        - line_text: See type hints and call site for expected value.
+        - tags: See type hints and call site for expected value.
+        
+        Returns:
+        - `str | None` value representing the operation result.
+        """
         for tag in tags:
             payload = extract_tag_payload(line_text, tag)
             if payload is not None:
@@ -155,9 +188,26 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         return None
 
     def strip_heading_markers(text: str) -> str:
+        """Purpose: Execute strip heading markers for this module's workflow.
+        
+        Inputs:
+        - text: See type hints and call site for expected value.
+        
+        Returns:
+        - `str` value representing the operation result.
+        """
         return re.sub(r"^#+\s*", "", text).strip()
 
     def emit_pdf_centered_with_links(tag: str, text: str) -> list[str]:
+        """Purpose: Execute emit pdf centered with links for this module's workflow.
+        
+        Inputs:
+        - tag: See type hints and call site for expected value.
+        - text: See type hints and call site for expected value.
+        
+        Returns:
+        - `list[str]` value representing the operation result.
+        """
         style = pdf_tag_styles[tag]
         parts: list[str] = []
         text = normalize_candidate_contact_text(text)
@@ -204,6 +254,15 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         ]
 
     def emit_pdf_centered(tag: str, text: str) -> list[str]:
+        """Purpose: Execute emit pdf centered for this module's workflow.
+        
+        Inputs:
+        - tag: See type hints and call site for expected value.
+        - text: See type hints and call site for expected value.
+        
+        Returns:
+        - `list[str]` value representing the operation result.
+        """
         style = pdf_tag_styles[tag]
         escaped_text = typst_escape(text)
         return [
@@ -218,6 +277,14 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         ]
 
     def emit_pdf_section_heading(text: str) -> list[str]:
+        """Purpose: Execute emit pdf section heading for this module's workflow.
+        
+        Inputs:
+        - text: See type hints and call site for expected value.
+        
+        Returns:
+        - `list[str]` value representing the operation result.
+        """
         escaped_text = typst_escape(text)
         return [
             "```{=typst}",
@@ -228,6 +295,14 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         ]
 
     def emit_pdf_role_heading(text: str) -> list[str]:
+        """Purpose: Execute emit pdf role heading for this module's workflow.
+        
+        Inputs:
+        - text: See type hints and call site for expected value.
+        
+        Returns:
+        - `list[str]` value representing the operation result.
+        """
         escaped_text = typst_escape(text)
         return [
             "```{=typst}",
@@ -238,6 +313,14 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         ]
 
     def emit_pdf_date_range(text: str) -> list[str]:
+        """Purpose: Execute emit pdf date range for this module's workflow.
+        
+        Inputs:
+        - text: See type hints and call site for expected value.
+        
+        Returns:
+        - `list[str]` value representing the operation result.
+        """
         parts: list[str] = []
         pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
         cursor = 0
@@ -271,6 +354,14 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         ]
 
     def emit_pdf_role_requirements_heading(text: str) -> list[str]:
+        """Purpose: Execute emit pdf role requirements heading for this module's workflow.
+        
+        Inputs:
+        - text: See type hints and call site for expected value.
+        
+        Returns:
+        - `list[str]` value representing the operation result.
+        """
         escaped_text = typst_escape(text)
         return [
             "```{=typst}",
@@ -281,12 +372,28 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         ]
 
     def split_frontloaded_bold(text: str) -> tuple[str | None, str]:
+        """Purpose: Execute split frontloaded bold for this module's workflow.
+        
+        Inputs:
+        - text: See type hints and call site for expected value.
+        
+        Returns:
+        - `tuple[str | None, str]` value representing the operation result.
+        """
         match = re.match(r"^\*\*(.+?)\*\*\s*(.*)$", text)
         if not match:
             return None, text
         return match.group(1).strip(), match.group(2).strip()
 
     def emit_pdf_summary_paragraph(text: str) -> list[str]:
+        """Purpose: Execute emit pdf summary paragraph for this module's workflow.
+        
+        Inputs:
+        - text: See type hints and call site for expected value.
+        
+        Returns:
+        - `list[str]` value representing the operation result.
+        """
         lead, rest = split_frontloaded_bold(text)
         rest_content = typst_content_escape(rest)
         if lead:
@@ -307,6 +414,14 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         ]
 
     def emit_pdf_role_requirements_item(text: str) -> list[str]:
+        """Purpose: Execute emit pdf role requirements item for this module's workflow.
+        
+        Inputs:
+        - text: See type hints and call site for expected value.
+        
+        Returns:
+        - `list[str]` value representing the operation result.
+        """
         item_text = text[1:].strip() if text.startswith("-") else text
         lead, rest = split_frontloaded_bold(item_text)
         if lead:
@@ -629,6 +744,14 @@ def convert_markdown_outputs(
 
 
 def parse_args() -> argparse.Namespace:
+    """Purpose: Parse and validate args for downstream use.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `argparse.Namespace` value representing the operation result.
+    """
     parser = argparse.ArgumentParser(
         description="Convert a tailored markdown CV to PDF and DOCX.",
     )
@@ -662,6 +785,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Purpose: Execute main for this module's workflow.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     args = parse_args()
     markdown_path = Path(args.markdown)
     output_pdf = Path(args.pdf)

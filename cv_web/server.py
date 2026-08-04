@@ -102,8 +102,24 @@ class CvRunRequest:
 
 
 def schedule_process_restart() -> None:
+    """Purpose: Execute schedule process restart for this module's workflow.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     def _restart() -> None:
         # Small delay gives the HTTP response a chance to flush before process replacement.
+        """Purpose: Execute restart for this module's workflow.
+        
+        Inputs:
+        - None.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         time.sleep(0.35)
         os.execv(sys.executable, [sys.executable, str(APP_DIR / "server.py")])
 
@@ -111,21 +127,54 @@ def schedule_process_restart() -> None:
 
 
 def utc_now_iso() -> str:
+    """Purpose: Execute utc now iso for this module's workflow.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     return datetime.now(timezone.utc).isoformat()
 
 
 def read_text(path: Path) -> str:
+    """Purpose: Read text from file or runtime state.
+    
+    Inputs:
+    - path: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     if not path.exists():
         return ""
     return path.read_text(encoding="utf-8")
 
 
 def write_text(path: Path, content: str) -> None:
+    """Purpose: Write text to the target location.
+    
+    Inputs:
+    - path: See type hints and call site for expected value.
+    - content: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
 
 def dedupe_keep_order(items: list[str]) -> list[str]:
+    """Purpose: Execute dedupe keep order for this module's workflow.
+    
+    Inputs:
+    - items: See type hints and call site for expected value.
+    
+    Returns:
+    - `list[str]` value representing the operation result.
+    """
     seen: set[str] = set()
     ordered: list[str] = []
     for item in items:
@@ -137,10 +186,26 @@ def dedupe_keep_order(items: list[str]) -> list[str]:
 
 
 def load_catalog() -> dict[str, Any]:
+    """Purpose: Load catalog from configured source(s).
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `dict[str, Any]` value representing the operation result.
+    """
     return load_provider_catalog(MODEL_CATALOG_PATH)
 
 
 def build_provider_options() -> list[dict[str, str]]:
+    """Purpose: Build provider options from current inputs and state.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `list[dict[str, str]]` value representing the operation result.
+    """
     catalog = load_catalog()
     return [
         {
@@ -155,6 +220,14 @@ def build_provider_options() -> list[dict[str, str]]:
 
 
 def build_available_models(selected_provider: str) -> list[str]:
+    """Purpose: Build available models from current inputs and state.
+    
+    Inputs:
+    - selected_provider: See type hints and call site for expected value.
+    
+    Returns:
+    - `list[str]` value representing the operation result.
+    """
     catalog = load_catalog()
     providers = provider_map(catalog)
     provider_entry = providers.get(selected_provider)
@@ -169,6 +242,14 @@ def build_available_models(selected_provider: str) -> list[str]:
 
 
 def parse_selected_provider(payload: dict[str, Any]) -> str:
+    """Purpose: Parse and validate selected provider for downstream use.
+    
+    Inputs:
+    - payload: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     catalog = load_catalog()
     providers = provider_map(catalog)
     all_provider_ids = [
@@ -201,6 +282,15 @@ def parse_selected_provider(payload: dict[str, Any]) -> str:
 
 
 def parse_selected_model(payload: dict[str, Any], selected_provider: str) -> str:
+    """Purpose: Parse and validate selected model for downstream use.
+    
+    Inputs:
+    - payload: See type hints and call site for expected value.
+    - selected_provider: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     raw_model = payload.get("selectedModel", "")
     if raw_model is None:
         return ""
@@ -218,6 +308,14 @@ def parse_selected_model(payload: dict[str, Any], selected_provider: str) -> str
 
 
 def parse_company_name(payload: dict[str, Any]) -> str:
+    """Purpose: Parse and validate company name for downstream use.
+    
+    Inputs:
+    - payload: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     company_name = str(payload.get("companyName", "")).strip()
     if not company_name:
         raise ValueError("companyName is required")
@@ -225,6 +323,14 @@ def parse_company_name(payload: dict[str, Any]) -> str:
 
 
 def parse_url_list(payload: dict[str, Any]) -> list[str]:
+    """Purpose: Parse and validate url list for downstream use.
+    
+    Inputs:
+    - payload: See type hints and call site for expected value.
+    
+    Returns:
+    - `list[str]` value representing the operation result.
+    """
     raw_urls = payload.get("urls", [])
     if not isinstance(raw_urls, list):
         raise ValueError("urls must be a list of strings")
@@ -240,6 +346,14 @@ def parse_url_list(payload: dict[str, Any]) -> list[str]:
 
 
 def parse_auto_format_pdf(payload: dict[str, Any]) -> bool:
+    """Purpose: Parse and validate auto format pdf for downstream use.
+    
+    Inputs:
+    - payload: See type hints and call site for expected value.
+    
+    Returns:
+    - `bool` value representing the operation result.
+    """
     auto_format_pdf = payload.get("autoFormatPdf", True)
     if not isinstance(auto_format_pdf, bool):
         raise ValueError("autoFormatPdf must be a boolean")
@@ -247,6 +361,14 @@ def parse_auto_format_pdf(payload: dict[str, Any]) -> bool:
 
 
 def parse_research_run_request(payload: dict[str, Any]) -> ResearchRunRequest:
+    """Purpose: Parse and validate research run request for downstream use.
+    
+    Inputs:
+    - payload: See type hints and call site for expected value.
+    
+    Returns:
+    - `ResearchRunRequest` value representing the operation result.
+    """
     selected_provider = parse_selected_provider(payload)
     selected_model = parse_selected_model(payload, selected_provider)
     company_name = parse_company_name(payload)
@@ -265,6 +387,15 @@ def parse_research_run_request(payload: dict[str, Any]) -> ResearchRunRequest:
 
 
 def parse_cv_run_request(route: str, payload: dict[str, Any]) -> CvRunRequest:
+    """Purpose: Parse and validate cv run request for downstream use.
+    
+    Inputs:
+    - route: See type hints and call site for expected value.
+    - payload: See type hints and call site for expected value.
+    
+    Returns:
+    - `CvRunRequest` value representing the operation result.
+    """
     kind = "full" if route.endswith("/full") else "format"
     selected_provider = parse_selected_provider(payload)
     selected_model = parse_selected_model(payload, selected_provider)
@@ -277,12 +408,28 @@ def parse_cv_run_request(route: str, payload: dict[str, Any]) -> CvRunRequest:
 
 
 def file_mtime(path: Path) -> float | None:
+    """Purpose: Execute file mtime for this module's workflow.
+    
+    Inputs:
+    - path: See type hints and call site for expected value.
+    
+    Returns:
+    - `float | None` value representing the operation result.
+    """
     if not path.exists():
         return None
     return path.stat().st_mtime
 
 
 def build_state() -> dict[str, Any]:
+    """Purpose: Build state from current inputs and state.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `dict[str, Any]` value representing the operation result.
+    """
     files = {key: read_text(path) for key, path in EDITOR_FILES.items()}
     output_pdf = OUTPUT_DIR / "tailored_dev.pdf"
     output_docx = OUTPUT_DIR / "tailored_dev.docx"
@@ -318,6 +465,14 @@ def build_state() -> dict[str, Any]:
 
 
 def read_research_urls(path: Path) -> list[str]:
+    """Purpose: Read research urls from file or runtime state.
+    
+    Inputs:
+    - path: See type hints and call site for expected value.
+    
+    Returns:
+    - `list[str]` value representing the operation result.
+    """
     if not path.exists():
         return []
 
@@ -331,6 +486,14 @@ def read_research_urls(path: Path) -> list[str]:
 
 
 def build_research_state() -> dict[str, Any]:
+    """Purpose: Build research state from current inputs and state.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `dict[str, Any]` value representing the operation result.
+    """
     company_name = read_text(RESEARCH_COMPANY_FILE).strip()
     output_md_mtime = file_mtime(RESEARCH_OUTPUT_MD)
     output_json_mtime = file_mtime(RESEARCH_OUTPUT_JSON)
@@ -359,6 +522,14 @@ def build_research_state() -> dict[str, Any]:
 
 
 def collect_log_index(limit: int = 20) -> list[dict[str, Any]]:
+    """Purpose: Execute collect log index for this module's workflow.
+    
+    Inputs:
+    - limit: See type hints and call site for expected value.
+    
+    Returns:
+    - `list[dict[str, Any]]` value representing the operation result.
+    """
     if not LOG_DIR.exists():
         return []
 
@@ -377,6 +548,14 @@ def collect_log_index(limit: int = 20) -> list[dict[str, Any]]:
 
 
 def read_log_file(name: str) -> str:
+    """Purpose: Read log file from file or runtime state.
+    
+    Inputs:
+    - name: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     if "/" in name or "\\" in name:
         raise ValueError("Invalid log file name")
 
@@ -388,6 +567,16 @@ def read_log_file(name: str) -> str:
 
 
 def make_command(kind: str, selected_provider: str = "", selected_model: str = "") -> list[str]:
+    """Purpose: Execute make command for this module's workflow.
+    
+    Inputs:
+    - kind: See type hints and call site for expected value.
+    - selected_provider: See type hints and call site for expected value.
+    - selected_model: See type hints and call site for expected value.
+    
+    Returns:
+    - `list[str]` value representing the operation result.
+    """
     if kind == "full":
         command = [sys.executable, str(ROOT_DIR / "generate_cv.py")]
         if selected_provider:
@@ -409,7 +598,83 @@ def make_command(kind: str, selected_provider: str = "", selected_model: str = "
     raise ValueError(f"Unsupported run kind: {kind}")
 
 
+def _run_output_mtimes() -> dict[str, float | None]:
+    """Purpose: Run output mtimes and return its outcome.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `dict[str, float | None]` value representing the operation result.
+    """
+    return {
+        "pdfMtime": file_mtime(OUTPUT_DIR / "tailored_dev.pdf"),
+        "docxMtime": file_mtime(OUTPUT_DIR / "tailored_dev.docx"),
+    }
+
+
+def _build_run_state(
+    *,
+    kind: str,
+    command: list[str],
+    selected_provider: str,
+    selected_model: str,
+    exit_code: int | None,
+    started_at: str,
+    finished_at: str | None,
+    elapsed_seconds: float,
+    success: bool | None,
+    running: bool,
+    output: str,
+    started_monotonic: float | None = None,
+) -> dict[str, Any]:
+    """Purpose: Build run state from current inputs and state.
+    
+    Inputs:
+    - kind: See type hints and call site for expected value.
+    - command: See type hints and call site for expected value.
+    - selected_provider: See type hints and call site for expected value.
+    - selected_model: See type hints and call site for expected value.
+    - exit_code: See type hints and call site for expected value.
+    - started_at: See type hints and call site for expected value.
+    - finished_at: See type hints and call site for expected value.
+    - elapsed_seconds: See type hints and call site for expected value.
+    - success: See type hints and call site for expected value.
+    - running: See type hints and call site for expected value.
+    - output: See type hints and call site for expected value.
+    - started_monotonic: See type hints and call site for expected value.
+    
+    Returns:
+    - `dict[str, Any]` value representing the operation result.
+    """
+    run_state: dict[str, Any] = {
+        "kind": kind,
+        "command": command,
+        "exitCode": exit_code,
+        "startedAt": started_at,
+        "finishedAt": finished_at,
+        "elapsedSeconds": elapsed_seconds,
+        "success": success,
+        "running": running,
+        "output": output,
+        "selectedProvider": selected_provider,
+        "selectedModel": selected_model,
+    }
+    run_state.update(_run_output_mtimes())
+    if started_monotonic is not None:
+        run_state["_startedMonotonic"] = started_monotonic
+    return run_state
+
+
 def get_current_run_snapshot() -> dict[str, Any] | None:
+    """Purpose: Return current run snapshot for callers.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `dict[str, Any] | None` value representing the operation result.
+    """
     with RUN_STATE_LOCK:
         if not CURRENT_RUN:
             return None
@@ -428,12 +693,28 @@ def get_current_run_snapshot() -> dict[str, Any] | None:
 
 
 def set_current_run(run_state: dict[str, Any]) -> None:
+    """Purpose: Update current run with provided values.
+    
+    Inputs:
+    - run_state: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     with RUN_STATE_LOCK:
         CURRENT_RUN.clear()
         CURRENT_RUN.update(run_state)
 
 
 def append_current_run_output(chunk: str) -> None:
+    """Purpose: Execute append current run output for this module's workflow.
+    
+    Inputs:
+    - chunk: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     if not chunk:
         return
 
@@ -446,6 +727,14 @@ def append_current_run_output(chunk: str) -> None:
 
 
 def finalize_current_run(return_code: int) -> dict[str, Any] | None:
+    """Purpose: Execute finalize current run for this module's workflow.
+    
+    Inputs:
+    - return_code: See type hints and call site for expected value.
+    
+    Returns:
+    - `dict[str, Any] | None` value representing the operation result.
+    """
     with RUN_STATE_LOCK:
         if not CURRENT_RUN:
             return None
@@ -474,6 +763,14 @@ def finalize_current_run(return_code: int) -> dict[str, Any] | None:
 
 
 def get_current_research_run_snapshot() -> dict[str, Any] | None:
+    """Purpose: Return current research run snapshot for callers.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `dict[str, Any] | None` value representing the operation result.
+    """
     with RESEARCH_STATE_LOCK:
         if not CURRENT_RESEARCH_RUN:
             return None
@@ -492,23 +789,55 @@ def get_current_research_run_snapshot() -> dict[str, Any] | None:
 
 
 def set_current_research_run(run_state: dict[str, Any]) -> None:
+    """Purpose: Update current research run with provided values.
+    
+    Inputs:
+    - run_state: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     with RESEARCH_STATE_LOCK:
         CURRENT_RESEARCH_RUN.clear()
         CURRENT_RESEARCH_RUN.update(run_state)
 
 
 def set_current_research_proc(proc: subprocess.Popen[str] | None) -> None:
+    """Purpose: Update current research proc with provided values.
+    
+    Inputs:
+    - proc: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     with RESEARCH_PROC_LOCK:
         global CURRENT_RESEARCH_PROC
         CURRENT_RESEARCH_PROC = proc
 
 
 def get_current_research_proc() -> subprocess.Popen[str] | None:
+    """Purpose: Return current research proc for callers.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `subprocess.Popen[str] | None` value representing the operation result.
+    """
     with RESEARCH_PROC_LOCK:
         return CURRENT_RESEARCH_PROC
 
 
 def append_current_research_output(chunk: str) -> None:
+    """Purpose: Execute append current research output for this module's workflow.
+    
+    Inputs:
+    - chunk: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     if not chunk:
         return
 
@@ -521,6 +850,14 @@ def append_current_research_output(chunk: str) -> None:
 
 
 def update_current_research_run_fields(**fields: Any) -> None:
+    """Purpose: Execute update current research run fields for this module's workflow.
+    
+    Inputs:
+    - **fields: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     with RESEARCH_STATE_LOCK:
         if not CURRENT_RESEARCH_RUN:
             return
@@ -528,6 +865,14 @@ def update_current_research_run_fields(**fields: Any) -> None:
 
 
 def run_research_format_for_active_run_streaming() -> int:
+    """Purpose: Run research format for active run streaming and return its outcome.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `int` value representing the operation result.
+    """
     command = [
         sys.executable,
         str(ROOT_DIR / "research_format.py"),
@@ -564,6 +909,14 @@ def run_research_format_for_active_run_streaming() -> int:
 
 
 def finalize_current_research_run(return_code: int) -> dict[str, Any] | None:
+    """Purpose: Execute finalize current research run for this module's workflow.
+    
+    Inputs:
+    - return_code: See type hints and call site for expected value.
+    
+    Returns:
+    - `dict[str, Any] | None` value representing the operation result.
+    """
     with RESEARCH_STATE_LOCK:
         if not CURRENT_RESEARCH_RUN:
             return None
@@ -591,7 +944,51 @@ def finalize_current_research_run(return_code: int) -> dict[str, Any] | None:
     return snapshot
 
 
+def _finalize_run_error_state(run_state: dict[str, Any]) -> None:
+    """Purpose: Execute finalize run error state for this module's workflow.
+    
+    Inputs:
+    - run_state: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
+    set_current_run(run_state)
+    snapshot = get_current_run_snapshot()
+    if snapshot is not None:
+        LAST_RUN.clear()
+        LAST_RUN.update(snapshot)
+        with RUN_STATE_LOCK:
+            CURRENT_RUN.clear()
+
+
+def _finalize_research_run_error_state(run_state: dict[str, Any]) -> None:
+    """Purpose: Execute finalize research run error state for this module's workflow.
+    
+    Inputs:
+    - run_state: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
+    set_current_research_run(run_state)
+    snapshot = get_current_research_run_snapshot()
+    if snapshot is not None:
+        LAST_RESEARCH_RUN.clear()
+        LAST_RESEARCH_RUN.update(snapshot)
+        with RESEARCH_STATE_LOCK:
+            CURRENT_RESEARCH_RUN.clear()
+
+
 def request_stop_research_run() -> bool:
+    """Purpose: Execute request stop research run for this module's workflow.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `bool` value representing the operation result.
+    """
     with RESEARCH_STATE_LOCK:
         if not CURRENT_RESEARCH_RUN or not CURRENT_RESEARCH_RUN.get("running"):
             return False
@@ -615,6 +1012,15 @@ def request_stop_research_run() -> bool:
 
 
 def stream_pipe(pipe, prefix: str = "") -> None:
+    """Purpose: Execute stream pipe for this module's workflow.
+    
+    Inputs:
+    - pipe: See type hints and call site for expected value.
+    - prefix: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     try:
         for line in iter(pipe.readline, ""):
             append_current_run_output(f"{prefix}{line}")
@@ -623,6 +1029,15 @@ def stream_pipe(pipe, prefix: str = "") -> None:
 
 
 def stream_pipe_research(pipe, prefix: str = "") -> None:
+    """Purpose: Execute stream pipe research for this module's workflow.
+    
+    Inputs:
+    - pipe: See type hints and call site for expected value.
+    - prefix: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     try:
         for line in iter(pipe.readline, ""):
             append_current_research_output(f"{prefix}{line}")
@@ -631,27 +1046,35 @@ def stream_pipe_research(pipe, prefix: str = "") -> None:
 
 
 def run_subprocess_streaming(kind: str, selected_provider: str = "", selected_model: str = "") -> dict[str, Any]:
+    """Purpose: Run subprocess streaming and return its outcome.
+    
+    Inputs:
+    - kind: See type hints and call site for expected value.
+    - selected_provider: See type hints and call site for expected value.
+    - selected_model: See type hints and call site for expected value.
+    
+    Returns:
+    - `dict[str, Any]` value representing the operation result.
+    """
     command = make_command(kind, selected_provider=selected_provider, selected_model=selected_model)
 
     started_at = utc_now_iso()
     started_monotonic = time.monotonic()
     set_current_run(
-        {
-            "kind": kind,
-            "command": command,
-            "exitCode": None,
-            "startedAt": started_at,
-            "finishedAt": None,
-            "elapsedSeconds": 0.0,
-            "success": None,
-            "running": True,
-            "output": "",
-            "selectedProvider": selected_provider,
-            "selectedModel": selected_model,
-            "pdfMtime": file_mtime(OUTPUT_DIR / "tailored_dev.pdf"),
-            "docxMtime": file_mtime(OUTPUT_DIR / "tailored_dev.docx"),
-            "_startedMonotonic": started_monotonic,
-        }
+        _build_run_state(
+            kind=kind,
+            command=command,
+            selected_provider=selected_provider,
+            selected_model=selected_model,
+            exit_code=None,
+            started_at=started_at,
+            finished_at=None,
+            elapsed_seconds=0.0,
+            success=None,
+            running=True,
+            output="",
+            started_monotonic=started_monotonic,
+        )
     )
 
     proc = subprocess.Popen(
@@ -680,32 +1103,34 @@ def run_subprocess_streaming(kind: str, selected_provider: str = "", selected_mo
 
 
 def run_subprocess_async(kind: str, selected_provider: str = "", selected_model: str = "") -> None:
+    """Purpose: Run subprocess async and return its outcome.
+    
+    Inputs:
+    - kind: See type hints and call site for expected value.
+    - selected_provider: See type hints and call site for expected value.
+    - selected_model: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     try:
         run_subprocess_streaming(kind, selected_provider=selected_provider, selected_model=selected_model)
     except Exception as exc:
-        set_current_run(
-            {
-                "kind": kind,
-                "command": make_command(kind, selected_provider=selected_provider, selected_model=selected_model),
-                "exitCode": 1,
-                "startedAt": utc_now_iso(),
-                "finishedAt": utc_now_iso(),
-                "elapsedSeconds": 0.0,
-                "success": False,
-                "running": False,
-                "output": f"Wrapper failed to execute run: {exc}",
-                "selectedProvider": selected_provider,
-                "selectedModel": selected_model,
-                "pdfMtime": file_mtime(OUTPUT_DIR / "tailored_dev.pdf"),
-                "docxMtime": file_mtime(OUTPUT_DIR / "tailored_dev.docx"),
-            }
+        _finalize_run_error_state(
+            _build_run_state(
+                kind=kind,
+                command=make_command(kind, selected_provider=selected_provider, selected_model=selected_model),
+                selected_provider=selected_provider,
+                selected_model=selected_model,
+                exit_code=1,
+                started_at=utc_now_iso(),
+                finished_at=utc_now_iso(),
+                elapsed_seconds=0.0,
+                success=False,
+                running=False,
+                output=f"Wrapper failed to execute run: {exc}",
+            )
         )
-        snapshot = get_current_run_snapshot()
-        if snapshot is not None:
-            LAST_RUN.clear()
-            LAST_RUN.update(snapshot)
-            with RUN_STATE_LOCK:
-                CURRENT_RUN.clear()
     finally:
         RUN_LOCK.release()
 
@@ -718,6 +1143,19 @@ def run_research_subprocess_streaming(
     selected_provider: str = "",
     selected_model: str = "",
 ) -> dict[str, Any]:
+    """Purpose: Run research subprocess streaming and return its outcome.
+    
+    Inputs:
+    - company_name: See type hints and call site for expected value.
+    - urls: See type hints and call site for expected value.
+    - dry_run: See type hints and call site for expected value.
+    - auto_format_pdf: See type hints and call site for expected value.
+    - selected_provider: See type hints and call site for expected value.
+    - selected_model: See type hints and call site for expected value.
+    
+    Returns:
+    - `dict[str, Any]` value representing the operation result.
+    """
     command = [
         sys.executable,
         str(ROOT_DIR / "research_role.py"),
@@ -797,13 +1235,7 @@ def run_research_subprocess_streaming(
                 "[stderr] Research succeeded, but PDF auto-format failed. "
                 "Use Format Research PDF to retry.\n"
             )
-    elif return_code == 0 and not dry_run:
-        update_current_research_run_fields(
-            formatAttempted=False,
-            formatSuccess=None,
-            formatExitCode=None,
-        )
-    elif dry_run:
+    else:
         update_current_research_run_fields(
             formatAttempted=False,
             formatSuccess=None,
@@ -818,6 +1250,14 @@ def run_research_subprocess_streaming(
 
 
 def run_research_format_subprocess_streaming() -> dict[str, Any]:
+    """Purpose: Run research format subprocess streaming and return its outcome.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `dict[str, Any]` value representing the operation result.
+    """
     command = [
         sys.executable,
         str(ROOT_DIR / "research_format.py"),
@@ -885,6 +1325,19 @@ def run_research_subprocess_async(
     selected_provider: str = "",
     selected_model: str = "",
 ) -> None:
+    """Purpose: Run research subprocess async and return its outcome.
+    
+    Inputs:
+    - company_name: See type hints and call site for expected value.
+    - urls: See type hints and call site for expected value.
+    - dry_run: See type hints and call site for expected value.
+    - auto_format_pdf: See type hints and call site for expected value.
+    - selected_provider: See type hints and call site for expected value.
+    - selected_model: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     try:
         run_research_subprocess_streaming(
             company_name=company_name,
@@ -895,7 +1348,7 @@ def run_research_subprocess_async(
             selected_model=selected_model,
         )
     except Exception as exc:
-        set_current_research_run(
+        _finalize_research_run_error_state(
             {
                 "kind": "research",
                 "command": [],
@@ -914,21 +1367,23 @@ def run_research_subprocess_async(
                 "output": f"Wrapper failed to execute research run: {exc}",
             }
         )
-        snapshot = get_current_research_run_snapshot()
-        if snapshot is not None:
-            LAST_RESEARCH_RUN.clear()
-            LAST_RESEARCH_RUN.update(snapshot)
-            with RESEARCH_STATE_LOCK:
-                CURRENT_RESEARCH_RUN.clear()
     finally:
         RESEARCH_RUN_LOCK.release()
 
 
 def run_research_format_subprocess_async() -> None:
+    """Purpose: Run research format subprocess async and return its outcome.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     try:
         run_research_format_subprocess_streaming()
     except Exception as exc:
-        set_current_research_run(
+        _finalize_research_run_error_state(
             {
                 "kind": "research_format",
                 "command": [sys.executable, str(ROOT_DIR / "research_format.py")],
@@ -945,12 +1400,6 @@ def run_research_format_subprocess_async() -> None:
                 "formattedPdfMtime": file_mtime(RESEARCH_FORMATTED_PDF),
             }
         )
-        snapshot = get_current_research_run_snapshot()
-        if snapshot is not None:
-            LAST_RESEARCH_RUN.clear()
-            LAST_RESEARCH_RUN.update(snapshot)
-            with RESEARCH_STATE_LOCK:
-                CURRENT_RESEARCH_RUN.clear()
     finally:
         RESEARCH_RUN_LOCK.release()
 
@@ -961,6 +1410,15 @@ class CVWebHandler(BaseHTTPRequestHandler):
     server_version = "CVWebWrapper/1.0"
 
     def _json_response(self, payload: Any, status: int = 200) -> None:
+        """Purpose: Execute json response for this module's workflow.
+        
+        Inputs:
+        - payload: See type hints and call site for expected value.
+        - status: See type hints and call site for expected value.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -969,6 +1427,16 @@ class CVWebHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _text_response(self, text: str, status: int = 200, content_type: str = "text/plain; charset=utf-8") -> None:
+        """Purpose: Execute text response for this module's workflow.
+        
+        Inputs:
+        - text: See type hints and call site for expected value.
+        - status: See type hints and call site for expected value.
+        - content_type: See type hints and call site for expected value.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         body = text.encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", content_type)
@@ -977,6 +1445,15 @@ class CVWebHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _serve_file(self, path: Path, content_type: str) -> None:
+        """Purpose: Execute serve file for this module's workflow.
+        
+        Inputs:
+        - path: See type hints and call site for expected value.
+        - content_type: See type hints and call site for expected value.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         if not path.exists() or not path.is_file():
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
             return
@@ -991,6 +1468,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _parse_json_body(self) -> dict[str, Any]:
+        """Purpose: Parse and validate json body for downstream use.
+        
+        Inputs:
+        - None.
+        
+        Returns:
+        - `dict[str, Any]` value representing the operation result.
+        """
         length = int(self.headers.get("Content-Length", "0"))
         if length <= 0:
             return {}
@@ -1006,6 +1491,15 @@ class CVWebHandler(BaseHTTPRequestHandler):
         *,
         allowed_keys: set[str] | None = None,
     ) -> None:
+        """Purpose: Execute save editor payload for this module's workflow.
+        
+        Inputs:
+        - payload: See type hints and call site for expected value.
+        - allowed_keys: See type hints and call site for expected value.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         files = payload.get("files", {})
         if not isinstance(files, dict):
             raise ValueError("'files' must be an object")
@@ -1020,6 +1514,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
                 write_text(path, value)
 
     def _handle_save(self, payload: dict[str, Any]) -> None:
+        """Purpose: Execute handle save for this module's workflow.
+        
+        Inputs:
+        - payload: See type hints and call site for expected value.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         try:
             self._save_editor_payload(payload)
         except ValueError as exc:
@@ -1028,10 +1530,26 @@ class CVWebHandler(BaseHTTPRequestHandler):
         self._json_response({"success": True, "savedAt": utc_now_iso(), "state": build_state()})
 
     def _handle_server_restart(self) -> None:
+        """Purpose: Execute handle server restart for this module's workflow.
+        
+        Inputs:
+        - None.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         schedule_process_restart()
         self._json_response({"success": True, "restarting": True, "requestedAt": utc_now_iso()})
 
     def _handle_research_reset_prompt(self) -> None:
+        """Purpose: Execute handle research reset prompt for this module's workflow.
+        
+        Inputs:
+        - None.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         if not RESEARCH_PROMPT_DEFAULT_FILE.exists():
             self._json_response(
                 {"error": f"Default research prompt not found: {RESEARCH_PROMPT_DEFAULT_FILE.name}"},
@@ -1049,6 +1567,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
         )
 
     def _handle_research_run(self, payload: dict[str, Any]) -> None:
+        """Purpose: Execute handle research run for this module's workflow.
+        
+        Inputs:
+        - payload: See type hints and call site for expected value.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         try:
             self._save_editor_payload(
                 payload,
@@ -1111,6 +1637,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
         )
 
     def _handle_research_format(self) -> None:
+        """Purpose: Execute handle research format for this module's workflow.
+        
+        Inputs:
+        - None.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         if not RESEARCH_RUN_LOCK.acquire(blocking=False):
             self._json_response({"error": "A research operation is already in progress"}, status=409)
             return
@@ -1133,6 +1667,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
         )
 
     def _handle_research_stop(self) -> None:
+        """Purpose: Execute handle research stop for this module's workflow.
+        
+        Inputs:
+        - None.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         snapshot = get_current_research_run_snapshot()
         if not snapshot or not snapshot.get("running"):
             self._json_response({"error": "No active research run to stop"}, status=409)
@@ -1151,6 +1693,15 @@ class CVWebHandler(BaseHTTPRequestHandler):
         )
 
     def _handle_cv_run(self, route: str, payload: dict[str, Any]) -> None:
+        """Purpose: Execute handle cv run for this module's workflow.
+        
+        Inputs:
+        - route: See type hints and call site for expected value.
+        - payload: See type hints and call site for expected value.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         try:
             self._save_editor_payload(
                 payload,
@@ -1187,6 +1738,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
         )
 
     def _handle_static_get(self, route: str) -> bool:
+        """Purpose: Execute handle static get for this module's workflow.
+        
+        Inputs:
+        - route: See type hints and call site for expected value.
+        
+        Returns:
+        - `bool` value representing the operation result.
+        """
         if not route.startswith("/static/"):
             return False
 
@@ -1220,6 +1779,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
         return True
 
     def _handle_api_run_status_get(self) -> None:
+        """Purpose: Execute handle api run status get for this module's workflow.
+        
+        Inputs:
+        - None.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         current = get_current_run_snapshot()
         run_payload = current if current is not None else (LAST_RUN if LAST_RUN else None)
         self._json_response(
@@ -1230,6 +1797,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
         )
 
     def _handle_api_research_status_get(self) -> None:
+        """Purpose: Execute handle api research status get for this module's workflow.
+        
+        Inputs:
+        - None.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         current = get_current_research_run_snapshot()
         run_payload = current if current is not None else (LAST_RESEARCH_RUN if LAST_RESEARCH_RUN else None)
         self._json_response(
@@ -1240,6 +1815,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
         )
 
     def _handle_logs_content_get(self, parsed) -> None:
+        """Purpose: Execute handle logs content get for this module's workflow.
+        
+        Inputs:
+        - parsed: See type hints and call site for expected value.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         query = parse_qs(parsed.query)
         name = (query.get("name") or [""])[0]
         if not name:
@@ -1256,6 +1839,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
         self._json_response({"name": name, "content": content})
 
     def _handle_output_get(self, route: str) -> bool:
+        """Purpose: Execute handle output get for this module's workflow.
+        
+        Inputs:
+        - route: See type hints and call site for expected value.
+        
+        Returns:
+        - `bool` value representing the operation result.
+        """
         if not route.startswith("/output/"):
             return False
 
@@ -1272,6 +1863,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
         return True
 
     def do_GET(self) -> None:
+        """Purpose: Execute do GET for this module's workflow.
+        
+        Inputs:
+        - None.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         parsed = urlparse(self.path)
         route = parsed.path
 
@@ -1313,6 +1912,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND, "Unknown route")
 
     def do_POST(self) -> None:
+        """Purpose: Execute do POST for this module's workflow.
+        
+        Inputs:
+        - None.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         parsed = urlparse(self.path)
         route = parsed.path
 
@@ -1354,6 +1961,14 @@ class CVWebHandler(BaseHTTPRequestHandler):
 
 
 def run_server() -> None:
+    """Purpose: Run server and return its outcome.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     INPUT_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     LOG_DIR.mkdir(parents=True, exist_ok=True)

@@ -10,10 +10,12 @@ DEFAULT_FALLBACK_MODELS: list[str] = []
 
 
 def _split_csv(raw: str) -> list[str]:
+    """Split comma-separated config value into trimmed tokens."""
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
 def _dedupe(items: list[str]) -> list[str]:
+    """Return ordered unique non-empty strings."""
     seen: set[str] = set()
     out: list[str] = []
     for item in items:
@@ -30,6 +32,7 @@ class SwiftletBackend(Backend):
     timeout_seconds = 240
 
     def model_sequence(self, env: dict[str, str], explicit_model: str = "") -> list[str]:
+        """Build ordered Swiftlet model candidates from config and defaults."""
         explicit = explicit_model.strip()
         if explicit:
             return [explicit]
@@ -38,6 +41,7 @@ class SwiftletBackend(Backend):
         return _dedupe([primary, *fallback_env, *DEFAULT_FALLBACK_MODELS])
 
     def interrogate(self, env: dict[str, str]) -> BackendStatus:
+        """Report Swiftlet backend availability and model defaults."""
         models = self.model_sequence(env, "")
         return BackendStatus(enabled=True, models=models, default_model=models[0] if models else "")
 
@@ -55,6 +59,7 @@ class SwiftletBackend(Backend):
         emit_live_output: bool,
         **extra_options: object,
     ) -> AttemptResult:
+        """Execute one Swiftlet provider attempt via shared request runner."""
         return run_swiftlet_attempt(
             model_name=model_name,
             prompt_text=prompt_text,
@@ -69,4 +74,5 @@ class SwiftletBackend(Backend):
 
 
 def get_backend() -> Backend:
+    """Construct backend instance for dynamic backend discovery."""
     return SwiftletBackend()

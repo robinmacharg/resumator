@@ -69,14 +69,38 @@ DEFAULT_OPENAI_FALLBACK_MODELS = [
 
 
 def utc_now_iso() -> str:
+    """Purpose: Execute utc now iso for this module's workflow.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     return datetime.now(timezone.utc).isoformat()
 
 
 def local_now_to_second() -> str:
+    """Purpose: Execute local now to second for this module's workflow.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def is_retryable_model_error(stderr_text: str) -> bool:
+    """Purpose: Evaluate whether retryable model error is true.
+    
+    Inputs:
+    - stderr_text: See type hints and call site for expected value.
+    
+    Returns:
+    - `bool` value representing the operation result.
+    """
     lowered = stderr_text.lower()
     return (
         "429" in stderr_text
@@ -92,6 +116,14 @@ def is_retryable_model_error(stderr_text: str) -> bool:
 
 
 def extract_retry_after_seconds(text: str) -> int | None:
+    """Purpose: Execute extract retry after seconds for this module's workflow.
+    
+    Inputs:
+    - text: See type hints and call site for expected value.
+    
+    Returns:
+    - `int | None` value representing the operation result.
+    """
     match = re.search(r"please retry in\s+([0-9]+(?:\.[0-9]+)?)s", text, flags=re.IGNORECASE)
     if not match:
         return None
@@ -102,6 +134,14 @@ def extract_retry_after_seconds(text: str) -> int | None:
 
 
 def is_hard_quota_exhausted_message(text: str) -> bool:
+    """Purpose: Evaluate whether hard quota exhausted message is true.
+    
+    Inputs:
+    - text: See type hints and call site for expected value.
+    
+    Returns:
+    - `bool` value representing the operation result.
+    """
     lowered = text.lower()
     return (
         "terminalquotaerror" in lowered
@@ -113,6 +153,14 @@ def is_hard_quota_exhausted_message(text: str) -> bool:
 
 
 def extract_full_report_path(stderr_text: str) -> str | None:
+    """Purpose: Execute extract full report path for this module's workflow.
+    
+    Inputs:
+    - stderr_text: See type hints and call site for expected value.
+    
+    Returns:
+    - `str | None` value representing the operation result.
+    """
     match = re.search(r"full report available at:\s*(\S+)", stderr_text, flags=re.IGNORECASE)
     if not match:
         return None
@@ -120,6 +168,14 @@ def extract_full_report_path(stderr_text: str) -> str | None:
 
 
 def load_full_report_content(report_path: str) -> str | None:
+    """Purpose: Load full report content from configured source(s).
+    
+    Inputs:
+    - report_path: See type hints and call site for expected value.
+    
+    Returns:
+    - `str | None` value representing the operation result.
+    """
     path = Path(report_path)
     if not path.exists() or not path.is_file():
         return None
@@ -130,6 +186,15 @@ def load_full_report_content(report_path: str) -> str | None:
 
 
 def print_attempt_summary(attempt_results: list[tuple[str, str]], stream) -> None:
+    """Purpose: Execute print attempt summary for this module's workflow.
+    
+    Inputs:
+    - attempt_results: See type hints and call site for expected value.
+    - stream: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     if not attempt_results:
         return
     print("Model attempt summary:", file=stream)
@@ -138,6 +203,16 @@ def print_attempt_summary(attempt_results: list[tuple[str, str]], stream) -> Non
 
 
 def parse_positive_int(process_env: dict[str, str], key: str, default: int) -> int:
+    """Purpose: Parse and validate positive int for downstream use.
+    
+    Inputs:
+    - process_env: See type hints and call site for expected value.
+    - key: See type hints and call site for expected value.
+    - default: See type hints and call site for expected value.
+    
+    Returns:
+    - `int` value representing the operation result.
+    """
     raw = (process_env.get(key) or "").strip()
     if not raw:
         return default
@@ -159,6 +234,22 @@ def run_gemini_with_diagnostics(
     rate_limit_grace_seconds: int,
     max_retry_after_seconds_before_fallback: int,
 ) -> tuple[subprocess.CompletedProcess[str], float, Path]:
+    """Purpose: Run gemini with diagnostics and return its outcome.
+    
+    Inputs:
+    - command: See type hints and call site for expected value.
+    - env: See type hints and call site for expected value.
+    - timeout_seconds: See type hints and call site for expected value.
+    - heartbeat_seconds: See type hints and call site for expected value.
+    - model_name: See type hints and call site for expected value.
+    - attempt_index: See type hints and call site for expected value.
+    - max_429_lines_before_fallback: See type hints and call site for expected value.
+    - rate_limit_grace_seconds: See type hints and call site for expected value.
+    - max_retry_after_seconds_before_fallback: See type hints and call site for expected value.
+    
+    Returns:
+    - `tuple[subprocess.CompletedProcess[str], float, Path]` value representing the operation result.
+    """
     DEBUG_LOG_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     log_path = DEBUG_LOG_DIR / f"research-attempt-{attempt_index:02d}-{model_name}-{timestamp}.log"
@@ -197,6 +288,18 @@ def run_gemini_with_diagnostics(
         emit_stream,
         stat_key: str,
     ) -> None:
+        """Purpose: Execute stream reader for this module's workflow.
+        
+        Inputs:
+        - pipe: See type hints and call site for expected value.
+        - sink: See type hints and call site for expected value.
+        - sink_name: See type hints and call site for expected value.
+        - emit_stream: See type hints and call site for expected value.
+        - stat_key: See type hints and call site for expected value.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         try:
             for line in iter(pipe.readline, ""):
                 with stream_lock:
@@ -387,11 +490,29 @@ def build_model_sequence(
     provider: str,
     explicit_model: str | None = None,
 ) -> list[str]:
+    """Purpose: Build model sequence from current inputs and state.
+    
+    Inputs:
+    - process_env: See type hints and call site for expected value.
+    - provider: See type hints and call site for expected value.
+    - explicit_model: See type hints and call site for expected value.
+    
+    Returns:
+    - `list[str]` value representing the operation result.
+    """
     backend = get_backend_or_raise(provider, process_env)
     return backend.backend.model_sequence(process_env, explicit_model or "")
 
 
 def load_dotenv_file(path: Path) -> dict[str, str]:
+    """Purpose: Load dotenv file from configured source(s).
+    
+    Inputs:
+    - path: See type hints and call site for expected value.
+    
+    Returns:
+    - `dict[str, str]` value representing the operation result.
+    """
     env_vars: dict[str, str] = {}
     if not path.exists():
         return env_vars
@@ -422,6 +543,14 @@ def load_dotenv_file(path: Path) -> dict[str, str]:
 
 
 def dedupe_keep_order(items: list[str]) -> list[str]:
+    """Purpose: Execute dedupe keep order for this module's workflow.
+    
+    Inputs:
+    - items: See type hints and call site for expected value.
+    
+    Returns:
+    - `list[str]` value representing the operation result.
+    """
     seen: set[str] = set()
     ordered: list[str] = []
     for item in items:
@@ -436,12 +565,31 @@ def dedupe_keep_order(items: list[str]) -> list[str]:
 
 
 def read_company_name(company_file: Path) -> str:
+    """Purpose: Read company name from file or runtime state.
+    
+    Inputs:
+    - company_file: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     if not company_file.exists():
         return ""
     return company_file.read_text(encoding="utf-8").strip()
 
 
 def persist_inputs(company_file: Path, company_name: str, urls_file: Path, urls: list[str]) -> None:
+    """Purpose: Execute persist inputs for this module's workflow.
+    
+    Inputs:
+    - company_file: See type hints and call site for expected value.
+    - company_name: See type hints and call site for expected value.
+    - urls_file: See type hints and call site for expected value.
+    - urls: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     company_file.parent.mkdir(parents=True, exist_ok=True)
     urls_file.parent.mkdir(parents=True, exist_ok=True)
     company_file.write_text(company_name.strip() + "\n", encoding="utf-8")
@@ -450,6 +598,15 @@ def persist_inputs(company_file: Path, company_name: str, urls_file: Path, urls:
 
 
 def reset_prompt_file(prompt_default_path: Path, prompt_path: Path) -> None:
+    """Purpose: Execute reset prompt file for this module's workflow.
+    
+    Inputs:
+    - prompt_default_path: See type hints and call site for expected value.
+    - prompt_path: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     if not prompt_default_path.exists():
         raise FileNotFoundError(f"Default prompt file not found: {prompt_default_path}")
     prompt_path.parent.mkdir(parents=True, exist_ok=True)
@@ -457,6 +614,15 @@ def reset_prompt_file(prompt_default_path: Path, prompt_path: Path) -> None:
 
 
 def read_urls(urls_file: Path, inline_urls: list[str]) -> list[str]:
+    """Purpose: Read urls from file or runtime state.
+    
+    Inputs:
+    - urls_file: See type hints and call site for expected value.
+    - inline_urls: See type hints and call site for expected value.
+    
+    Returns:
+    - `list[str]` value representing the operation result.
+    """
     inline_clean = dedupe_keep_order(inline_urls)
     if inline_clean:
         # When URLs are provided explicitly (CLI/web request), treat that list as
@@ -474,6 +640,14 @@ def read_urls(urls_file: Path, inline_urls: list[str]) -> list[str]:
 
 
 def format_urls_block(urls: list[str]) -> str:
+    """Purpose: Execute format urls block for this module's workflow.
+    
+    Inputs:
+    - urls: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     if not urls:
         return "(none provided)"
     return "\n".join(f"- {url}" for url in urls)
@@ -486,6 +660,18 @@ def build_prompt(
     jobspec_content: str,
     urls: list[str],
 ) -> str:
+    """Purpose: Build prompt from current inputs and state.
+    
+    Inputs:
+    - prompt_template: See type hints and call site for expected value.
+    - company_name: See type hints and call site for expected value.
+    - cv_content: See type hints and call site for expected value.
+    - jobspec_content: See type hints and call site for expected value.
+    - urls: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     urls_block = format_urls_block(urls)
     if any(
         token in prompt_template
@@ -508,6 +694,14 @@ def build_prompt(
 
 
 def parse_args() -> argparse.Namespace:
+    """Purpose: Parse and validate args for downstream use.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `argparse.Namespace` value representing the operation result.
+    """
     parser = argparse.ArgumentParser(
         description="Research a target company/role context and produce interview prep notes.",
     )
@@ -554,6 +748,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Purpose: Execute main for this module's workflow.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     args = parse_args()
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

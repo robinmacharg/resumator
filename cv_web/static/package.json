@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test \"js/**/*.test.js\""
+    "test": "node --test \"js/**/*.test.js\"",
+    "test:python": "cd ../.. && .venv/bin/python -m unittest discover -s tests -v"
   }
 }

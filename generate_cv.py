@@ -48,6 +48,14 @@ REQUIRED_SEMANTIC_TAG_KEYS = [
 
 
 def is_high_load_error(stderr_text: str) -> bool:
+    """Purpose: Evaluate whether high load error is true.
+    
+    Inputs:
+    - stderr_text: See type hints and call site for expected value.
+    
+    Returns:
+    - `bool` value representing the operation result.
+    """
     lowered = stderr_text.lower()
     return (
         "503" in stderr_text
@@ -66,11 +74,29 @@ def is_high_load_error(stderr_text: str) -> bool:
 
 
 def build_model_sequence(process_env: dict[str, str], provider: str, explicit_model: str = "") -> list[str]:
+    """Purpose: Build model sequence from current inputs and state.
+    
+    Inputs:
+    - process_env: See type hints and call site for expected value.
+    - provider: See type hints and call site for expected value.
+    - explicit_model: See type hints and call site for expected value.
+    
+    Returns:
+    - `list[str]` value representing the operation result.
+    """
     backend = get_backend_or_raise(provider, process_env)
     return backend.backend.model_sequence(process_env, explicit_model)
 
 
 def parse_args() -> argparse.Namespace:
+    """Purpose: Parse and validate args for downstream use.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `argparse.Namespace` value representing the operation result.
+    """
     parser = argparse.ArgumentParser(description="Generate a tailored CV via Gemini CLI")
     parser.add_argument(
         "--provider",
@@ -245,12 +271,32 @@ def extract_json_payload(raw_text: str) -> str:
 
 
 def require_non_empty_string(value, field_name: str) -> str:
+    """Purpose: Execute require non empty string for this module's workflow.
+    
+    Inputs:
+    - value: See type hints and call site for expected value.
+    - field_name: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string.")
     return value.strip()
 
 
 def require_list_of_strings(value, field_name: str, *, min_items: int = 0, max_items: int | None = None) -> list[str]:
+    """Purpose: Execute require list of strings for this module's workflow.
+    
+    Inputs:
+    - value: See type hints and call site for expected value.
+    - field_name: See type hints and call site for expected value.
+    - min_items: See type hints and call site for expected value.
+    - max_items: See type hints and call site for expected value.
+    
+    Returns:
+    - `list[str]` value representing the operation result.
+    """
     if not isinstance(value, list):
         raise ValueError(f"{field_name} must be a list of strings.")
     cleaned: list[str] = []
@@ -267,6 +313,15 @@ def require_list_of_strings(value, field_name: str, *, min_items: int = 0, max_i
 
 
 def normalize_optional_http_url(value, field_name: str) -> str | None:
+    """Purpose: Execute normalize optional http url for this module's workflow.
+    
+    Inputs:
+    - value: See type hints and call site for expected value.
+    - field_name: See type hints and call site for expected value.
+    
+    Returns:
+    - `str | None` value representing the operation result.
+    """
     if value is None:
         return None
     url = require_non_empty_string(value, field_name)
@@ -472,6 +527,14 @@ def validate_and_normalize_payload(payload: dict) -> dict:
 
 
 def parse_and_validate_json_output(raw_text: str) -> dict:
+    """Purpose: Parse and validate and validate json output for downstream use.
+    
+    Inputs:
+    - raw_text: See type hints and call site for expected value.
+    
+    Returns:
+    - `dict` value representing the operation result.
+    """
     payload_text = extract_json_payload(raw_text)
     try:
         payload = json.loads(payload_text)
@@ -481,6 +544,14 @@ def parse_and_validate_json_output(raw_text: str) -> dict:
 
 
 def yaml_scalar(value) -> str:
+    """Purpose: Execute yaml scalar for this module's workflow.
+    
+    Inputs:
+    - value: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     if value is None:
         return '""'
     if isinstance(value, bool):
@@ -494,6 +565,15 @@ def yaml_scalar(value) -> str:
 
 
 def render_yaml_block(value, indent: int) -> list[str]:
+    """Purpose: Execute render yaml block for this module's workflow.
+    
+    Inputs:
+    - value: See type hints and call site for expected value.
+    - indent: See type hints and call site for expected value.
+    
+    Returns:
+    - `list[str]` value representing the operation result.
+    """
     space = " " * indent
     lines: list[str] = []
     if isinstance(value, dict):
@@ -522,6 +602,14 @@ def render_yaml_block(value, indent: int) -> list[str]:
 
 
 def clean_bullet_text(text: str) -> str:
+    """Purpose: Execute clean bullet text for this module's workflow.
+    
+    Inputs:
+    - text: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     cleaned = text.strip()
     if cleaned.startswith("- ") or cleaned.startswith("* "):
         return cleaned[2:].strip()
@@ -529,6 +617,14 @@ def clean_bullet_text(text: str) -> str:
 
 
 def render_tagged_markdown(payload: dict) -> str:
+    """Purpose: Execute render tagged markdown for this module's workflow.
+    
+    Inputs:
+    - payload: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     candidate = payload["candidate"]
     document = payload["document"]
 
@@ -630,6 +726,14 @@ def render_tagged_markdown(payload: dict) -> str:
 
 
 def is_fast_mode_enabled(process_env: dict) -> bool:
+    """Purpose: Evaluate whether fast mode enabled is true.
+    
+    Inputs:
+    - process_env: See type hints and call site for expected value.
+    
+    Returns:
+    - `bool` value representing the operation result.
+    """
     return process_env.get("CV_FAST_MODE", "false").strip().lower() in {
         "1",
         "true",
@@ -651,6 +755,15 @@ def prepare_cv_content_for_mode(cv_content: str, fast_mode: bool) -> str:
 
 
 def apply_fast_mode_prompt_rules(full_prompt: str, fast_mode: bool) -> str:
+    """Purpose: Execute apply fast mode prompt rules for this module's workflow.
+    
+    Inputs:
+    - full_prompt: See type hints and call site for expected value.
+    - fast_mode: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     if not fast_mode:
         return full_prompt
 
@@ -665,6 +778,14 @@ def apply_fast_mode_prompt_rules(full_prompt: str, fast_mode: bool) -> str:
 
 
 def main() -> None:
+    """Purpose: Execute main for this module's workflow.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     args = parse_args()
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

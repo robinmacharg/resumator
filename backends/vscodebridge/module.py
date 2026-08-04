@@ -22,10 +22,12 @@ BRIDGE_LAUNCHER = BRIDGE_DIR / "start_isolated_bridge.sh"
 
 
 def _split_csv(raw: str) -> list[str]:
+    """Split comma-separated config value into trimmed tokens."""
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
 def _dedupe(items: list[str]) -> list[str]:
+    """Return ordered unique non-empty strings."""
     seen: set[str] = set()
     out: list[str] = []
     for item in items:
@@ -42,6 +44,7 @@ class VSCodeBridgeBackend(Backend):
     timeout_seconds = 240
 
     def model_sequence(self, env: dict[str, str], explicit_model: str = "") -> list[str]:
+        """Build ordered bridge model candidates from explicit/config/default values."""
         explicit = explicit_model.strip()
         if explicit:
             return [explicit]
@@ -51,10 +54,12 @@ class VSCodeBridgeBackend(Backend):
 
     @staticmethod
     def _api_url(env: dict[str, str]) -> str:
+        """Resolve bridge API base URL from runtime config."""
         return (env.get("VSCODE_BRIDGE_API_URL") or DEFAULT_API_URL).strip()
 
     @staticmethod
     def _bridge_health_url(api_url: str) -> str:
+        """Derive `/health` endpoint URL from configured API URL."""
         parsed = urlparse(api_url)
         if parsed.scheme and parsed.netloc:
             return f"{parsed.scheme}://{parsed.netloc}/health"
@@ -62,10 +67,16 @@ class VSCodeBridgeBackend(Backend):
 
     @staticmethod
     def _bridge_api_key(env: dict[str, str]) -> str:
+        """Resolve optional bridge API key from runtime config."""
         return (env.get("VSCODE_BRIDGE_API_KEY") or "").strip()
 
     @staticmethod
     def _health_check(api_url: str, api_key: str, timeout_seconds: float = 1.5) -> tuple[bool, str]:
+        """Check bridge health endpoint and normalize readiness/error details.
+
+        Returns:
+        - Tuple `(is_ready, reason)` where `reason` is non-empty on failure.
+        """
         health_url = VSCodeBridgeBackend._bridge_health_url(api_url)
         if not health_url:
             return False, "Unable to derive /health URL from VSCODE_BRIDGE_API_URL"
@@ -107,6 +118,7 @@ class VSCodeBridgeBackend(Backend):
 
     @staticmethod
     def _autostart_enabled(env: dict[str, str]) -> bool:
+        """Return whether bridge auto-start behavior is enabled."""
         return (env.get("VSCODE_BRIDGE_AUTOSTART") or "true").strip().lower() in {
             "1",
             "true",
@@ -116,6 +128,7 @@ class VSCodeBridgeBackend(Backend):
 
     @staticmethod
     def _backend_enabled(env: dict[str, str]) -> bool:
+        """Return whether the bridge backend is enabled by config flag."""
         return (env.get("BACKEND_VSCODEBRIDGE_ENABLED") or "true").strip().lower() in {
             "1",
             "true",
@@ -125,6 +138,7 @@ class VSCodeBridgeBackend(Backend):
 
     @staticmethod
     def _startup_timeout_seconds(env: dict[str, str]) -> int:
+        """Parse startup timeout setting with defensive fallback defaults."""
         raw = (env.get("VSCODE_BRIDGE_STARTUP_TIMEOUT_SECONDS") or "").strip()
         if not raw:
             return DEFAULT_STARTUP_TIMEOUT_SECONDS
@@ -136,6 +150,11 @@ class VSCodeBridgeBackend(Backend):
 
     @staticmethod
     def _launch_bridge(env: dict[str, str]) -> tuple[bool, str]:
+        """Start bridge process using configured startup command or launcher script.
+
+        Returns:
+        - Tuple `(launched, reason)` where reason describes launch failure when false.
+        """
         startup_cmd = (env.get("VSCODE_BRIDGE_STARTUP_CMD") or "").strip()
         launch_env = os.environ.copy()
         launch_env.update(env)
@@ -178,6 +197,11 @@ class VSCodeBridgeBackend(Backend):
 
     @staticmethod
     def _ensure_bridge_ready(env: dict[str, str]) -> tuple[bool, str]:
+        """Ensure bridge is running/healthy, auto-starting when configured.
+
+        Returns:
+        - Tuple `(ready, reason)` where `reason` explains readiness failure.
+        """
         api_url = VSCodeBridgeBackend._api_url(env)
         api_key = VSCodeBridgeBackend._bridge_api_key(env)
 
@@ -203,6 +227,7 @@ class VSCodeBridgeBackend(Backend):
         return False, f"Bridge did not become ready in time ({last_reason})"
 
     def interrogate(self, env: dict[str, str]) -> BackendStatus:
+        """Report bridge backend status for catalog display and routing decisions."""
         if not self._backend_enabled(env):
             return BackendStatus(
                 enabled=False,
@@ -254,6 +279,7 @@ class VSCodeBridgeBackend(Backend):
         emit_live_output: bool,
         **extra_options: object,
     ) -> AttemptResult:
+        """Execute one bridge-backed request attempt, creating failure log when unavailable."""
         ready, reason = self._ensure_bridge_ready(env)
         if not ready:
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -302,4 +328,5 @@ class VSCodeBridgeBackend(Backend):
 
 
 def get_backend() -> Backend:
+    """Construct backend instance for dynamic backend discovery."""
     return VSCodeBridgeBackend()

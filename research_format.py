@@ -11,6 +11,14 @@ from cv_convert import choose_font
 
 
 def normalize_markdown(text: str) -> str:
+    """Purpose: Execute normalize markdown for this module's workflow.
+    
+    Inputs:
+    - text: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     normalized: list[str] = []
     blank_count = 0
@@ -33,6 +41,15 @@ def normalize_markdown(text: str) -> str:
 
 
 def ensure_heading(text: str, heading: str) -> str:
+    """Purpose: Execute ensure heading for this module's workflow.
+    
+    Inputs:
+    - text: See type hints and call site for expected value.
+    - heading: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     stripped = text.lstrip()
     if stripped.startswith("#"):
         return text
@@ -41,6 +58,14 @@ def ensure_heading(text: str, heading: str) -> str:
 
 
 def resolve_research_pdf_font() -> str:
+    """Purpose: Execute resolve research pdf font for this module's workflow.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     preferred_font_raw = os.environ.get("CV_FONT_PRIORITY", "Calibri,Arial,Helvetica")
     preferred_fonts = [item.strip() for item in preferred_font_raw.split(",") if item.strip()]
     if not preferred_fonts:
@@ -49,6 +74,16 @@ def resolve_research_pdf_font() -> str:
 
 
 def compile_pdf(markdown_file: Path, output_pdf: Path, font_name: str) -> None:
+    """Purpose: Execute compile pdf for this module's workflow.
+    
+    Inputs:
+    - markdown_file: See type hints and call site for expected value.
+    - output_pdf: See type hints and call site for expected value.
+    - font_name: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     if not shutil.which("pandoc"):
         raise RuntimeError("pandoc is required to generate research PDF")
 
@@ -73,6 +108,17 @@ def compile_pdf(markdown_file: Path, output_pdf: Path, font_name: str) -> None:
 
 
 def run(input_md: Path, output_md: Path, output_pdf: Path, heading: str) -> int:
+    """Purpose: Run the operation and return its outcome.
+    
+    Inputs:
+    - input_md: See type hints and call site for expected value.
+    - output_md: See type hints and call site for expected value.
+    - output_pdf: See type hints and call site for expected value.
+    - heading: See type hints and call site for expected value.
+    
+    Returns:
+    - `int` value representing the operation result.
+    """
     if not input_md.exists():
         print(f"Input markdown not found: {input_md}")
         return 1
@@ -108,6 +154,14 @@ def run(input_md: Path, output_md: Path, output_pdf: Path, heading: str) -> int:
 
 
 def parse_args() -> argparse.Namespace:
+    """Purpose: Parse and validate args for downstream use.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `argparse.Namespace` value representing the operation result.
+    """
     parser = argparse.ArgumentParser(description="Format research output markdown into a plain PDF")
     parser.add_argument(
         "input_md",
@@ -134,6 +188,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Purpose: Execute main for this module's workflow.
+    
+    Inputs:
+    - None.
+    
+    Returns:
+    - `int` value representing the operation result.
+    """
     args = parse_args()
     return run(
         input_md=Path(args.input_md),

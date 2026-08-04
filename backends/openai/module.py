@@ -15,10 +15,12 @@ DEFAULT_FALLBACK_MODELS = [
 
 
 def _split_csv(raw: str) -> list[str]:
+    """Split comma-separated config value into trimmed tokens."""
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
 def _dedupe(items: list[str]) -> list[str]:
+    """Return ordered unique non-empty strings."""
     seen: set[str] = set()
     out: list[str] = []
     for item in items:
@@ -35,6 +37,7 @@ class OpenAIBackend(Backend):
     timeout_seconds = 180
 
     def model_sequence(self, env: dict[str, str], explicit_model: str = "") -> list[str]:
+        """Build ordered OpenAI model candidates from config and defaults."""
         explicit = explicit_model.strip()
         if explicit:
             return [explicit]
@@ -43,6 +46,7 @@ class OpenAIBackend(Backend):
         return _dedupe([primary, *fallback_env, *DEFAULT_FALLBACK_MODELS])
 
     def interrogate(self, env: dict[str, str]) -> BackendStatus:
+        """Report backend status, disabling when OpenAI credentials are missing."""
         token = (env.get("OPENAI_API_KEY") or env.get("OPENAI_TOKEN") or "").strip()
         models = self.model_sequence(env, "")
         if not token:
@@ -68,6 +72,7 @@ class OpenAIBackend(Backend):
         emit_live_output: bool,
         **extra_options: object,
     ) -> AttemptResult:
+        """Execute one OpenAI provider attempt via shared request runner."""
         return run_openai_attempt(
             model_name=model_name,
             prompt_text=prompt_text,
@@ -82,4 +87,5 @@ class OpenAIBackend(Backend):
 
 
 def get_backend() -> Backend:
+    """Construct backend instance for dynamic backend discovery."""
     return OpenAIBackend()

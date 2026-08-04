@@ -22,6 +22,14 @@ CATALOG_PATH = Path("model_providers.json")
 
 
 def _dedupe(items: list[str]) -> list[str]:
+    """Return ordered unique non-empty strings.
+
+    Inputs:
+    - items: Candidate string values.
+
+    Returns:
+    - Deduplicated list preserving first-seen order.
+    """
     seen: set[str] = set()
     out: list[str] = []
     for item in items:
@@ -34,6 +42,17 @@ def _dedupe(items: list[str]) -> list[str]:
 
 
 def load_provider_catalog(path: Path | None = None) -> dict[str, Any]:
+    """Load provider catalog from runtime discovery with static JSON fallback.
+
+    Inputs:
+    - path: Optional path to a static provider catalog JSON file.
+
+    Returns:
+    - Normalized provider catalog object consumed by the web server.
+
+    Raises:
+    - ValueError when static JSON exists but has invalid shape/content.
+    """
     # Primary source: interrogated backend modules.
     discovered = build_backend_catalog(runtime_env())
     if discovered.providers:
@@ -120,10 +139,12 @@ def load_provider_catalog(path: Path | None = None) -> dict[str, Any]:
 
 
 def provider_ids(catalog: dict[str, Any]) -> list[str]:
+    """Extract provider ids from normalized catalog payload."""
     return [item["id"] for item in catalog.get("providers", []) if isinstance(item, dict) and "id" in item]
 
 
 def provider_map(catalog: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Build id-keyed map of provider records for fast lookup."""
     return {
         item["id"]: item
         for item in catalog.get("providers", [])

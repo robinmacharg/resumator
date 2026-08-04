@@ -32,6 +32,14 @@ class AttemptResult:
 
 
 def extract_retry_after_seconds(text: str) -> int | None:
+    """Purpose: Execute extract retry after seconds for this module's workflow.
+    
+    Inputs:
+    - text: See type hints and call site for expected value.
+    
+    Returns:
+    - `int | None` value representing the operation result.
+    """
     match = re.search(r"please retry in\s+([0-9]+(?:\.[0-9]+)?)s", text, flags=re.IGNORECASE)
     if not match:
         return None
@@ -42,6 +50,14 @@ def extract_retry_after_seconds(text: str) -> int | None:
 
 
 def is_hard_quota_exhausted_message(text: str) -> bool:
+    """Purpose: Evaluate whether hard quota exhausted message is true.
+    
+    Inputs:
+    - text: See type hints and call site for expected value.
+    
+    Returns:
+    - `bool` value representing the operation result.
+    """
     lowered = text.lower()
     return (
         "terminalquotaerror" in lowered
@@ -53,6 +69,15 @@ def is_hard_quota_exhausted_message(text: str) -> bool:
 
 
 def _write_attempt_log(log_path: Path, lines: list[str]) -> None:
+    """Purpose: Write attempt log to the target location.
+    
+    Inputs:
+    - log_path: See type hints and call site for expected value.
+    - lines: See type hints and call site for expected value.
+    
+    Returns:
+    - None. This function performs side effects only.
+    """
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text("\n".join(lines), encoding="utf-8")
 
@@ -72,6 +97,25 @@ def run_gemini_attempt(
     max_retry_after_seconds_before_fallback: int = 0,
     emit_live_output: bool = True,
 ) -> AttemptResult:
+    """Purpose: Run gemini attempt and return its outcome.
+    
+    Inputs:
+    - model_name: See type hints and call site for expected value.
+    - prompt_text: See type hints and call site for expected value.
+    - env: See type hints and call site for expected value.
+    - timeout_seconds: See type hints and call site for expected value.
+    - heartbeat_seconds: See type hints and call site for expected value.
+    - attempt_index: See type hints and call site for expected value.
+    - debug_log_dir: See type hints and call site for expected value.
+    - log_prefix: See type hints and call site for expected value.
+    - max_429_lines_before_fallback: See type hints and call site for expected value.
+    - rate_limit_grace_seconds: See type hints and call site for expected value.
+    - max_retry_after_seconds_before_fallback: See type hints and call site for expected value.
+    - emit_live_output: See type hints and call site for expected value.
+    
+    Returns:
+    - `AttemptResult` value representing the operation result.
+    """
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{model_name}-{timestamp}.log"
 
@@ -141,6 +185,18 @@ def run_gemini_attempt(
     }
 
     def stream_reader(pipe, sink: list[str], sink_name: str, emit_stream, stat_key: str) -> None:
+        """Purpose: Execute stream reader for this module's workflow.
+        
+        Inputs:
+        - pipe: See type hints and call site for expected value.
+        - sink: See type hints and call site for expected value.
+        - sink_name: See type hints and call site for expected value.
+        - emit_stream: See type hints and call site for expected value.
+        - stat_key: See type hints and call site for expected value.
+        
+        Returns:
+        - None. This function performs side effects only.
+        """
         try:
             for line in iter(pipe.readline, ""):
                 with stream_lock:
@@ -339,6 +395,14 @@ def run_gemini_attempt(
 
 
 def _extract_hf_text(payload: dict[str, Any]) -> str:
+    """Purpose: Execute extract hf text for this module's workflow.
+    
+    Inputs:
+    - payload: See type hints and call site for expected value.
+    
+    Returns:
+    - `str` value representing the operation result.
+    """
     choices = payload.get("choices")
     if isinstance(choices, list) and choices:
         first = choices[0]
@@ -365,6 +429,14 @@ def _extract_hf_text(payload: dict[str, Any]) -> str:
 
 
 def _extract_hf_error_details(body_text: str) -> tuple[str, str]:
+    """Purpose: Execute extract hf error details for this module's workflow.
+    
+    Inputs:
+    - body_text: See type hints and call site for expected value.
+    
+    Returns:
+    - `tuple[str, str]` value representing the operation result.
+    """
     message = ""
     guidance = ""
     parsed: dict[str, Any] | None = None
@@ -403,10 +475,26 @@ def _extract_hf_error_details(body_text: str) -> tuple[str, str]:
 
 
 def _is_hf_retryable_http_status(status_code: int) -> bool:
+    """Purpose: Evaluate whether hf retryable http status is true.
+    
+    Inputs:
+    - status_code: See type hints and call site for expected value.
+    
+    Returns:
+    - `bool` value representing the operation result.
+    """
     return status_code in {408, 409, 425, 429, 500, 502, 503, 504}
 
 
 def _is_hf_retryable_exception_message(message: str) -> bool:
+    """Purpose: Evaluate whether hf retryable exception message is true.
+    
+    Inputs:
+    - message: See type hints and call site for expected value.
+    
+    Returns:
+    - `bool` value representing the operation result.
+    """
     lowered = message.lower()
     return (
         "remote end closed connection without response" in lowered
@@ -431,6 +519,22 @@ def run_huggingface_attempt(
     log_prefix: str = "attempt",
     emit_live_output: bool = True,
 ) -> AttemptResult:
+    """Purpose: Run huggingface attempt and return its outcome.
+    
+    Inputs:
+    - model_name: See type hints and call site for expected value.
+    - prompt_text: See type hints and call site for expected value.
+    - env: See type hints and call site for expected value.
+    - timeout_seconds: See type hints and call site for expected value.
+    - heartbeat_seconds: See type hints and call site for expected value.
+    - attempt_index: See type hints and call site for expected value.
+    - debug_log_dir: See type hints and call site for expected value.
+    - log_prefix: See type hints and call site for expected value.
+    - emit_live_output: See type hints and call site for expected value.
+    
+    Returns:
+    - `AttemptResult` value representing the operation result.
+    """
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     safe_model = model_name.replace("/", "_")
     log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log"
@@ -519,6 +623,14 @@ def run_huggingface_attempt(
         )
 
         def do_request() -> None:
+            """Purpose: Execute do request for this module's workflow.
+            
+            Inputs:
+            - None.
+            
+            Returns:
+            - None. This function performs side effects only.
+            """
             try:
                 with request.urlopen(req, timeout=timeout_seconds) as response:
                     body = response.read().decode("utf-8", errors="replace")
@@ -694,6 +806,22 @@ def run_swiftlet_attempt(
     log_prefix: str = "attempt",
     emit_live_output: bool = True,
 ) -> AttemptResult:
+    """Purpose: Run swiftlet attempt and return its outcome.
+    
+    Inputs:
+    - model_name: See type hints and call site for expected value.
+    - prompt_text: See type hints and call site for expected value.
+    - env: See type hints and call site for expected value.
+    - timeout_seconds: See type hints and call site for expected value.
+    - heartbeat_seconds: See type hints and call site for expected value.
+    - attempt_index: See type hints and call site for expected value.
+    - debug_log_dir: See type hints and call site for expected value.
+    - log_prefix: See type hints and call site for expected value.
+    - emit_live_output: See type hints and call site for expected value.
+    
+    Returns:
+    - `AttemptResult` value representing the operation result.
+    """
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     safe_model = model_name.replace("/", "_")
     log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log"
@@ -756,6 +884,14 @@ def run_swiftlet_attempt(
         )
 
         def do_request() -> None:
+            """Purpose: Execute do request for this module's workflow.
+            
+            Inputs:
+            - None.
+            
+            Returns:
+            - None. This function performs side effects only.
+            """
             try:
                 with request.urlopen(req, timeout=timeout_seconds) as response:
                     body = response.read().decode("utf-8", errors="replace")
@@ -927,6 +1063,14 @@ def run_swiftlet_attempt(
 
 
 def _extract_openai_error_details(body_text: str) -> tuple[str, str]:
+    """Purpose: Execute extract openai error details for this module's workflow.
+    
+    Inputs:
+    - body_text: See type hints and call site for expected value.
+    
+    Returns:
+    - `tuple[str, str]` value representing the operation result.
+    """
     message = ""
     guidance = ""
     parsed: dict[str, Any] | None = None
@@ -970,6 +1114,22 @@ def run_openai_attempt(
     log_prefix: str = "attempt",
     emit_live_output: bool = True,
 ) -> AttemptResult:
+    """Purpose: Run openai attempt and return its outcome.
+    
+    Inputs:
+    - model_name: See type hints and call site for expected value.
+    - prompt_text: See type hints and call site for expected value.
+    - env: See type hints and call site for expected value.
+    - timeout_seconds: See type hints and call site for expected value.
+    - heartbeat_seconds: See type hints and call site for expected value.
+    - attempt_index: See type hints and call site for expected value.
+    - debug_log_dir: See type hints and call site for expected value.
+    - log_prefix: See type hints and call site for expected value.
+    - emit_live_output: See type hints and call site for expected value.
+    
+    Returns:
+    - `AttemptResult` value representing the operation result.
+    """
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     safe_model = model_name.replace("/", "_")
     log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log"
@@ -1055,6 +1215,14 @@ def run_openai_attempt(
         )
 
         def do_request() -> None:
+            """Purpose: Execute do request for this module's workflow.
+            
+            Inputs:
+            - None.
+            
+            Returns:
+            - None. This function performs side effects only.
+            """
             try:
                 with request.urlopen(req, timeout=timeout_seconds) as response:
                     body = response.read().decode("utf-8", errors="replace")
@@ -1224,6 +1392,22 @@ def run_vscodebridge_attempt(
     log_prefix: str = "attempt",
     emit_live_output: bool = True,
 ) -> AttemptResult:
+    """Purpose: Run vscodebridge attempt and return its outcome.
+    
+    Inputs:
+    - model_name: See type hints and call site for expected value.
+    - prompt_text: See type hints and call site for expected value.
+    - env: See type hints and call site for expected value.
+    - timeout_seconds: See type hints and call site for expected value.
+    - heartbeat_seconds: See type hints and call site for expected value.
+    - attempt_index: See type hints and call site for expected value.
+    - debug_log_dir: See type hints and call site for expected value.
+    - log_prefix: See type hints and call site for expected value.
+    - emit_live_output: See type hints and call site for expected value.
+    
+    Returns:
+    - `AttemptResult` value representing the operation result.
+    """
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     safe_model = model_name.replace("/", "_")
     log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log"
