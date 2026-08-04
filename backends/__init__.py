@@ -1,1 +1,1 @@
-"""Backend plugin package for CVgen providers."""
+"""Backend plugin package for Resumator providers."""

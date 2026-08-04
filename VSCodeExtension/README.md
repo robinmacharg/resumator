@@ -1,4 +1,4 @@
-# CVGen VS Code Bridge
+# Resumator VS Code Bridge
 
 A small VS Code extension that starts a local HTTP server and forwards prompt requests to Copilot through VS Code's language model API.
 
@@ -37,7 +37,7 @@ Response shape:
 ## Local Development
 
 1. Open this folder in VS Code:
-   - `/Users/rmacharg/dev/projects/CVgen/VSCodeExtension`
+   - `/Users/rmacharg/dev/projects/Resumator/VSCodeExtension`
 2. Install deps:
    - `npm install`
 3. Compile:
@@ -51,7 +51,7 @@ Response shape:
 If you want to run this from your usual Boostworks VS Code window (instead of opening only this folder), use this flow:
 
 1. Ensure the CV extension folder is part of the workspace:
-   - `/Users/rmacharg/dev/projects/CVgen/VSCodeExtension`
+   - `/Users/rmacharg/dev/projects/Resumator/VSCodeExtension`
 2. In that workspace, open Run and Debug.
 3. Pick the configuration named `Run CV Bridge Extension`.
    - In multi-root, the dropdown can show folder-qualified names. Choose the one from the `VSCodeExtension` folder.
@@ -71,7 +71,7 @@ If VS Code prompts for unrelated extensions while pressing `F5`:
 You can also launch an extension host directly from a terminal in the main workspace:
 
 ```bash
-code --extensionDevelopmentPath /Users/rmacharg/dev/projects/CVgen/VSCodeExtension
+code --extensionDevelopmentPath /Users/rmacharg/dev/projects/Resumator/VSCodeExtension
 ```
 
 Then run `CV Bridge: Start` in that opened window.
@@ -98,7 +98,7 @@ curl -s -X POST http://127.0.0.1:8766/generate \
    -d '{"prompt":"Say hello in one line."}'
 ```
 
-## CVgen Integration
+## Resumator Integration
 
 Use provider `vscodebridge` in CV scripts and configure these optional environment variables:
 
@@ -148,7 +148,7 @@ Use this when you want strict runtime separation and do not want to share main V
 
 In isolated mode, startup ensures `GitHub.copilot` is installed into the isolated extensions directory (unless `CV_BRIDGE_SKIP_EXTENSION_INSTALL=true`). `GitHub.copilot-chat` is provided as a built-in extension by VS Code.
 
-When using the `vscodebridge` backend in CVgen, the backend can auto-start this isolated runtime if the bridge is not healthy.
+When using the `vscodebridge` backend in Resumator, the backend can auto-start this isolated runtime if the bridge is not healthy.
 
 Related environment variables:
 
@@ -172,7 +172,7 @@ Runtime state/logs are stored in `VSCodeExtension/runtime/`.
 1. Kill existing CV server and old bridge listeners:
 
 ```bash
-pkill -f '/Users/rmacharg/dev/projects/CVgen/cv_web/server.py' || true
+pkill -f '/Users/rmacharg/dev/projects/Resumator/cv_web/server.py' || true
 ./VSCodeExtension/stop_isolated_bridge.sh || true
 ```
 
@@ -198,7 +198,7 @@ CV_BRIDGE_RUNTIME_MODE=isolated ./VSCodeExtension/start_isolated_bridge.sh
 4. Start CV server with `vscodebridge` selected:
 
 ```bash
-cd /Users/rmacharg/dev/projects/CVgen
+cd /Users/rmacharg/dev/projects/Resumator
 MODEL_PROVIDER=vscodebridge python3 cv_web/server.py
 ```
 
@@ -221,7 +221,7 @@ curl -s -X POST http://127.0.0.1:8765/api/server/restart -H 'Content-Type: appli
 
 ```bash
 ./VSCodeExtension/stop_isolated_bridge.sh
-pkill -f '/Users/rmacharg/dev/projects/CVgen/cv_web/server.py' || true
+pkill -f '/Users/rmacharg/dev/projects/Resumator/cv_web/server.py' || true
 ```
 
 ## Notes

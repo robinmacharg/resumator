@@ -1,4 +1,4 @@
-# Resumator (CVgen)
+# Resumator
 
 Resumator is a local web tool that helps you tailor your CV to a role, run the generation pipeline, and preview outputs.
 

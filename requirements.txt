@@ -1,2 +1,2 @@
-# CVgen currently uses only Python standard-library modules.
+# Resumator currently uses only Python standard-library modules.
 # Kept for environment restoration consistency.
