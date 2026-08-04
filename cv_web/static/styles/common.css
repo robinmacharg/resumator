@@ -396,7 +396,7 @@ body {
 textarea {
   width: 100%;
   min-height: 0;
-  resize: vertical;
+  resize: none;
   border: 1px solid var(--line);
   border-radius: 0.5rem;
   padding: 0.65rem;

@@ -15,10 +15,16 @@
   min-height: 0;
 }
 
-/* Keeps the URL input comfortably tall while allowing manual vertical resize. */
+/* Keeps the URL input stretched to available space within the controls container. */
 #researchUrlsInput {
-  min-height: 92px;
-  resize: vertical;
+  min-height: 0;
+  height: 100%;
+  resize: none;
+}
+
+/* Constrains company input to a single-line control height. */
+#researchCompanyInput {
+  height: 2rem;
 }
 
 /* Wraps input tabs and panel content in a constrained grid container. */
@@ -65,14 +71,18 @@
 /* Styles the research control card that holds company, provider, and action controls. */
 .research-controls {
   padding: 0.65rem;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.65rem;
-  overflow: auto;
+  min-height: 0;
 }
 
 /* Stacks form fields in the research control grid with compact spacing. */
 .research-input-grid {
   display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
   gap: 0.35rem;
 }
 
@@ -91,6 +101,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.45rem;
+  margin-top: auto;
 }
 
 /* Styles inline toggle controls used in research action rows. */
