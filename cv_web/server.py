@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+"""
+Architecture role:
+- Layer: backend HTTP API and process orchestration entrypoint.
+- Responsibility: serve static assets, expose JSON endpoints, validate request payloads,
+    and coordinate CV/research subprocess lifecycle state.
+
+Plain-language purpose:
+- This module is the web server for the CV app. It is the bridge between frontend actions
+    and backend file/process operations.
+"""
+
+from __future__ import annotations
+
 import json
 import os
 import signal
@@ -6,6 +19,7 @@ import subprocess
 import sys
 import threading
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -70,6 +84,23 @@ RESEARCH_PROC_LOCK = threading.Lock()
 CURRENT_RESEARCH_PROC: subprocess.Popen[str] | None = None
 
 
+@dataclass(frozen=True)
+class ResearchRunRequest:
+    selected_provider: str
+    selected_model: str
+    company_name: str
+    urls: list[str]
+    dry_run: bool
+    auto_format_pdf: bool
+
+
+@dataclass(frozen=True)
+class CvRunRequest:
+    kind: str
+    selected_provider: str
+    selected_model: str
+
+
 def schedule_process_restart() -> None:
     def _restart() -> None:
         # Small delay gives the HTTP response a chance to flush before process replacement.
@@ -92,40 +123,6 @@ def read_text(path: Path) -> str:
 def write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
-
-
-def parse_dotenv_file(path: Path) -> dict[str, str]:
-    env_vars: dict[str, str] = {}
-    if not path.exists():
-        return env_vars
-
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-
-        if line.startswith("export "):
-            line = line[len("export ") :].strip()
-
-        if "=" not in line:
-            continue
-
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip()
-        if not key:
-            continue
-
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
-            value = value[1:-1]
-
-        env_vars[key] = value
-
-    return env_vars
-
-
-def split_csv(raw: str) -> list[str]:
-    return [item.strip() for item in raw.split(",") if item.strip()]
 
 
 def dedupe_keep_order(items: list[str]) -> list[str]:
@@ -218,6 +215,65 @@ def parse_selected_model(payload: dict[str, Any], selected_provider: str) -> str
     if selected_model not in available:
         raise ValueError("selectedModel is not in available model options")
     return selected_model
+
+
+def parse_company_name(payload: dict[str, Any]) -> str:
+    company_name = str(payload.get("companyName", "")).strip()
+    if not company_name:
+        raise ValueError("companyName is required")
+    return company_name
+
+
+def parse_url_list(payload: dict[str, Any]) -> list[str]:
+    raw_urls = payload.get("urls", [])
+    if not isinstance(raw_urls, list):
+        raise ValueError("urls must be a list of strings")
+
+    urls: list[str] = []
+    for idx, item in enumerate(raw_urls):
+        if not isinstance(item, str):
+            raise ValueError(f"urls[{idx}] must be a string")
+        cleaned = item.strip()
+        if cleaned:
+            urls.append(cleaned)
+    return urls
+
+
+def parse_auto_format_pdf(payload: dict[str, Any]) -> bool:
+    auto_format_pdf = payload.get("autoFormatPdf", True)
+    if not isinstance(auto_format_pdf, bool):
+        raise ValueError("autoFormatPdf must be a boolean")
+    return auto_format_pdf
+
+
+def parse_research_run_request(payload: dict[str, Any]) -> ResearchRunRequest:
+    selected_provider = parse_selected_provider(payload)
+    selected_model = parse_selected_model(payload, selected_provider)
+    company_name = parse_company_name(payload)
+    urls = parse_url_list(payload)
+    dry_run = bool(payload.get("dryRun", False))
+    auto_format_pdf = parse_auto_format_pdf(payload)
+
+    return ResearchRunRequest(
+        selected_provider=selected_provider,
+        selected_model=selected_model,
+        company_name=company_name,
+        urls=urls,
+        dry_run=dry_run,
+        auto_format_pdf=auto_format_pdf,
+    )
+
+
+def parse_cv_run_request(route: str, payload: dict[str, Any]) -> CvRunRequest:
+    kind = "full" if route.endswith("/full") else "format"
+    selected_provider = parse_selected_provider(payload)
+    selected_model = parse_selected_model(payload, selected_provider)
+    model_override = selected_model if kind == "full" else ""
+    return CvRunRequest(
+        kind=kind,
+        selected_provider=selected_provider,
+        selected_model=model_override,
+    )
 
 
 def file_mtime(path: Path) -> float | None:
@@ -900,6 +956,8 @@ def run_research_format_subprocess_async() -> None:
 
 
 class CVWebHandler(BaseHTTPRequestHandler):
+    """HTTP request handler for static assets and CV/research JSON API routes."""
+
     server_version = "CVWebWrapper/1.0"
 
     def _json_response(self, payload: Any, status: int = 200) -> None:
@@ -961,6 +1019,258 @@ class CVWebHandler(BaseHTTPRequestHandler):
                     raise ValueError(f"File content for '{key}' must be a string")
                 write_text(path, value)
 
+    def _handle_save(self, payload: dict[str, Any]) -> None:
+        try:
+            self._save_editor_payload(payload)
+        except ValueError as exc:
+            self._json_response({"error": str(exc)}, status=400)
+            return
+        self._json_response({"success": True, "savedAt": utc_now_iso(), "state": build_state()})
+
+    def _handle_server_restart(self) -> None:
+        schedule_process_restart()
+        self._json_response({"success": True, "restarting": True, "requestedAt": utc_now_iso()})
+
+    def _handle_research_reset_prompt(self) -> None:
+        if not RESEARCH_PROMPT_DEFAULT_FILE.exists():
+            self._json_response(
+                {"error": f"Default research prompt not found: {RESEARCH_PROMPT_DEFAULT_FILE.name}"},
+                status=404,
+            )
+            return
+
+        write_text(EDITOR_FILES["research_prompt"], read_text(RESEARCH_PROMPT_DEFAULT_FILE))
+        self._json_response(
+            {
+                "success": True,
+                "resetAt": utc_now_iso(),
+                "state": build_research_state(),
+            }
+        )
+
+    def _handle_research_run(self, payload: dict[str, Any]) -> None:
+        try:
+            self._save_editor_payload(
+                payload,
+                allowed_keys={"cv", "prompt", "research_prompt", "jobspec"},
+            )
+            req = parse_research_run_request(payload)
+        except ValueError as exc:
+            self._json_response({"error": str(exc)}, status=400)
+            return
+
+        prompt_text = read_text(EDITOR_FILES["research_prompt"]).strip()
+        if not prompt_text and RESEARCH_PROMPT_DEFAULT_FILE.exists():
+            default_prompt_text = read_text(RESEARCH_PROMPT_DEFAULT_FILE)
+            if default_prompt_text.strip():
+                write_text(EDITOR_FILES["research_prompt"], default_prompt_text)
+                prompt_text = default_prompt_text.strip()
+
+        if not prompt_text:
+            self._json_response(
+                {
+                    "error": (
+                        "Research prompt is empty. Reset prompt from default or save prompt content "
+                        "before running research."
+                    )
+                },
+                status=400,
+            )
+            return
+
+        if not RESEARCH_RUN_LOCK.acquire(blocking=False):
+            self._json_response({"error": "A research run is already in progress"}, status=409)
+            return
+
+        try:
+            thread = threading.Thread(
+                target=run_research_subprocess_async,
+                args=(
+                    req.company_name,
+                    req.urls,
+                    req.dry_run,
+                    req.auto_format_pdf,
+                    req.selected_provider,
+                    req.selected_model,
+                ),
+                daemon=True,
+            )
+            thread.start()
+        except Exception as exc:
+            RESEARCH_RUN_LOCK.release()
+            self._json_response({"error": f"Failed to start research run: {exc}"}, status=500)
+            return
+
+        self._json_response(
+            {
+                "success": True,
+                "running": True,
+                "run": get_current_research_run_snapshot(),
+                "state": build_research_state(),
+            }
+        )
+
+    def _handle_research_format(self) -> None:
+        if not RESEARCH_RUN_LOCK.acquire(blocking=False):
+            self._json_response({"error": "A research operation is already in progress"}, status=409)
+            return
+
+        try:
+            thread = threading.Thread(target=run_research_format_subprocess_async, daemon=True)
+            thread.start()
+        except Exception as exc:
+            RESEARCH_RUN_LOCK.release()
+            self._json_response({"error": f"Failed to start research format: {exc}"}, status=500)
+            return
+
+        self._json_response(
+            {
+                "success": True,
+                "running": True,
+                "run": get_current_research_run_snapshot(),
+                "state": build_research_state(),
+            }
+        )
+
+    def _handle_research_stop(self) -> None:
+        snapshot = get_current_research_run_snapshot()
+        if not snapshot or not snapshot.get("running"):
+            self._json_response({"error": "No active research run to stop"}, status=409)
+            return
+
+        if not request_stop_research_run():
+            self._json_response({"error": "Unable to stop active research run"}, status=500)
+            return
+
+        self._json_response(
+            {
+                "success": True,
+                "stopping": True,
+                "run": get_current_research_run_snapshot(),
+            }
+        )
+
+    def _handle_cv_run(self, route: str, payload: dict[str, Any]) -> None:
+        try:
+            self._save_editor_payload(
+                payload,
+                allowed_keys={"cv", "prompt", "research_prompt", "jobspec"},
+            )
+            req = parse_cv_run_request(route, payload)
+        except ValueError as exc:
+            self._json_response({"error": str(exc)}, status=400)
+            return
+
+        if not RUN_LOCK.acquire(blocking=False):
+            self._json_response({"error": "A run is already in progress"}, status=409)
+            return
+
+        try:
+            thread = threading.Thread(
+                target=run_subprocess_async,
+                args=(req.kind, req.selected_provider, req.selected_model),
+                daemon=True,
+            )
+            thread.start()
+        except Exception as exc:
+            RUN_LOCK.release()
+            self._json_response({"error": f"Failed to start run: {exc}"}, status=500)
+            return
+
+        self._json_response(
+            {
+                "success": True,
+                "running": True,
+                "run": get_current_run_snapshot(),
+                "state": build_state(),
+            }
+        )
+
+    def _handle_static_get(self, route: str) -> bool:
+        if not route.startswith("/static/"):
+            return False
+
+        rel = route.removeprefix("/static/")
+        if rel == "styles.css":
+            self._serve_file(STATIC_DIR / "styles.css", "text/css; charset=utf-8")
+            return True
+        if rel.startswith("styles/") and rel.endswith(".css"):
+            css_path = STATIC_DIR / rel
+            try:
+                css_path.resolve().relative_to(STATIC_DIR.resolve())
+            except ValueError:
+                self.send_error(HTTPStatus.NOT_FOUND, "Unknown static file")
+                return True
+            self._serve_file(css_path, "text/css; charset=utf-8")
+            return True
+        if rel.startswith("js/") and rel.endswith(".js"):
+            js_path = STATIC_DIR / rel
+            try:
+                js_path.resolve().relative_to(STATIC_DIR.resolve())
+            except ValueError:
+                self.send_error(HTTPStatus.NOT_FOUND, "Unknown static file")
+                return True
+            self._serve_file(js_path, "application/javascript; charset=utf-8")
+            return True
+        if rel == "app.js":
+            self._serve_file(STATIC_DIR / "app.js", "application/javascript; charset=utf-8")
+            return True
+
+        self.send_error(HTTPStatus.NOT_FOUND, "Unknown static file")
+        return True
+
+    def _handle_api_run_status_get(self) -> None:
+        current = get_current_run_snapshot()
+        run_payload = current if current is not None else (LAST_RUN if LAST_RUN else None)
+        self._json_response(
+            {
+                "running": bool(current and current.get("running")),
+                "run": run_payload,
+            }
+        )
+
+    def _handle_api_research_status_get(self) -> None:
+        current = get_current_research_run_snapshot()
+        run_payload = current if current is not None else (LAST_RESEARCH_RUN if LAST_RESEARCH_RUN else None)
+        self._json_response(
+            {
+                "running": bool(current and current.get("running")),
+                "run": run_payload,
+            }
+        )
+
+    def _handle_logs_content_get(self, parsed) -> None:
+        query = parse_qs(parsed.query)
+        name = (query.get("name") or [""])[0]
+        if not name:
+            self._json_response({"error": "Missing log file name"}, status=400)
+            return
+        try:
+            content = read_log_file(name)
+        except FileNotFoundError:
+            self._json_response({"error": "Log file not found"}, status=404)
+            return
+        except ValueError as exc:
+            self._json_response({"error": str(exc)}, status=400)
+            return
+        self._json_response({"name": name, "content": content})
+
+    def _handle_output_get(self, route: str) -> bool:
+        if not route.startswith("/output/"):
+            return False
+
+        name = route.removeprefix("/output/")
+        if name not in ALLOWED_OUTPUT_FILES:
+            self.send_error(HTTPStatus.NOT_FOUND, "Unknown output file")
+            return True
+        output_path = OUTPUT_DIR / name
+        content_type = {
+            ".pdf": "application/pdf",
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }.get(output_path.suffix, "text/plain; charset=utf-8")
+        self._serve_file(output_path, content_type)
+        return True
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         route = parsed.path
@@ -969,33 +1279,7 @@ class CVWebHandler(BaseHTTPRequestHandler):
             self._serve_file(TEMPLATES_DIR / "index.html", "text/html; charset=utf-8")
             return
 
-        if route.startswith("/static/"):
-            rel = route.removeprefix("/static/")
-            if rel == "styles.css":
-                self._serve_file(STATIC_DIR / "styles.css", "text/css; charset=utf-8")
-                return
-            if rel.startswith("styles/") and rel.endswith(".css"):
-                css_path = STATIC_DIR / rel
-                try:
-                    css_path.resolve().relative_to(STATIC_DIR.resolve())
-                except ValueError:
-                    self.send_error(HTTPStatus.NOT_FOUND, "Unknown static file")
-                    return
-                self._serve_file(css_path, "text/css; charset=utf-8")
-                return
-            if rel.startswith("js/") and rel.endswith(".js"):
-                js_path = STATIC_DIR / rel
-                try:
-                    js_path.resolve().relative_to(STATIC_DIR.resolve())
-                except ValueError:
-                    self.send_error(HTTPStatus.NOT_FOUND, "Unknown static file")
-                    return
-                self._serve_file(js_path, "application/javascript; charset=utf-8")
-                return
-            if rel == "app.js":
-                self._serve_file(STATIC_DIR / "app.js", "application/javascript; charset=utf-8")
-                return
-            self.send_error(HTTPStatus.NOT_FOUND, "Unknown static file")
+        if self._handle_static_get(route):
             return
 
         if route == "/api/state":
@@ -1003,14 +1287,7 @@ class CVWebHandler(BaseHTTPRequestHandler):
             return
 
         if route == "/api/run/status":
-            current = get_current_run_snapshot()
-            run_payload = current if current is not None else (LAST_RUN if LAST_RUN else None)
-            self._json_response(
-                {
-                    "running": bool(current and current.get("running")),
-                    "run": run_payload,
-                }
-            )
+            self._handle_api_run_status_get()
             return
 
         if route == "/api/research/state":
@@ -1018,14 +1295,7 @@ class CVWebHandler(BaseHTTPRequestHandler):
             return
 
         if route == "/api/research/status":
-            current = get_current_research_run_snapshot()
-            run_payload = current if current is not None else (LAST_RESEARCH_RUN if LAST_RESEARCH_RUN else None)
-            self._json_response(
-                {
-                    "running": bool(current and current.get("running")),
-                    "run": run_payload,
-                }
-            )
+            self._handle_api_research_status_get()
             return
 
         if route == "/api/logs":
@@ -1034,33 +1304,10 @@ class CVWebHandler(BaseHTTPRequestHandler):
             return
 
         if route == "/api/logs/content":
-            query = parse_qs(parsed.query)
-            name = (query.get("name") or [""])[0]
-            if not name:
-                self._json_response({"error": "Missing log file name"}, status=400)
-                return
-            try:
-                content = read_log_file(name)
-            except FileNotFoundError:
-                self._json_response({"error": "Log file not found"}, status=404)
-                return
-            except ValueError as exc:
-                self._json_response({"error": str(exc)}, status=400)
-                return
-            self._json_response({"name": name, "content": content})
+            self._handle_logs_content_get(parsed)
             return
 
-        if route.startswith("/output/"):
-            name = route.removeprefix("/output/")
-            if name not in ALLOWED_OUTPUT_FILES:
-                self.send_error(HTTPStatus.NOT_FOUND, "Unknown output file")
-                return
-            output_path = OUTPUT_DIR / name
-            content_type = {
-                ".pdf": "application/pdf",
-                ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            }.get(output_path.suffix, "text/plain; charset=utf-8")
-            self._serve_file(output_path, content_type)
+        if self._handle_output_get(route):
             return
 
         self.send_error(HTTPStatus.NOT_FOUND, "Unknown route")
@@ -1076,205 +1323,31 @@ class CVWebHandler(BaseHTTPRequestHandler):
             return
 
         if route == "/api/save":
-            try:
-                self._save_editor_payload(payload)
-            except ValueError as exc:
-                self._json_response({"error": str(exc)}, status=400)
-                return
-            self._json_response({"success": True, "savedAt": utc_now_iso(), "state": build_state()})
+            self._handle_save(payload)
             return
 
         if route == "/api/server/restart":
-            schedule_process_restart()
-            self._json_response({"success": True, "restarting": True, "requestedAt": utc_now_iso()})
+            self._handle_server_restart()
             return
 
         if route == "/api/research/reset-prompt":
-            if not RESEARCH_PROMPT_DEFAULT_FILE.exists():
-                self._json_response(
-                    {"error": f"Default research prompt not found: {RESEARCH_PROMPT_DEFAULT_FILE.name}"},
-                    status=404,
-                )
-                return
-
-            write_text(EDITOR_FILES["research_prompt"], read_text(RESEARCH_PROMPT_DEFAULT_FILE))
-            self._json_response(
-                {
-                    "success": True,
-                    "resetAt": utc_now_iso(),
-                    "state": build_research_state(),
-                }
-            )
+            self._handle_research_reset_prompt()
             return
 
         if route == "/api/research/run":
-            try:
-                self._save_editor_payload(
-                    payload,
-                    allowed_keys={"cv", "prompt", "research_prompt", "jobspec"},
-                )
-                selected_provider = parse_selected_provider(payload)
-                selected_model = parse_selected_model(payload, selected_provider)
-            except ValueError as exc:
-                self._json_response({"error": str(exc)}, status=400)
-                return
-
-            prompt_text = read_text(EDITOR_FILES["research_prompt"]).strip()
-            if not prompt_text and RESEARCH_PROMPT_DEFAULT_FILE.exists():
-                default_prompt_text = read_text(RESEARCH_PROMPT_DEFAULT_FILE)
-                if default_prompt_text.strip():
-                    write_text(EDITOR_FILES["research_prompt"], default_prompt_text)
-                    prompt_text = default_prompt_text.strip()
-
-            if not prompt_text:
-                self._json_response(
-                    {
-                        "error": (
-                            "Research prompt is empty. Reset prompt from default or save prompt content "
-                            "before running research."
-                        )
-                    },
-                    status=400,
-                )
-                return
-
-            company_name = str(payload.get("companyName", "")).strip()
-            if not company_name:
-                self._json_response({"error": "companyName is required"}, status=400)
-                return
-
-            raw_urls = payload.get("urls", [])
-            if not isinstance(raw_urls, list):
-                self._json_response({"error": "urls must be a list of strings"}, status=400)
-                return
-
-            urls: list[str] = []
-            for idx, item in enumerate(raw_urls):
-                if not isinstance(item, str):
-                    self._json_response({"error": f"urls[{idx}] must be a string"}, status=400)
-                    return
-                cleaned = item.strip()
-                if cleaned:
-                    urls.append(cleaned)
-
-            dry_run = bool(payload.get("dryRun", False))
-            auto_format_pdf = payload.get("autoFormatPdf", True)
-            if not isinstance(auto_format_pdf, bool):
-                self._json_response({"error": "autoFormatPdf must be a boolean"}, status=400)
-                return
-
-            if not RESEARCH_RUN_LOCK.acquire(blocking=False):
-                self._json_response({"error": "A research run is already in progress"}, status=409)
-                return
-
-            try:
-                thread = threading.Thread(
-                    target=run_research_subprocess_async,
-                    args=(
-                        company_name,
-                        urls,
-                        dry_run,
-                        auto_format_pdf,
-                        selected_provider,
-                        selected_model,
-                    ),
-                    daemon=True,
-                )
-                thread.start()
-            except Exception as exc:
-                RESEARCH_RUN_LOCK.release()
-                self._json_response({"error": f"Failed to start research run: {exc}"}, status=500)
-                return
-
-            self._json_response(
-                {
-                    "success": True,
-                    "running": True,
-                    "run": get_current_research_run_snapshot(),
-                    "state": build_research_state(),
-                }
-            )
+            self._handle_research_run(payload)
             return
 
         if route == "/api/research/format":
-            if not RESEARCH_RUN_LOCK.acquire(blocking=False):
-                self._json_response({"error": "A research operation is already in progress"}, status=409)
-                return
-
-            try:
-                thread = threading.Thread(target=run_research_format_subprocess_async, daemon=True)
-                thread.start()
-            except Exception as exc:
-                RESEARCH_RUN_LOCK.release()
-                self._json_response({"error": f"Failed to start research format: {exc}"}, status=500)
-                return
-
-            self._json_response(
-                {
-                    "success": True,
-                    "running": True,
-                    "run": get_current_research_run_snapshot(),
-                    "state": build_research_state(),
-                }
-            )
+            self._handle_research_format()
             return
 
         if route == "/api/research/stop":
-            snapshot = get_current_research_run_snapshot()
-            if not snapshot or not snapshot.get("running"):
-                self._json_response({"error": "No active research run to stop"}, status=409)
-                return
-
-            if not request_stop_research_run():
-                self._json_response({"error": "Unable to stop active research run"}, status=500)
-                return
-
-            self._json_response(
-                {
-                    "success": True,
-                    "stopping": True,
-                    "run": get_current_research_run_snapshot(),
-                }
-            )
+            self._handle_research_stop()
             return
 
         if route in {"/api/run/full", "/api/run/format"}:
-            try:
-                self._save_editor_payload(
-                    payload,
-                    allowed_keys={"cv", "prompt", "research_prompt", "jobspec"},
-                )
-                selected_provider = parse_selected_provider(payload)
-                selected_model = parse_selected_model(payload, selected_provider)
-            except ValueError as exc:
-                self._json_response({"error": str(exc)}, status=400)
-                return
-
-            kind = "full" if route.endswith("/full") else "format"
-            if not RUN_LOCK.acquire(blocking=False):
-                self._json_response({"error": "A run is already in progress"}, status=409)
-                return
-
-            try:
-                model_override = selected_model if kind == "full" else ""
-                thread = threading.Thread(
-                    target=run_subprocess_async,
-                    args=(kind, selected_provider, model_override),
-                    daemon=True,
-                )
-                thread.start()
-            except Exception as exc:
-                RUN_LOCK.release()
-                self._json_response({"error": f"Failed to start run: {exc}"}, status=500)
-                return
-            self._json_response(
-                {
-                    "success": True,
-                    "running": True,
-                    "run": get_current_run_snapshot(),
-                    "state": build_state(),
-                }
-            )
+            self._handle_cv_run(route, payload)
             return
 
         self.send_error(HTTPStatus.NOT_FOUND, "Unknown route")

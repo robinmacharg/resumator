@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""
+Architecture role:
+- Layer: backend catalog adapter between provider registry and API server consumers.
+- Responsibility: normalize discovered providers into frontend-facing catalog shape,
+    and provide static fallback catalog behavior when discovery is unavailable.
+
+Plain-language purpose:
+- This module builds the provider/model list used by the app and keeps that payload
+    consistent regardless of whether data comes from dynamic backends or static JSON.
+"""
+
 from __future__ import annotations
 
 import json

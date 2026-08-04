@@ -1,3 +1,14 @@
+"""
+Architecture role:
+- Layer: backend provider discovery and capability catalog service.
+- Responsibility: load backend implementations, interrogate runtime availability,
+  normalize model metadata, and expose a stable provider catalog/map.
+
+Plain-language purpose:
+- This module is the provider registry for AI backends. It decides what providers exist,
+  whether they are enabled, and which models can be used.
+"""
+
 from __future__ import annotations
 
 import importlib.util
@@ -8,6 +19,7 @@ from types import ModuleType
 from typing import Any
 
 from backends.base import Backend, BackendStatus
+from env_utils import parse_dotenv_file
 
 ROOT_DIR = Path(__file__).resolve().parent
 BACKENDS_DIR = ROOT_DIR / "backends"
@@ -16,6 +28,8 @@ ENV_FILE_PATH = ROOT_DIR / ".env"
 
 @dataclass
 class RegisteredBackend:
+    """Runtime backend entry paired with interrogation status and module location."""
+
     backend: Backend
     status: BackendStatus
     module_path: Path
@@ -23,38 +37,10 @@ class RegisteredBackend:
 
 @dataclass
 class BackendCatalog:
+    """Serializable catalog payload returned to higher-level catalog builders."""
+
     default_provider: str
     providers: list[dict[str, Any]]
-
-
-def parse_dotenv_file(path: Path) -> dict[str, str]:
-    env_vars: dict[str, str] = {}
-    if not path.exists():
-        return env_vars
-
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-
-        if line.startswith("export "):
-            line = line[len("export ") :].strip()
-
-        if "=" not in line:
-            continue
-
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip()
-        if not key:
-            continue
-
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
-            value = value[1:-1]
-
-        env_vars[key] = value
-
-    return env_vars
 
 
 def runtime_env() -> dict[str, str]:
