@@ -1,6 +1,15 @@
 import { parseResearchUrlsInput, sleep } from "./app-utils.js";
 
 /**
+ * Architecture role:
+ * - Layer: domain workflow feature used by app bootstrap.
+ * - Responsibility: execute research workflows (run/stop/format/reset) and keep research outputs current.
+ *
+ * Plain-language purpose:
+ * - This module is the "research operator". It takes research inputs, runs the backend process, and streams results into the UI.
+ */
+
+/**
  * Dependencies required by the research feature.
  * Boundaries: this feature orchestrates research lifecycle and polling; UI/state mutations are delegated to callbacks.
  *

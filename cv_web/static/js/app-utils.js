@@ -1,3 +1,17 @@
+/**
+ * Architecture role:
+ * - Layer: shared pure helpers used across feature modules.
+ * - Responsibility: formatting, quoting, timing, and research URL normalization helpers.
+ *
+ * Plain-language purpose:
+ * - This file is a "toolbox" of tiny reusable functions that keep feature files focused on workflow logic.
+ */
+
+/**
+ * Quote a shell argument safely for display.
+ * @param {string} arg Raw argument.
+ * @returns {string} Shell-escaped argument.
+ */
 export function shellQuote(arg) {
     if (arg === "") {
         return "''";
@@ -8,6 +22,11 @@ export function shellQuote(arg) {
     return `'${String(arg).replace(/'/g, `'\\''`)}'`;
 }
 
+/**
+ * Render a command array as a shell-like string.
+ * @param {any} command Command array payload.
+ * @returns {string} Display string.
+ */
 export function formatCommandForDisplay(command) {
     if (!Array.isArray(command) || command.length === 0) {
         return "No command yet. Run Research first.";
@@ -15,6 +34,11 @@ export function formatCommandForDisplay(command) {
     return command.map((part) => shellQuote(String(part))).join(" ");
 }
 
+/**
+ * Format a timestamp to second precision.
+ * @param {string | number | Date | null | undefined} value Optional date-like input.
+ * @returns {string} Formatted date-time.
+ */
 export function formatTimestampToSecond(value) {
     const date = value ? new Date(value) : new Date();
     if (Number.isNaN(date.getTime())) {
@@ -30,10 +54,20 @@ export function formatTimestampToSecond(value) {
     return `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
 }
 
+/**
+ * Await for a fixed number of milliseconds.
+ * @param {number} ms Delay in milliseconds.
+ * @returns {Promise<void>}
+ */
 export function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Parse newline-delimited research URLs, removing blanks, comments, and duplicates.
+ * @param {string} rawText Multiline URL input.
+ * @returns {string[]} Clean URL list.
+ */
 export function parseResearchUrlsInput(rawText) {
     const seen = new Set();
     const urls = [];

@@ -1,4 +1,13 @@
 /**
+ * Architecture role:
+ * - Layer: support feature used by app bootstrap.
+ * - Responsibility: load run/debug log metadata and selected debug log content.
+ *
+ * Plain-language purpose:
+ * - This module is the "log viewer backend" for the UI. It populates log selectors and fetches log text on demand.
+ */
+
+/**
  * Dependencies required by logs feature.
  * Boundaries: this feature fetches log data and updates log UI controls; no global app state ownership.
  *

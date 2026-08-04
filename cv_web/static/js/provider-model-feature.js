@@ -1,4 +1,14 @@
 /**
+ * Architecture role:
+ * - Layer: configuration feature used by app bootstrap.
+ * - Responsibility: manage provider and model selectors, normalize backend option payloads, and persist user selection.
+ *
+ * Plain-language purpose:
+ * - A provider/model feature controls which AI backend provider (for example Gemini) and which model variant the app sends into run/research requests.
+ * - It is the "model selection manager" for the UI.
+ */
+
+/**
  * Dependencies required by provider/model feature.
  * Boundaries: this feature owns provider/model option rendering and persistence only.
  *
@@ -18,6 +28,10 @@
 export function createProviderModelFeature(ctx) {
     const { state, els, localStorageKeys } = ctx;
 
+    /**
+     * Read model selection from UI.
+     * @returns {string}
+     */
     function selectedModelFromUi() {
         if (!els.modelSelect) {
             return "";
@@ -25,6 +39,10 @@ export function createProviderModelFeature(ctx) {
         return (els.modelSelect.value || "").trim();
     }
 
+    /**
+     * Read provider selection from UI with default fallback.
+     * @returns {string}
+     */
     function selectedProviderFromUi() {
         if (!els.providerSelect) {
             return state.defaultProvider || "gemini";
@@ -32,6 +50,11 @@ export function createProviderModelFeature(ctx) {
         return (els.providerSelect.value || state.defaultProvider || "gemini").trim();
     }
 
+    /**
+     * Persist selected provider to state/localStorage/UI.
+     * @param {string} provider
+     * @returns {void}
+     */
     function setSelectedProvider(provider) {
         const next = (provider || state.defaultProvider || "gemini").trim();
         state.selectedProvider = next;
@@ -41,6 +64,11 @@ export function createProviderModelFeature(ctx) {
         }
     }
 
+    /**
+     * Persist selected model to state/localStorage/UI.
+     * @param {string} model
+     * @returns {void}
+     */
     function setSelectedModel(model) {
         const next = (model || "").trim();
         state.selectedModel = next;
@@ -50,11 +78,19 @@ export function createProviderModelFeature(ctx) {
         }
     }
 
+    /**
+     * Resolve model options for currently selected provider.
+     * @returns {string[]}
+     */
     function getActiveModelOptions() {
         const options = state.modelsByProvider[state.selectedProvider];
         return Array.isArray(options) ? options : [];
     }
 
+    /**
+     * Rebuild model selector options using current provider and saved model preference.
+     * @returns {void}
+     */
     function refreshModelSelectOptions() {
         if (!els.modelSelect) {
             return;
@@ -96,6 +132,12 @@ export function createProviderModelFeature(ctx) {
         setSelectedModel(selected);
     }
 
+    /**
+     * Populate provider and model selectors from API payloads.
+     * @param {any} providersPayload
+     * @param {any} modelsPayload
+     * @returns {void}
+     */
     function populateProviderAndModelSelect(providersPayload, modelsPayload) {
         const defaultProvider =
             providersPayload && typeof providersPayload.defaultProvider === "string"
@@ -162,10 +204,18 @@ export function createProviderModelFeature(ctx) {
         refreshModelSelectOptions();
     }
 
+    /**
+     * Persist current model when user changes model select.
+     * @returns {void}
+     */
     function handleModelSelectChanged() {
         setSelectedModel(selectedModelFromUi());
     }
 
+    /**
+     * Handle provider changes and reset model selection into provider-specific options.
+     * @returns {void}
+     */
     function handleProviderSelectChanged() {
         setSelectedProvider(selectedProviderFromUi());
         setSelectedModel("");

@@ -3,6 +3,15 @@ const SPLITTER_MIN_RIGHT_PX = 320;
 const RESEARCH_SPLITTER_MIN_SECTION_PX = 140;
 
 /**
+ * Architecture role:
+ * - Layer: interaction/presentation feature used by app bootstrap.
+ * - Responsibility: tab switching, persistence of active panels, and splitter drag interactions.
+ *
+ * Plain-language purpose:
+ * - This module is the "layout coordinator". It controls what panel is visible and how the user resizes major sections.
+ */
+
+/**
  * Dependencies required by UI layout feature.
  * Boundaries: this feature owns tab activation state and splitter interactions; data fetching is delegated.
  *

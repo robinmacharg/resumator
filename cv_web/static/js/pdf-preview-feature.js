@@ -22,6 +22,15 @@ const PREVIEW_CONFIG = {
 };
 
 /**
+ * Architecture role:
+ * - Layer: shared presentation feature used by app bootstrap.
+ * - Responsibility: render preview state for generated CV and Research PDFs using one common behavior.
+ *
+ * Plain-language purpose:
+ * - This module is the "PDF screen controller". It decides which PDF to show, whether it exists, and how title/link/iframe should look.
+ */
+
+/**
  * Dependencies required by PDF preview feature.
  * Boundaries: this feature manages preview state/rendering for known output kinds, but does not fetch payloads.
  *

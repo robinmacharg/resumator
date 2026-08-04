@@ -1,5 +1,15 @@
+/**
+ * Architecture role:
+ * - Layer: frontend composition root for the CV web app.
+ * - Responsibility: create shared state, collect DOM references, compose feature modules, and wire events.
+ *
+ * Plain-language purpose:
+ * - This is the app's "main" file. It does not implement every behavior itself; instead it connects smaller features together.
+ */
+
 import { api, fetchText } from "./js/api-client.js";
 import { createCvPipelineFeature } from "./js/cv-pipeline-feature.js";
+import { createDraftFilesFeature } from "./js/draft-files-feature.js";
 import { createLogsFeature } from "./js/logs-feature.js";
 import { createPdfPreviewFeature } from "./js/pdf-preview-feature.js";
 import { createProviderModelFeature } from "./js/provider-model-feature.js";
@@ -334,148 +344,25 @@ function syncResearchPrimaryButton() {
     }
 }
 
-function currentFiles() {
-    return {
-        cv: els.cvEditor.value,
-        prompt: els.promptEditor.value,
-        research_prompt: els.researchPromptEditor.value,
-        jobspec: els.jobspecEditor.value,
-        env: els.envEditor.value,
-    };
-}
+const draftFilesFeature = createDraftFilesFeature({
+    state,
+    els,
+    editableFiles: EDITABLE_FILES,
+    localStorageKeys: LS_KEYS,
+    setStatus,
+});
 
-function syncDirtyIndicators() {
-    Object.entries(EDITABLE_FILES).forEach(([key, cfg]) => {
-        const editor = cfg.editor();
-        const diskValue = state.diskFiles[key] || "";
-        const isDirty = editor.value !== diskValue;
-        const suffix = isDirty ? "*" : "";
-
-        const tabLabelEls = els.tabLabels.filter((el) => el.dataset.labelFor === key);
-        tabLabelEls.forEach((tabLabelEl) => {
-            tabLabelEl.textContent = `${cfg.tabLabel}${suffix}`;
-        });
-        if (cfg.title) {
-            cfg.title.textContent = `${cfg.tabLabel}${suffix}`;
-        }
-    });
-}
-
-function syncResearchMirrorEditorsFromPrimary() {
-    if (els.researchJobspecEditor && els.jobspecEditor) {
-        els.researchJobspecEditor.value = els.jobspecEditor.value;
-    }
-    if (els.researchCvEditor && els.cvEditor) {
-        els.researchCvEditor.value = els.cvEditor.value;
-    }
-}
-
-function bindMirroredEditors(primaryEditor, mirrorEditor) {
-    if (!primaryEditor || !mirrorEditor) {
-        return;
-    }
-
-    let syncing = false;
-
-    const syncValues = (source, target) => {
-        if (syncing) {
-            return;
-        }
-        if (target.value === source.value) {
-            return;
-        }
-
-        syncing = true;
-        target.value = source.value;
-        target.dispatchEvent(new Event("input", { bubbles: true }));
-        syncing = false;
-    };
-
-    primaryEditor.addEventListener("input", () => syncValues(primaryEditor, mirrorEditor));
-    mirrorEditor.addEventListener("input", () => syncValues(mirrorEditor, primaryEditor));
-}
-
-function writeDraftToLocalStorage() {
-    const files = currentFiles();
-    localStorage.setItem(LS_KEYS.cv, files.cv);
-    localStorage.setItem(LS_KEYS.prompt, files.prompt);
-    localStorage.setItem(LS_KEYS.research_prompt, files.research_prompt);
-    localStorage.setItem(LS_KEYS.research_company, els.researchCompanyInput.value || "");
-    localStorage.setItem(LS_KEYS.research_urls, els.researchUrlsInput.value || "");
-    localStorage.setItem(LS_KEYS.jobspec, files.jobspec);
-    localStorage.setItem(LS_KEYS.env, files.env);
-}
-
-function hasLocalDraft() {
-    return [
-        LS_KEYS.cv,
-        LS_KEYS.prompt,
-        LS_KEYS.research_prompt,
-        LS_KEYS.research_company,
-        LS_KEYS.research_urls,
-        LS_KEYS.jobspec,
-        LS_KEYS.env,
-    ].some((key) => localStorage.getItem(key) !== null);
-}
-
-function loadLocalDraft(diskFiles = {}) {
-    const cv = localStorage.getItem(LS_KEYS.cv);
-    const prompt = localStorage.getItem(LS_KEYS.prompt);
-    const researchPrompt = localStorage.getItem(LS_KEYS.research_prompt);
-    const researchCompany = localStorage.getItem(LS_KEYS.research_company);
-    const researchUrls = localStorage.getItem(LS_KEYS.research_urls);
-    const jobspec = localStorage.getItem(LS_KEYS.jobspec);
-    const env = localStorage.getItem(LS_KEYS.env);
-
-    if (cv !== null) {
-        els.cvEditor.value = cv;
-    }
-    if (prompt !== null) {
-        els.promptEditor.value = prompt;
-    }
-    if (researchPrompt !== null) {
-        els.researchPromptEditor.value = researchPrompt;
-    }
-    if (researchCompany !== null) {
-        els.researchCompanyInput.value = researchCompany;
-    }
-    if (researchUrls !== null) {
-        els.researchUrlsInput.value = researchUrls;
-    }
-    if (jobspec !== null) {
-        els.jobspecEditor.value = jobspec;
-    }
-    if (env !== null) {
-        const diskEnv = diskFiles.env || "";
-        if (env === "" && diskEnv.trim() !== "") {
-            els.envEditor.value = diskEnv;
-        } else {
-            els.envEditor.value = env;
-        }
-    }
-
-    syncResearchMirrorEditorsFromPrimary();
-}
-
-function applyFilesToEditors(files) {
-    els.cvEditor.value = files.cv || "";
-    els.promptEditor.value = files.prompt || "";
-    els.researchPromptEditor.value = files.research_prompt || "";
-    els.jobspecEditor.value = files.jobspec || "";
-    els.envEditor.value = files.env || "";
-    syncResearchMirrorEditorsFromPrimary();
-}
-
-function updateDiskSnapshot(files) {
-    state.diskFiles = {
-        cv: files.cv || "",
-        prompt: files.prompt || "",
-        research_prompt: files.research_prompt || "",
-        jobspec: files.jobspec || "",
-        env: files.env || "",
-    };
-    syncDirtyIndicators();
-}
+const {
+    currentFiles,
+    syncDirtyIndicators,
+    writeDraftToLocalStorage,
+    hasLocalDraft,
+    loadLocalDraft,
+    applyFilesToEditors,
+    updateDiskSnapshot,
+    bindMirroredEditors,
+    bindAutosave,
+} = draftFilesFeature;
 
 function setRunLogOutput(text) {
     setOutputContentWithSmartAutoscroll(els.runLogOutput, text);
@@ -641,42 +528,6 @@ async function refreshTailoredOutput() {
     } catch (_err) {
         els.tailoredViewer.value = "output/tailored.md not found yet. Run full pipeline first.";
     }
-}
-
-function bindAutosave() {
-    let timer = null;
-    const schedule = () => {
-        if (timer) {
-            clearTimeout(timer);
-        }
-        timer = setTimeout(() => {
-            writeDraftToLocalStorage();
-            setStatus("Draft saved to browser storage.");
-        }, 300);
-    };
-
-    [
-        els.cvEditor,
-        els.promptEditor,
-        els.researchPromptEditor,
-        els.jobspecEditor,
-        els.researchJobspecEditor,
-        els.researchCvEditor,
-        els.envEditor,
-    ].forEach((editor) => {
-        if (!editor) {
-            return;
-        }
-        editor.addEventListener("input", schedule);
-        editor.addEventListener("input", syncDirtyIndicators);
-    });
-
-    [els.researchCompanyInput, els.researchUrlsInput].forEach((inputEl) => {
-        if (!inputEl) {
-            return;
-        }
-        inputEl.addEventListener("input", schedule);
-    });
 }
 
 async function saveSingleFile(fileKey) {

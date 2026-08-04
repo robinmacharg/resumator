@@ -1,6 +1,15 @@
 import { sleep } from "./app-utils.js";
 
 /**
+ * Architecture role:
+ * - Layer: domain workflow feature used by app bootstrap.
+ * - Responsibility: run CV pipeline operations (format/full), poll run status, and coordinate downstream refreshes.
+ *
+ * Plain-language purpose:
+ * - This module is the "run engine" for CV generation. It starts runs and keeps status/log/preview synchronized until completion.
+ */
+
+/**
  * Dependencies required by the CV pipeline feature.
  * Boundaries: this feature orchestrates CV run polling and status updates, but does not own DOM queries.
  * Side effects are performed via injected callbacks.
