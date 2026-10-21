@@ -120,6 +120,28 @@ def apply_semantic_tag_formatting(markdown_text: str) -> str:
 
         return pattern.sub(repl, text)
 
+    def normalize_earlier_role_text(text: str) -> str:
+        """Mark the title and company of an earlier-career line as styled spans.
+
+        Expected pattern: **<title>** | _<company>_<rest>. Other text passes through.
+        """
+        match = re.match(r"^\*\*(.+?)\*\*\s*\|\s*_(.+?)_(.*)$", text.strip())
+        if not match:
+            return text.strip()
+        title, company, rest = match.groups()
+        return (
+            f'[{title.strip()}]{{custom-style="earlier-title"}} | '
+            f'[{company.strip()}]{{custom-style="earlier-company"}}{rest}'
+        )
+
+    def normalize_skills_group_text(text: str) -> str:
+        """Mark the group name of a '**<group>** - <items>' line as a skills-group span."""
+        match = re.match(r"^\*\*(.+?)\*\*\s*(.*)$", text.strip())
+        if not match:
+            return text.strip()
+        group, rest = match.groups()
+        return f'[{group.strip()}]{{custom-style="skills-group"}} {rest}'.strip()
+
     def extract_tag_payload(line_text: str, tag: str) -> str | None:
         """Extract payload for semantic tags, allowing common prefix variants."""
         match = re.match(rf"^(?:#+\s+)?(?:[-*+]\s+)?\[{re.escape(tag)}\]\s*(.*)$", line_text)
@@ -154,6 +176,7 @@ def apply_semantic_tag_formatting(markdown_text: str) -> str:
         (["candidate_name", "name"], "candidate-name", None),
         (["candidate_title", "title"], "candidate-title", None),
         (["candidate_contact", "contact"], "candidate-contact", normalize_candidate_contact_text),
+        (["candidate_subheader", "subheader"], "candidate-subheader", None),
         (["keywords", "keyword"], "keywords", normalize_plain_text_markdown),
         (["section_heading", "section"], "section-heading", strip_heading_markers),
         (["role_heading", "role"], "role-heading", strip_heading_markers),
@@ -164,8 +187,10 @@ def apply_semantic_tag_formatting(markdown_text: str) -> str:
             "requirements-heading",
             strip_heading_markers,
         ),
+        (["earlier_intro"], "earlier-intro", None),
     ]
-    list_tags = ["bullet_primary", "bullet_secondary", "project_item"]
+    # bullet_primary/bullet_secondary: v1 tags, kept so older tailored.md files still render.
+    list_tags = ["role_bullet", "bullet_primary", "bullet_secondary", "project_item"]
 
     for line in markdown_text.splitlines():
         stripped = line.strip()
@@ -194,6 +219,16 @@ def apply_semantic_tag_formatting(markdown_text: str) -> str:
         list_text = extract_first_tag_payload(stripped, list_tags)
         if list_text is not None:
             transformed_lines.append(f"- {list_text}")
+            continue
+
+        earlier_role_text = extract_tag_payload(stripped, "earlier_role")
+        if earlier_role_text is not None:
+            transformed_lines.append(f"- {normalize_earlier_role_text(earlier_role_text)}")
+            continue
+
+        skills_group_text = extract_tag_payload(stripped, "skills_group")
+        if skills_group_text is not None:
+            transformed_lines.append(normalize_skills_group_text(skills_group_text))
             continue
 
         education_item_text = extract_tag_payload(stripped, "education_item")

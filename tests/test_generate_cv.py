@@ -1,0 +1,246 @@
+import copy
+import json
+import unittest
+
+from generate_cv import (
+    earlier_career_span,
+    normalize_date_range,
+    parse_and_validate_json_output,
+    render_tagged_markdown,
+    validate_and_normalize_payload,
+)
+
+
+def valid_payload() -> dict:
+    return {
+        "candidate": {
+            "name": "Ada Lovelace",
+            "phone": "+44 123",
+            "email": "ada@example.com",
+            "linkedin": "https://linkedin.com/in/ada",
+            "github": None,
+            "stackoverflow": "",
+            "website": None,
+            "location": "London",
+            "subheader_lines": ["Portfolio: [ada.dev](https://ada.dev)"],
+        },
+        "metadata": {"company": "Engine Co"},
+        "document": {
+            "headline": "Analyst and Programmer",
+            "professional_summary": [f"**Point {n}** evidence." for n in range(4)],
+            "role_requirements": {
+                "role_title": "Senior Analyst",
+                "items": ["- **Maths:** Bernoulli numbers."] + [f"**Req {n}:** proof." for n in range(3)],
+            },
+            "education_credentials": ["Mathematics - private tutors"],
+            "selected_key_roles": [
+                {
+                    "title": "Analyst",
+                    "company": "Engine Co",
+                    "date_range": "October 2021 – present",
+                    "app_store_url": "https://apps.apple.com/x",
+                    "keywords": ["Maths", "Notes"],
+                    "bullets": ["* Wrote the first program.", "Translated Menabrea."],
+                }
+            ],
+            "earlier_career": {
+                "sectors": ["mathematics", "translation", "poetry"],
+                "items": [
+                    {
+                        "role_title": "Translator",
+                        "company": "Menabrea",
+                        "technologies": ["French"],
+                        "date_range": "Mar 2015 to SEPT 2018",
+                    },
+                    {
+                        "role_title": "Student",
+                        "company": "Tutors",
+                        "technologies": [],
+                        "date_range": "1996 - 2001",
+                    },
+                ],
+            },
+            "open_source_contributions": ["- Note G", "Difference Engine notes", "Bernoulli tables"],
+            "technical_skills": [{"group": "Maths", "items": ["Algebra", "Calculus"]}],
+        },
+    }
+
+
+class NormalizeDateRangeTests(unittest.TestCase):
+    def test_rewrites_to_three_letter_months(self) -> None:
+        self.assertEqual(normalize_date_range("October 2021 – present", "f"), "Oct 2021 - Present")
+        self.assertEqual(normalize_date_range("Mar 2015 to SEPT 2018", "f"), "Mar 2015 - Sep 2018")
+        self.assertEqual(normalize_date_range("1996-2001", "f"), "1996 - 2001")
+
+    def test_rejects_bad_ranges(self) -> None:
+        for value in ["2019", "Smarch 2019 - 2020", "Present - 2020", "Jan 2020 - Dec 2019", "", None]:
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                normalize_date_range(value, "f")
+
+    def test_earlier_career_span_uses_widest_bounds(self) -> None:
+        items = [{"date_range": "Mar 2015 - Sep 2018"}, {"date_range": "1996 - 2001"}]
+        self.assertEqual(earlier_career_span(items), "1996 - 2018")
+        items.append({"date_range": "2010 - Present"})
+        self.assertEqual(earlier_career_span(items), "1996 - Present")
+
+
+class ValidateAndNormalizePayloadTests(unittest.TestCase):
+    def validate(self, payload: dict | None = None, **kwargs) -> dict:
+        return validate_and_normalize_payload(payload or valid_payload(), **kwargs)
+
+    def assert_invalid(self, mutate, message: str, **kwargs) -> None:
+        payload = valid_payload()
+        mutate(payload)
+        with self.assertRaisesRegex(ValueError, message):
+            self.validate(payload, **kwargs)
+
+    def test_valid_payload_is_normalised(self) -> None:
+        payload = self.validate()
+        candidate = payload["candidate"]
+        self.assertNotIn("location", candidate)
+        self.assertIsNone(candidate["github"])
+        self.assertIsNone(candidate["stackoverflow"])
+        document = payload["document"]
+        self.assertEqual(document["role_requirements"]["items"][0], "**Maths:** Bernoulli numbers.")
+        role = document["selected_key_roles"][0]
+        self.assertEqual(role["date_range"], "Oct 2021 - Present")
+        self.assertEqual(role["bullets"], ["Wrote the first program.", "Translated Menabrea."])
+        self.assertEqual(document["earlier_career"]["items"][0]["date_range"], "Mar 2015 - Sep 2018")
+        self.assertEqual(document["open_source_contributions"][0], "Note G")
+
+    def test_metadata_is_optional(self) -> None:
+        payload = valid_payload()
+        del payload["metadata"]
+        self.assertEqual(self.validate(payload)["metadata"], {})
+
+    def test_v1_only_keys_are_not_required(self) -> None:
+        payload = valid_payload()
+        self.assertNotIn("semantic_tags", payload)
+        self.assertNotIn("skills_raw", payload)
+        self.validate(payload)
+
+    def test_required_fields(self) -> None:
+        cases = [
+            (lambda p: p.pop("document"), "Missing required top-level key: document"),
+            (lambda p: p["candidate"].pop("email"), "candidate.email"),
+            (lambda p: p["document"].pop("headline"), "document.headline"),
+            (lambda p: p["document"]["role_requirements"].pop("role_title"), "role_title"),
+            (lambda p: p["document"]["earlier_career"].pop("sectors"), "sectors"),
+            (lambda p: p["document"]["selected_key_roles"][0].pop("company"), r"\[0\]\.company"),
+        ]
+        for mutate, message in cases:
+            with self.subTest(message=message):
+                self.assert_invalid(mutate, message)
+
+    def test_list_lengths(self) -> None:
+        cases = [
+            (lambda p: p["document"]["professional_summary"].pop(), "professional_summary must include at least 4"),
+            (lambda p: p["document"]["education_credentials"].extend(["b", "c", "d"]), "at most 3"),
+            (lambda p: p["document"]["open_source_contributions"].extend(["d", "e"]), "at most 4"),
+            (lambda p: p["document"]["selected_key_roles"][0]["bullets"].extend(["a"] * 4), "at most 5"),
+            (lambda p: p["document"]["selected_key_roles"].extend(
+                copy.deepcopy(p["document"]["selected_key_roles"]) * 5), "at most 5 roles"),
+        ]
+        for mutate, message in cases:
+            with self.subTest(message=message):
+                self.assert_invalid(mutate, message)
+
+    def test_bold_lead_in_required(self) -> None:
+        self.assert_invalid(
+            lambda p: p["document"]["professional_summary"].__setitem__(0, "No bold."),
+            r"professional_summary\[0\] must open with a \*\*bold phrase\*\*",
+        )
+        self.assert_invalid(
+            lambda p: p["document"]["role_requirements"]["items"].__setitem__(1, "- plain"),
+            r"items\[1\] must open",
+        )
+
+    def test_urls_must_be_http(self) -> None:
+        self.assert_invalid(
+            lambda p: p["document"]["selected_key_roles"][0].__setitem__("app_store_url", "apps.apple.com/x"),
+            "app_store_url must be an http",
+        )
+
+    def test_role_cutoff_warns_and_keeps_the_role(self) -> None:
+        warnings: list[str] = []
+        self.validate(role_cutoff=(2016, 10), warnings=warnings)
+        self.assertEqual(warnings, [])
+        payload = self.validate(role_cutoff=(2021, 11), warnings=warnings)
+        self.assertEqual(len(payload["document"]["selected_key_roles"]), 1)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("(Analyst | Engine Co) starts Oct 2021, before the selected-roles cutoff Nov 2021", warnings[0])
+
+    def test_role_cutoff_gives_year_only_starts_the_benefit_of_the_doubt(self) -> None:
+        payload = valid_payload()
+        payload["document"]["selected_key_roles"][0]["date_range"] = "2016 - 2018"
+        warnings: list[str] = []
+        self.validate(payload, role_cutoff=(2016, 10), warnings=warnings)
+        self.assertEqual(warnings, [])
+
+    def test_parse_and_validate_json_output_extracts_fenced_json(self) -> None:
+        raw = "Here you go:\n```json\n" + json.dumps(valid_payload()) + "\n```"
+        payload = parse_and_validate_json_output(raw, role_cutoff=(2016, 1))
+        self.assertEqual(payload["candidate"]["name"], "Ada Lovelace")
+
+
+class RenderTaggedMarkdownTests(unittest.TestCase):
+    def render(self, **kwargs) -> list[str]:
+        return render_tagged_markdown(validate_and_normalize_payload(valid_payload()), **kwargs).splitlines()
+
+    def test_front_matter_holds_candidate_and_metadata_only(self) -> None:
+        lines = self.render()
+        front_matter = lines[: lines.index("---", 1) + 1]
+        self.assertIn("candidate:", front_matter)
+        self.assertIn("metadata:", front_matter)
+        self.assertFalse(any(line.startswith(("semantic_tags", "skills_raw")) for line in front_matter))
+
+    def test_subheader(self) -> None:
+        lines = self.render()
+        self.assertIn("[candidate_title] Analyst and Programmer", lines)
+        self.assertIn("[candidate_contact] +44 123 - [ada@example.com](mailto:ada@example.com)", lines)
+        self.assertIn("[candidate_contact] [LinkedIn](https://linkedin.com/in/ada)", lines)
+        self.assertIn("[candidate_subheader] Portfolio: [ada.dev](https://ada.dev)", lines)
+
+    def test_contact_links_directive(self) -> None:
+        lines = self.render(directives={"contact_links": False})
+        self.assertNotIn("[candidate_contact] [LinkedIn](https://linkedin.com/in/ada)", lines)
+
+    def test_fixed_requirements_heading(self) -> None:
+        lines = self.render()
+        self.assertIn("[role_requirements_heading] ### Targeted Requirements Match for Senior Analyst", lines)
+        self.assertIn("[role_requirements_item] - **Maths:** Bernoulli numbers.", lines)
+
+    def test_role_block(self) -> None:
+        lines = self.render()
+        start = lines.index("[role_heading] ## Analyst | Engine Co")
+        self.assertEqual(
+            lines[start + 1 : start + 5],
+            [
+                "[date_range] Oct 2021 - Present ([AppStore](https://apps.apple.com/x))",
+                "[keywords] Keywords: [Maths, Notes]",
+                "[role_bullet] * Wrote the first program.",
+                "[role_bullet] * Translated Menabrea.",
+            ],
+        )
+
+    def test_omit_keywords_directive(self) -> None:
+        lines = self.render(directives={"omit": ["Keywords"]})
+        self.assertFalse(any(line.startswith("[keywords]") for line in lines))
+
+    def test_earlier_career(self) -> None:
+        lines = self.render()
+        self.assertIn(
+            "[earlier_intro] **1996 - 2018** Positions across mathematics, translation and poetry.",
+            lines,
+        )
+        self.assertIn("[earlier_role] * **Translator** | _Menabrea_ (French) - Mar 2015 - Sep 2018", lines)
+        self.assertIn("[earlier_role] * **Student** | _Tutors_ - 1996 - 2001", lines)
+
+    def test_projects_and_skills(self) -> None:
+        lines = self.render()
+        self.assertIn("[project_item] * Note G", lines)
+        self.assertIn("[skills_group] **Maths** - Algebra, Calculus", lines)
+
+
+if __name__ == "__main__":
+    unittest.main()

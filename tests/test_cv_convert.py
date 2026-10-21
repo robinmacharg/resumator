@@ -26,6 +26,7 @@ candidate:
 [candidate_title] Analyst
 [candidate_contact] [Call](tel:%2B44123) - [Email](mailto:ada@example.com)
 [candidate_contact] [GitHub](https://github.com/ada)
+[candidate_subheader] Portfolio: ada.dev
 
 [section_heading] # Professional Summary
 
@@ -46,6 +47,14 @@ candidate:
 [keywords] **Keywords:** `[Maths, Notes]`
 [bullet_primary] * Wrote the first program.
 [bullet_secondary] * Translated Menabrea.
+[role_bullet] * Annotated the Sketch.
+
+[section_heading] # Earlier Career Highlights
+
+[earlier_intro] **1830 - 1840** Positions across mathematics and translation.
+[earlier_role] * **Translator** | _Menabrea_ (French) - 1840 - 1843
+
+[skills_group] **Maths** - Algebra, Calculus
 
 **Untagged** line stays as is.
 """
@@ -112,6 +121,20 @@ class ApplySemanticTagFormattingTests(unittest.TestCase):
     def test_bullets_stay_plain_list_items(self) -> None:
         self.assertIn("- Wrote the first program.", self.lines)
         self.assertIn("- Translated Menabrea.", self.lines)
+
+    def test_v2_tags(self) -> None:
+        self.assertEqual(self.block_after("candidate-subheader"), "Portfolio: ada.dev")
+        self.assertEqual(
+            self.block_after("earlier-intro"),
+            "**1830 - 1840** Positions across mathematics and translation.",
+        )
+        self.assertIn("- Annotated the Sketch.", self.lines)
+        self.assertIn(
+            '- [Translator]{custom-style="earlier-title"} | '
+            '[Menabrea]{custom-style="earlier-company"} (French) - 1840 - 1843',
+            self.lines,
+        )
+        self.assertIn('[Maths]{custom-style="skills-group"} - Algebra, Calculus', self.lines)
 
     def test_untagged_lines_pass_through(self) -> None:
         self.assertIn("**Untagged** line stays as is.", self.lines)

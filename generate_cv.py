@@ -29,22 +29,19 @@ OUTPUT_DOCX = OUTPUT_DIR / "tailored_dev.docx"
 GEMINI_HEARTBEAT_SECONDS = 15
 DEBUG_LOG_DIR = OUTPUT_DIR / "gemini_debug_logs"
 MAX_FAST_CV_CHARS = 18000
-REQUIRED_SEMANTIC_TAG_KEYS = [
-    "candidate_name",
-    "candidate_title",
-    "candidate_contact",
-    "section_heading",
-    "role_heading",
-    "date_range",
-    "keywords",
-    "bullet_primary",
-    "bullet_secondary",
-    "project_item",
-    "education_item",
-    "summary_paragraph",
-    "role_requirements_heading",
-    "role_requirements_item",
-]
+MONTH_ABBREVIATIONS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+MONTH_LOOKUP = {
+    **{name.lower(): index for index, name in enumerate(MONTH_ABBREVIATIONS, start=1)},
+    **{
+        name: index
+        for index, name in enumerate(
+            ["january", "february", "march", "april", "may", "june", "july", "august",
+             "september", "october", "november", "december"],
+            start=1,
+        )
+    },
+    "sept": 9,
+}
 
 
 def is_high_load_error(stderr_text: str) -> bool:
@@ -330,84 +327,169 @@ def normalize_optional_http_url(value, field_name: str) -> str | None:
     return url
 
 
-def normalize_month_year_range(value, field_name: str) -> str:
-    """Validate date ranges that should include month/year boundaries."""
+DATE_RANGE_SEPARATOR = re.compile(r"\s*(?:-|–|—|\bto\b)\s*", flags=re.IGNORECASE)
+DATE_POINT = re.compile(r"^(?:([A-Za-z]+)\.?\s+)?((?:19|20)\d{2})$")
+BOLD_LEAD_IN = re.compile(r"^\*\*[^*]+\*\*")
+
+
+def parse_date_point(text: str) -> tuple[int, int | None] | None:
+    """Parse 'Mon YYYY', 'Month YYYY' or 'YYYY' into (year, month or None). 'Present' gives None."""
+    cleaned = text.strip()
+    if cleaned.lower() == "present":
+        return None
+    match = DATE_POINT.match(cleaned)
+    month = MONTH_LOOKUP.get(match.group(1).lower()) if match and match.group(1) else None
+    if not match or (match.group(1) and month is None):
+        raise ValueError(f"unrecognised date '{cleaned}'")
+    return int(match.group(2)), month
+
+
+def format_date_point(point: tuple[int, int | None] | None) -> str:
+    """Format a parsed date point as 'Mon YYYY', 'YYYY' or 'Present' (D7)."""
+    if point is None:
+        return "Present"
+    year, month = point
+    return f"{MONTH_ABBREVIATIONS[month - 1]} {year}" if month else str(year)
+
+
+def earliest_month(point: tuple[int, int | None]) -> tuple[int, int]:
+    """First (year, month) a date point can mean."""
+    return point[0], point[1] or 1
+
+
+def latest_month(point: tuple[int, int | None] | None) -> tuple[int, int]:
+    """Last (year, month) a date point can mean. Present sorts after every date."""
+    if point is None:
+        return 9999, 12
+    return point[0], point[1] or 12
+
+
+def split_date_range(value, field_name: str) -> tuple[tuple[int, int | None], tuple[int, int | None] | None]:
+    """Parse a date range into (start, end) points; end is None for Present."""
     date_range = require_non_empty_string(value, field_name)
-    has_year = re.search(r"\b(19|20)\d{2}\b", date_range) is not None
-    has_separator = "-" in date_range or "to" in date_range.lower()
-    if not has_year or not has_separator:
+    parts = DATE_RANGE_SEPARATOR.split(date_range)
+    if len(parts) != 2:
         raise ValueError(
-            f"{field_name} must include a month/year range, for example 'Jan 2019 - Mar 2021'."
+            f"{field_name} must be a range such as 'Jan 2019 - Mar 2021' or 'Jun 2020 - Present'."
         )
-    return date_range
+    try:
+        start, end = parse_date_point(parts[0]), parse_date_point(parts[1])
+    except ValueError as exc:
+        raise ValueError(f"{field_name}: {exc}; use 'Mon YYYY', 'YYYY' or 'Present'.") from exc
+    if start is None:
+        raise ValueError(f"{field_name} cannot start at Present.")
+    if latest_month(end) < earliest_month(start):
+        raise ValueError(f"{field_name} ends before it starts.")
+    return start, end
 
 
-def validate_and_normalize_payload(payload: dict) -> dict:
-    """Validate schema and normalize key sections for deterministic rendering."""
+def normalize_date_range(value, field_name: str) -> str:
+    """Validate a date range and rewrite it as 'Mon YYYY - Mon YYYY' or '... - Present' (D7)."""
+    start, end = split_date_range(value, field_name)
+    return f"{format_date_point(start)} - {format_date_point(end)}"
+
+
+def earlier_career_span(items: list[dict]) -> str:
+    """The 'YYYY - YYYY' (or 'YYYY - Present') span covered by normalised earlier-career items."""
+    ranges = [split_date_range(item["date_range"], "date_range") for item in items]
+    start = min((start for start, _ in ranges), key=earliest_month)
+    end = max((end for _, end in ranges), key=latest_month)
+    return f"{start[0]} - {end[0] if end else 'Present'}"
+
+
+def require_bold_lead_in(items: list[str], field_name: str) -> list[str]:
+    """Check that every item opens with a **bold phrase**."""
+    for idx, item in enumerate(items):
+        if not BOLD_LEAD_IN.match(item):
+            raise ValueError(f"{field_name}[{idx}] must open with a **bold phrase**.")
+    return items
+
+
+def validate_and_normalize_payload(
+    payload: dict,
+    *,
+    role_cutoff: tuple[int, int] | None = None,
+    warnings: list[str] | None = None,
+) -> dict:
+    """Validate the v2 contract and normalise it for deterministic rendering.
+
+    Contract breaches raise ValueError. Rule breaches that still leave renderable output are
+    appended to warnings instead, so the caller can show them (D17).
+
+    role_cutoff is the earliest (year, month) a selected key role should start in. A role whose
+    start month is unknown passes if any month of its start year would.
+    """
+    if warnings is None:
+        warnings = []
     if not isinstance(payload, dict):
         raise ValueError("Top-level JSON value must be an object.")
 
-    for key in ["candidate", "metadata", "semantic_tags", "skills_raw", "document"]:
+    for key in ["candidate", "document"]:
         if key not in payload:
             raise ValueError(f"Missing required top-level key: {key}")
+
+    metadata = payload.get("metadata") or {}
+    if not isinstance(metadata, dict):
+        raise ValueError("metadata must be an object.")
+    payload["metadata"] = metadata
 
     candidate = payload["candidate"]
     if not isinstance(candidate, dict):
         raise ValueError("candidate must be an object.")
-    candidate["name"] = require_non_empty_string(candidate.get("name"), "candidate.name")
-    candidate["title"] = require_non_empty_string(candidate.get("title"), "candidate.title")
-    candidate["phone"] = require_non_empty_string(candidate.get("phone"), "candidate.phone")
-    candidate["email"] = require_non_empty_string(candidate.get("email"), "candidate.email")
-
-    semantic_tags = payload["semantic_tags"]
-    if not isinstance(semantic_tags, dict):
-        raise ValueError("semantic_tags must be an object.")
-
-    if not isinstance(payload["metadata"], dict):
-        raise ValueError("metadata must be an object.")
-    if not isinstance(payload["skills_raw"], dict):
-        raise ValueError("skills_raw must be an object.")
-
-    missing_semantic_keys = [k for k in REQUIRED_SEMANTIC_TAG_KEYS if k not in semantic_tags]
-    if missing_semantic_keys:
-        raise ValueError(
-            "semantic_tags is missing required key(s): " + ", ".join(missing_semantic_keys)
-        )
-
-    for key in REQUIRED_SEMANTIC_TAG_KEYS:
-        value = require_non_empty_string(semantic_tags.get(key), f"semantic_tags.{key}")
-        if value != key:
-            raise ValueError(f"semantic_tags.{key} must equal '{key}'.")
+    normalized_candidate = {
+        key: require_non_empty_string(candidate.get(key), f"candidate.{key}")
+        for key in ["name", "phone", "email"]
+    }
+    for key in ["linkedin", "github", "stackoverflow", "website"]:
+        value = candidate.get(key)
+        normalized_candidate[key] = normalize_optional_http_url(value or None, f"candidate.{key}")
+    normalized_candidate["subheader_lines"] = require_list_of_strings(
+        candidate.get("subheader_lines", []),
+        "candidate.subheader_lines",
+    )
+    payload["candidate"] = normalized_candidate
 
     document = payload["document"]
     if not isinstance(document, dict):
         raise ValueError("document must be an object.")
 
-    document["professional_summary"] = require_list_of_strings(
-        document.get("professional_summary"),
+    document["headline"] = require_non_empty_string(document.get("headline"), "document.headline")
+
+    document["professional_summary"] = require_bold_lead_in(
+        require_list_of_strings(
+            document.get("professional_summary"),
+            "document.professional_summary",
+            min_items=4,
+            max_items=5,
+        ),
         "document.professional_summary",
-        min_items=4,
-        max_items=5,
     )
 
     role_requirements = document.get("role_requirements")
     if not isinstance(role_requirements, dict):
         raise ValueError("document.role_requirements must be an object.")
-    role_requirements["heading"] = require_non_empty_string(
-        role_requirements.get("heading"),
-        "document.role_requirements.heading",
-    )
-    role_requirements["items"] = require_list_of_strings(
+    requirement_items = require_list_of_strings(
         role_requirements.get("items"),
         "document.role_requirements.items",
         min_items=4,
         max_items=6,
     )
+    document["role_requirements"] = {
+        "role_title": require_non_empty_string(
+            role_requirements.get("role_title"),
+            "document.role_requirements.role_title",
+        ),
+        "items": require_bold_lead_in(
+            [clean_bullet_text(item) for item in requirement_items],
+            "document.role_requirements.items",
+        ),
+    }
 
     document["education_credentials"] = require_list_of_strings(
         document.get("education_credentials"),
         "document.education_credentials",
-        min_items=2,
+        min_items=1,
+        max_items=3,
     )
 
     selected_roles = document.get("selected_key_roles")
@@ -417,38 +499,34 @@ def validate_and_normalize_payload(payload: dict) -> dict:
         raise ValueError("document.selected_key_roles must contain at most 5 roles.")
     normalized_roles: list[dict] = []
     for idx, role in enumerate(selected_roles):
+        field = f"document.selected_key_roles[{idx}]"
         if not isinstance(role, dict):
-            raise ValueError(f"document.selected_key_roles[{idx}] must be an object.")
-        heading = require_non_empty_string(role.get("heading"), f"document.selected_key_roles[{idx}].heading")
-        date_range = normalize_month_year_range(
-            role.get("date_range"),
-            f"document.selected_key_roles[{idx}].date_range",
-        )
-        keywords = require_list_of_strings(
-            role.get("keywords"),
-            f"document.selected_key_roles[{idx}].keywords",
-            min_items=1,
-        )
-        bullet_primary = require_list_of_strings(
-            role.get("bullet_primary"),
-            f"document.selected_key_roles[{idx}].bullet_primary",
-            min_items=1,
-        )
-        bullet_secondary = require_list_of_strings(
-            role.get("bullet_secondary", []),
-            f"document.selected_key_roles[{idx}].bullet_secondary",
-        )
+            raise ValueError(f"{field} must be an object.")
+        start, _ = split_date_range(role.get("date_range"), f"{field}.date_range")
+        if role_cutoff and latest_month(start) < role_cutoff:
+            warnings.append(
+                f"{field} ({role.get('title')} | {role.get('company')}) starts {format_date_point(start)}, "
+                f"before the selected-roles cutoff {format_date_point(role_cutoff)}."
+            )
         normalized_roles.append(
             {
-                "heading": heading,
-                "date_range": date_range,
+                "title": require_non_empty_string(role.get("title"), f"{field}.title"),
+                "company": require_non_empty_string(role.get("company"), f"{field}.company"),
+                "date_range": normalize_date_range(role.get("date_range"), f"{field}.date_range"),
                 "app_store_url": normalize_optional_http_url(
-                    role.get("app_store_url"),
-                    f"document.selected_key_roles[{idx}].app_store_url",
+                    role.get("app_store_url") or None,
+                    f"{field}.app_store_url",
                 ),
-                "keywords": keywords,
-                "bullet_primary": bullet_primary,
-                "bullet_secondary": bullet_secondary,
+                "keywords": require_list_of_strings(role.get("keywords", []), f"{field}.keywords"),
+                "bullets": [
+                    clean_bullet_text(item)
+                    for item in require_list_of_strings(
+                        role.get("bullets"),
+                        f"{field}.bullets",
+                        min_items=1,
+                        max_items=5,
+                    )
+                ],
             }
         )
     document["selected_key_roles"] = normalized_roles
@@ -456,50 +534,40 @@ def validate_and_normalize_payload(payload: dict) -> dict:
     earlier_career = document.get("earlier_career")
     if not isinstance(earlier_career, dict):
         raise ValueError("document.earlier_career must be an object.")
-    earlier_career["intro"] = require_non_empty_string(
-        earlier_career.get("intro"),
-        "document.earlier_career.intro",
-    )
     earlier_items = earlier_career.get("items")
     if not isinstance(earlier_items, list) or not earlier_items:
         raise ValueError("document.earlier_career.items must be a non-empty list.")
     normalized_earlier_items: list[dict] = []
     for idx, item in enumerate(earlier_items):
+        field = f"document.earlier_career.items[{idx}]"
         if not isinstance(item, dict):
-            raise ValueError(f"document.earlier_career.items[{idx}] must be an object.")
-        role_title = require_non_empty_string(
-            item.get("role_title"),
-            f"document.earlier_career.items[{idx}].role_title",
-        )
-        company = require_non_empty_string(
-            item.get("company"),
-            f"document.earlier_career.items[{idx}].company",
-        )
-        technologies = require_list_of_strings(
-            item.get("technologies"),
-            f"document.earlier_career.items[{idx}].technologies",
-            min_items=1,
-        )
-        date_range = normalize_month_year_range(
-            item.get("date_range"),
-            f"document.earlier_career.items[{idx}].date_range",
-        )
+            raise ValueError(f"{field} must be an object.")
         normalized_earlier_items.append(
             {
-                "role_title": role_title,
-                "company": company,
-                "technologies": technologies,
-                "date_range": date_range,
+                "role_title": require_non_empty_string(item.get("role_title"), f"{field}.role_title"),
+                "company": require_non_empty_string(item.get("company"), f"{field}.company"),
+                "technologies": require_list_of_strings(item.get("technologies", []), f"{field}.technologies"),
+                "date_range": normalize_date_range(item.get("date_range"), f"{field}.date_range"),
             }
         )
-    earlier_career["items"] = normalized_earlier_items
+    document["earlier_career"] = {
+        "sectors": require_list_of_strings(
+            earlier_career.get("sectors"),
+            "document.earlier_career.sectors",
+            min_items=1,
+        ),
+        "items": normalized_earlier_items,
+    }
 
-    document["open_source_contributions"] = require_list_of_strings(
-        document.get("open_source_contributions"),
-        "document.open_source_contributions",
-        min_items=3,
-        max_items=5,
-    )
+    document["open_source_contributions"] = [
+        clean_bullet_text(item)
+        for item in require_list_of_strings(
+            document.get("open_source_contributions"),
+            "document.open_source_contributions",
+            min_items=3,
+            max_items=4,
+        )
+    ]
 
     technical_skills = document.get("technical_skills")
     if not isinstance(technical_skills, list) or not technical_skills:
@@ -517,30 +585,22 @@ def validate_and_normalize_payload(payload: dict) -> dict:
         normalized_skills.append({"group": group_name, "items": items})
     document["technical_skills"] = normalized_skills
 
-    if "candidate_contact_lines" in document:
-        document["candidate_contact_lines"] = require_list_of_strings(
-            document.get("candidate_contact_lines"),
-            "document.candidate_contact_lines",
-        )
-
     return payload
 
 
-def parse_and_validate_json_output(raw_text: str) -> dict:
-    """Purpose: Parse and validate and validate json output for downstream use.
-    
-    Inputs:
-    - raw_text: See type hints and call site for expected value.
-    
-    Returns:
-    - `dict` value representing the operation result.
-    """
+def parse_and_validate_json_output(
+    raw_text: str,
+    *,
+    role_cutoff: tuple[int, int] | None = None,
+    warnings: list[str] | None = None,
+) -> dict:
+    """Extract the JSON object from model output and validate it (see validate_and_normalize_payload)."""
     payload_text = extract_json_payload(raw_text)
     try:
         payload = json.loads(payload_text)
     except json.JSONDecodeError as exc:
         raise ValueError(f"Model output JSON parsing failed: {exc}") from exc
-    return validate_and_normalize_payload(payload)
+    return validate_and_normalize_payload(payload, role_cutoff=role_cutoff, warnings=warnings)
 
 
 def yaml_scalar(value) -> str:
@@ -616,51 +676,51 @@ def clean_bullet_text(text: str) -> str:
     return cleaned
 
 
-def render_tagged_markdown(payload: dict) -> str:
-    """Purpose: Execute render tagged markdown for this module's workflow.
-    
-    Inputs:
-    - payload: See type hints and call site for expected value.
-    
-    Returns:
-    - `str` value representing the operation result.
+def join_naturally(items: list[str]) -> str:
+    """Join 'a', 'b', 'c' as 'a, b and c'."""
+    if len(items) <= 1:
+        return "".join(items)
+    return f"{', '.join(items[:-1])} and {items[-1]}"
+
+
+def render_tagged_markdown(payload: dict, *, directives: dict | None = None) -> str:
+    """Render a validated v2 payload as tagged markdown for cv_convert.
+
+    Section order, headings and fixed phrases live here. directives takes the
+    cv_source shape ({omit: [...], contact_links: bool}); the defaults print everything.
     """
+    directives = directives or {}
+    omit = {name.lower() for name in directives.get("omit", [])}
     candidate = payload["candidate"]
     document = payload["document"]
 
-    frontmatter_keys = ["candidate", "metadata", "semantic_tags", "skills_raw"]
     frontmatter_lines = ["---"]
-    for key in frontmatter_keys:
-        value = payload[key]
-        if isinstance(value, (dict, list)):
-            frontmatter_lines.append(f"{key}:")
-            frontmatter_lines.extend(render_yaml_block(value, 2))
-        else:
-            frontmatter_lines.append(f"{key}: {yaml_scalar(value)}")
+    for key in ["candidate", "metadata"]:
+        frontmatter_lines.append(f"{key}:")
+        frontmatter_lines.extend(render_yaml_block(payload[key], 2) or ["  {}"])
     frontmatter_lines.append("---")
 
     lines: list[str] = [*frontmatter_lines, ""]
     lines.append(f"[candidate_name] {candidate['name']}")
-    lines.append(f"[candidate_title] {candidate['title']}")
+    lines.append(f"[candidate_title] {document['headline']}")
+    lines.append(f"[candidate_contact] {candidate['phone']} - [{candidate['email']}](mailto:{candidate['email']})")
 
-    phone = candidate.get("phone", "").strip()
-    email = candidate.get("email", "").strip()
-    if phone and email:
-        lines.append(f"[candidate_contact] {phone} - [{email}](mailto:{email})")
+    if directives.get("contact_links", True):
+        social_parts = [
+            f"[{label}]({candidate[key]})"
+            for key, label in [
+                ("linkedin", "LinkedIn"),
+                ("github", "GitHub"),
+                ("stackoverflow", "StackOverflow"),
+                ("website", "Website"),
+            ]
+            if candidate.get(key)
+        ]
+        if social_parts:
+            lines.append("[candidate_contact] " + " | ".join(social_parts))
 
-    social_parts: list[str] = []
-    if candidate.get("linkedin"):
-        social_parts.append(f"[LinkedIn]({candidate['linkedin']})")
-    if candidate.get("github"):
-        social_parts.append(f"[GitHub]({candidate['github']})")
-    if candidate.get("stackoverflow"):
-        social_parts.append(f"[StackOverflow]({candidate['stackoverflow']})")
-    if social_parts:
-        lines.append("[candidate_contact] " + " | ".join(social_parts))
-
-    for extra_contact_line in document.get("candidate_contact_lines", []):
-        contact_line = require_non_empty_string(extra_contact_line, "document.candidate_contact_lines[]")
-        lines.append(f"[candidate_contact] {contact_line}")
+    for subheader_line in candidate.get("subheader_lines", []):
+        lines.append(f"[candidate_subheader] {subheader_line}")
 
     lines.append("")
     lines.append("[section_heading] # Professional Summary")
@@ -668,11 +728,13 @@ def render_tagged_markdown(payload: dict) -> str:
     for item in document["professional_summary"]:
         lines.append(f"[summary_paragraph] {item}")
 
+    role_requirements = document["role_requirements"]
     lines.append("")
-    lines.append(f"[role_requirements_heading] ### {document['role_requirements']['heading']}")
-    for item in document["role_requirements"]["items"]:
-        bullet = item if item.strip().startswith("-") else f"- {item}"
-        lines.append(f"[role_requirements_item] {bullet}")
+    lines.append(
+        f"[role_requirements_heading] ### Targeted Requirements Match for {role_requirements['role_title']}"
+    )
+    for item in role_requirements["items"]:
+        lines.append(f"[role_requirements_item] - {item}")
 
     lines.append("")
     lines.append("[section_heading] # Education, Certifications & Credentials")
@@ -684,42 +746,42 @@ def render_tagged_markdown(payload: dict) -> str:
     lines.append("[section_heading] # Selected Key Roles")
     lines.append("")
     for role in document["selected_key_roles"]:
-        lines.append(f"[role_heading] ## {role['heading']}")
+        lines.append(f"[role_heading] ## {role['title']} | {role['company']}")
         role_dates = role["date_range"]
-        app_store_url = role.get("app_store_url")
-        if app_store_url:
-            role_dates = f"{role_dates} ([AppStore]({app_store_url}))"
-        lines.append(f"[date_range] **Dates:** {role_dates}")
-        keywords_text = ", ".join(role["keywords"])
-        lines.append(f"[keywords] **Keywords:** `[{keywords_text}]`")
-        for item in role["bullet_primary"]:
-            lines.append(f"[bullet_primary] * {clean_bullet_text(item)}")
-        for item in role["bullet_secondary"]:
-            lines.append(f"[bullet_secondary] * {clean_bullet_text(item)}")
+        if role.get("app_store_url"):
+            role_dates = f"{role_dates} ([AppStore]({role['app_store_url']}))"
+        lines.append(f"[date_range] {role_dates}")
+        if role["keywords"] and "keywords" not in omit:
+            lines.append(f"[keywords] Keywords: [{', '.join(role['keywords'])}]")
+        for item in role["bullets"]:
+            lines.append(f"[role_bullet] * {item}")
         lines.append("")
 
+    earlier_career = document["earlier_career"]
     lines.append("[section_heading] # Earlier Career Highlights")
     lines.append("")
-    lines.append(document["earlier_career"]["intro"])
+    lines.append(
+        f"[earlier_intro] **{earlier_career_span(earlier_career['items'])}** Positions across "
+        f"{join_naturally(earlier_career['sectors'])}."
+    )
     lines.append("")
-    for item in document["earlier_career"]["items"]:
-        tech_text = ", ".join(item["technologies"])
+    for item in earlier_career["items"]:
+        tech_text = f" ({', '.join(item['technologies'])})" if item["technologies"] else ""
         lines.append(
-            f"* **{item['role_title']}** | _{item['company']}_ ({tech_text}) - {item['date_range']}"
+            f"[earlier_role] * **{item['role_title']}** | _{item['company']}_{tech_text} - {item['date_range']}"
         )
 
     lines.append("")
     lines.append("[section_heading] # Open Source Contributions")
     lines.append("")
     for item in document["open_source_contributions"]:
-        lines.append(f"[project_item] * {clean_bullet_text(item)}")
+        lines.append(f"[project_item] * {item}")
 
     lines.append("")
     lines.append("[section_heading] # Technical Skills and Expertise")
     lines.append("")
     for group in document["technical_skills"]:
-        lines.append(f"**{group['group']}**")
-        lines.append(f"- {', '.join(group['items'])}")
+        lines.append(f"[skills_group] **{group['group']}** - {', '.join(group['items'])}")
         lines.append("")
 
     return "\n".join(lines).strip() + "\n"
@@ -920,8 +982,9 @@ def main() -> None:
             file=sys.stderr,
         )
 
+    validation_warnings: list[str] = []
     try:
-        structured_payload = parse_and_validate_json_output(raw_model_output)
+        structured_payload = parse_and_validate_json_output(raw_model_output, warnings=validation_warnings)
     except ValueError as exc:
         print(f"Generated output failed JSON contract validation: {exc}", file=sys.stderr)
         print(
@@ -929,6 +992,9 @@ def main() -> None:
             file=sys.stderr,
         )
         sys.exit(1)
+
+    for warning in validation_warnings:
+        print(f"Warning: model output breaks a rule: {warning}", file=sys.stderr)
 
     tailored_markdown = render_tagged_markdown(structured_payload)
     TAILORED_MD.write_text(tailored_markdown, encoding="utf-8")

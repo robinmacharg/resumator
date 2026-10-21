@@ -43,6 +43,7 @@
   candidate-name: cv-centered(t.name-size),
   candidate-title: cv-centered(t.title-size),
   candidate-contact: body => { show link: cv-link(t); cv-centered(t.contact-size)(body) },
+  candidate-subheader: body => { show link: cv-link(t); cv-centered(t.contact-size)(body) },
   section-heading: body => text(t.section-size, weight: "bold", body),
   summary-item: body => text(t.summary-size, emph(body)),
   requirements-heading: body => text(t.requirements-heading-size, weight: "bold", body),
@@ -61,6 +62,10 @@
   date-range: body => { show link: cv-link(t); body },
   keywords: body => body,
   education-title: body => strong(body),
+  earlier-intro: body => body,
+  earlier-title: body => strong(body),
+  earlier-company: body => emph(body),
+  skills-group: body => strong(body),
 )
 
 #let cv-make-style(t) = {

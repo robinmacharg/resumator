@@ -36,8 +36,8 @@ skills_raw: {status, <group>: [..], ...}   # free-form skills pool for the model
 Notes:
 - `---` separates sections, but the first pair is YAML front matter. Only the model reads this file, so there is no
   strict parsing.
-- The uncommitted "Input Contract" block in `input/prompt.md` describes `—` separators and `subsection:` labels. That
-  does not match this layout. Align one with the other ([gaps.md](gaps.md)).
+- `input/prompt.md` (v2) already describes the v1 source format ([cv-source-format.md](cv-source-format.md)), which
+  this file moves to at [plan](plans/cv-format-revamp.md) step 9.
 - Hygiene issues in the current file are listed in [gaps.md](gaps.md).
 
 ## 2. Prompt assembly (`generate_cv.build_prompt`)
@@ -46,45 +46,53 @@ Notes:
   literal JSON braces, so adding a placeholder makes `format` raise. Escape them as `{{ }}` or keep append mode.
 - Otherwise (current behaviour) the prompt is `prompt.md` + `=== MASTER CV ===\n<cv>` + `=== JOB SPECIFICATION ===\n<spec>`.
 - `CV_FAST_MODE=true` truncates the CV to its first 18,000 chars and appends `=== FAST MODE INSTRUCTIONS ===`.
-- There is no steering input yet ([gaps.md](gaps.md)).
+- The v2 prompt also describes a `=== RUN FACTS ===` section (today, the selected-roles cutoff, directives) and an
+  optional `=== CANDIDATE STEERING ===` section. `build_prompt` doesn't append either yet (plan step 8).
 
-## 3. Model JSON contract
+## 3. Model JSON contract (v2)
 
-`prompt.md` defines the schema. `validate_and_normalize_payload` enforces it, and any violation fails the run
-(`output/tailored.model-output.txt` holds the raw text for debugging). JSON is extracted from fenced or surrounding
-prose.
+`prompt.md` defines the schema. `validate_and_normalize_payload(payload, role_cutoff=None, warnings=None)` enforces
+it. A contract violation fails the run; a rule breach that still renders is appended to `warnings`, which `main`
+prints (`output/tailored.model-output.txt` holds the raw text for debugging). JSON is extracted from
+fenced or surrounding prose. The model supplies values only; headings, labels, fixed phrases and the earlier-career
+date span come from the renderer.
 
 | Path | Rule |
 |---|---|
-| top level | `candidate, metadata, semantic_tags, skills_raw, document` required |
-| `candidate` | `name, title, phone, email` non-empty; `linkedin, github, stackoverflow` optional |
-| `semantic_tags` | the 14 keys in `REQUIRED_SEMANTIC_TAG_KEYS`, each value equal to its key |
-| `document.professional_summary` | 4–5 strings, each starting with a `**bold phrase**` |
-| `document.role_requirements` | `heading` + `items` 4–6 (`- **phrase:** ...`) |
-| `document.education_credentials` | ≥2 strings |
-| `document.selected_key_roles[]` | 1–5 items: `heading` ("Title \| Company"), `date_range` (month-year normalised), `app_store_url` (http(s) or null), `keywords` ≥1, `bullet_primary` ≥1, `bullet_secondary` ≥0 |
-| `document.earlier_career` | `intro` + `items[]` ≥1: `role_title, company, technologies` ≥1, `date_range` |
-| `document.open_source_contributions` | 3–5 |
+| top level | `candidate, document` required; `metadata` optional (free-form object, default `{}`). v1's `semantic_tags` and `skills_raw` are gone |
+| `candidate` | `name, phone, email` non-empty; `linkedin, github, stackoverflow, website` http(s) or null; `subheader_lines` list (default `[]`). Other keys are dropped |
+| `document.headline` | non-empty |
+| `document.professional_summary` | 4–5 strings, each opening with `**bold phrase**` |
+| `document.role_requirements` | `role_title` + `items` 4–6, each opening with `**bold phrase**` (a leading `- ` is stripped) |
+| `document.education_credentials` | 1–3 |
+| `document.selected_key_roles[]` | 1–5: `title`, `company`, `date_range`, `app_store_url` (http(s) or null), `keywords` ≥0, `bullets` 1–5. With `role_cutoff=(year, month)`, a start before the cutoff is a warning (a year-only start counts as December) |
+| `document.earlier_career` | `sectors` ≥1 + `items[]` ≥1: `role_title, company, technologies` ≥0, `date_range` |
+| `document.open_source_contributions` | 3–4 |
 | `document.technical_skills[]` | ≥1 `{group, items ≥1}` |
-| `document.candidate_contact_lines` | optional extra contact lines |
 
-Content rules (truthfulness, roles from the last 10 years only, no location, App Store link handling and so on) live
-only in the prompt and are not validated.
+- Date ranges are rewritten to D7 form by `normalize_date_range`: `Mon YYYY`, `YYYY` or `Present` either side of
+  ` - `. Full or upper-case month names, en dashes and "to" are accepted. Ranges that end before they start fail.
+- Bullet-like strings lose a leading `- `/`* ` (`clean_bullet_text`).
+- Content rules (truthfulness, elision, no location, ~200-char summaries and so on) live only in the prompt. The
+  elision check after generation is plan step 8.
 
 ## 4. Tagged markdown (`output/tailored.md`, `render_tagged_markdown`)
 
-The JSON is echoed back as YAML front matter (`candidate, metadata, semantic_tags, skills_raw`). The body is then
-written as lines prefixed with `[tag]` in a fixed section order:
+`render_tagged_markdown(payload, directives=None)` echoes `candidate` and `metadata` as YAML front matter, then writes
+the body as lines prefixed with `[tag]` in a fixed section order. `directives` takes the `cv_source` shape
+(`{omit, contact_links}`); by default everything prints.
 
-1. `[candidate_name]`, `[candidate_title]`, `[candidate_contact]` (phone/email, then social links, then extra lines)
+1. `[candidate_name]`, `[candidate_title]` (the headline), `[candidate_contact]` (phone - email; then the
+   LinkedIn/GitHub/StackOverflow/Website line unless `contact_links` is false), `[candidate_subheader]` ×N
 2. `[section_heading] # Professional Summary` → `[summary_paragraph]` ×N
-3. `[role_requirements_heading] ### <dynamic>` → `[role_requirements_item] - ...`
+3. `[role_requirements_heading] ### Targeted Requirements Match for <role_title>` → `[role_requirements_item] - ...`
 4. `# Education, Certifications & Credentials` → `[education_item] * ...`
-5. `# Selected Key Roles` → per role: `[role_heading] ## ...`, `[date_range] **Dates:** ... ([AppStore](url))`,
-   `[keywords] **Keywords:** \`[..]\``, `[bullet_primary]`/`[bullet_secondary] * ...`
-6. `# Earlier Career Highlights` → intro, then untagged `* **Role** | _Company_ (tech) - dates`
+5. `# Selected Key Roles` → per role: `[role_heading] ## Title | Company`, `[date_range] <dates> ([AppStore](url))`,
+   `[keywords] Keywords: [..]` (skipped when empty or `omit` has `keywords`), `[role_bullet] * ...`
+6. `# Earlier Career Highlights` → `[earlier_intro] **<YYYY> - <YYYY|Present>** Positions across <sectors>.` (span from
+   `earlier_career_span`, years only), then `[earlier_role] * **Role** | _Company_ (tech) - dates`
 7. `# Open Source Contributions` → `[project_item] * ...`
-8. `# Technical Skills and Expertise` → `**Group**` / `- a, b, c` (untagged)
+8. `# Technical Skills and Expertise` → `[skills_group] **Group** - a, b, c`
 
 Section order and headings are hard-coded here. Reordering or renaming sections means changing this function.
 
@@ -95,9 +103,11 @@ Section order and headings are hard-coded here. Reordering or renaming sections 
   clean-up (contact `tel:`/`mailto:` links, the `Dates:`/`Keywords:` labels, stray italics in summaries). Tag aliases
   are accepted (`name`, `summary`, `requirements_heading`/`_item`). Both the PDF and the DOCX compile from the one
   export file, `tailored.export.md` (front matter stripped).
-- Style names: `candidate-name`, `candidate-title`, `candidate-contact`, `section-heading`, `summary-item`,
-  `requirements-heading`, `requirements-list` (a div around the requirement bullets), `role-heading`, `date-range`,
-  `keywords`, and `education-title` (span). Role and project bullets and untagged lines are plain markdown.
+- Style names: `candidate-name`, `candidate-title`, `candidate-contact`, `candidate-subheader`, `section-heading`,
+  `summary-item`, `requirements-heading`, `requirements-list` (a div around the requirement bullets), `role-heading`,
+  `date-range`, `keywords`, `earlier-intro`, and the spans `education-title`, `earlier-title`, `earlier-company` and
+  `skills-group`. Role and project bullets and untagged lines are plain markdown. The v1 tags `bullet_primary` and
+  `bullet_secondary` still render, so older `tailored.md` files convert.
 - **Looks live in `themes/`, not code:**
 
 | File | Role |

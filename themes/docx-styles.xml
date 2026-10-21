@@ -20,6 +20,10 @@
   <w:name w:val="candidate-contact" />
   <w:basedOn w:val="BodyText" />
 </w:style>
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="candidate-subheader">
+  <w:name w:val="candidate-subheader" />
+  <w:basedOn w:val="BodyText" />
+</w:style>
 <w:style w:type="paragraph" w:customStyle="1" w:styleId="section-heading">
   <w:name w:val="section-heading" />
   <w:basedOn w:val="BodyText" />
@@ -50,5 +54,21 @@
 </w:style>
 <w:style w:type="character" w:customStyle="1" w:styleId="education-title">
   <w:name w:val="education-title" />
+  <w:rPr><w:b /><w:bCs /></w:rPr>
+</w:style>
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="earlier-intro">
+  <w:name w:val="earlier-intro" />
+  <w:basedOn w:val="BodyText" />
+</w:style>
+<w:style w:type="character" w:customStyle="1" w:styleId="earlier-title">
+  <w:name w:val="earlier-title" />
+  <w:rPr><w:b /><w:bCs /></w:rPr>
+</w:style>
+<w:style w:type="character" w:customStyle="1" w:styleId="earlier-company">
+  <w:name w:val="earlier-company" />
+  <w:rPr><w:i /><w:iCs /></w:rPr>
+</w:style>
+<w:style w:type="character" w:customStyle="1" w:styleId="skills-group">
+  <w:name w:val="skills-group" />
   <w:rPr><w:b /><w:bCs /></w:rPr>
 </w:style>

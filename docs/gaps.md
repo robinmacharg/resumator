@@ -32,7 +32,7 @@ Suggested shape:
 2. In `generate_cv.build_prompt`, append `=== CANDIDATE STEERING ===\n<text>` when the file is non-empty. Append it
    after the job spec and keep append mode, because `{}` placeholders break on the JSON braces in `prompt.md`
    ([cv-format.md §2](cv-format.md)).
-3. In `prompt.md`, add a rule that steering adjusts emphasis, selection and ordering only and never overrides the
+3. Done: `prompt.md` v2 says steering adjusts emphasis, selection and ordering only and never overrides the
    truthfulness constraints.
 4. Optional: a `--steering-file` CLI flag; pass the steering to `research_role.build_prompt` as well; persist it per
    job alongside the job spec.
@@ -43,8 +43,6 @@ Suggested shape:
 
 - **`.env` is tracked in git** and holds real API keys. Rotate the keys, `git rm --cached .env`, add a
   `.env.example`, and add `.env` to `.gitignore`. Keys remain in git history until it is rewritten.
-- **Prompt input contract doesn't match CV.md**: the uncommitted "Input Contract" block in `prompt.md` describes `—`
-  separators and `subsection:` labels. The real file uses YAML front matter plus `#`/`##` headings.
 - **CV.md content issues**: 54 `[cite: 1]` artefacts left over from a Gemini paste. The `skills_raw` lists are not
   valid YAML (`- "a", "b"`). In the Boostworks role, one bullet is split mid-sentence ("…to give" / "* Customer
   Relations…").
@@ -71,8 +69,7 @@ Suggested shape:
 - `model_providers.json` defaults have drifted from the module defaults (gemini: `3.5-flash-lite` vs `2.5-flash`).
 - `backend_registry` re-imports and re-interrogates every backend on each call (including the bridge health check).
   Consider a short TTL cache.
-- Tests: nothing covers `validate_and_normalize_payload`, `render_tagged_markdown`, or the backends
-  (except `claudecode`).
+- Tests: nothing covers the backends except `claudecode`.
 - `gemini-code-*.py` and `curl.sh` at the root are scratch files.
 - DOCX keeps its plain pre-theme look and doesn't mirror the PDF (`themes/docx-styles.xml`). Low priority: PDF is the
   primary output.
