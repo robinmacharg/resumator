@@ -3,7 +3,7 @@
 Architecture role:
 - Layer: backend HTTP handlers over `cv_web/store.py` and `cv_web/role_runner.py`.
 - Responsibility: the `/api/roles…` and `/api/master/cv` routes, including promote and pull (`…/merge`, step 10,
-  over `cv_web/role_merge.py`). `server_http_handlers.dispatch_get/post` hand
+  over `cv_web/role_merge.py`), CV version history and restore, and importing `input/CV.md` (step 11). `server_http_handlers.dispatch_get/post` hand
   every request to `dispatch` first; it returns False for routes it doesn't own.
 
 Design notes (docs/plans/multi-role-design.md R6, R16, R21):
@@ -35,6 +35,7 @@ from cv_web.server_request_parsing import parse_selected_model, parse_selected_p
 from cv_web.server_run_helpers import _build_research_run_state, _build_run_state
 
 DB_PATH = store.DB_PATH
+IMPORT_PATH = role_merge.IMPORT_PATH
 
 CONTENT_TYPES = {
     "pdf": "application/pdf",
@@ -208,6 +209,20 @@ def _cv_payload(conn: sqlite3.Connection, role_id: int | None) -> dict[str, Any]
     }
 
 
+def _require_version(conn: sqlite3.Connection, role_id: int | None, version_id: int) -> dict[str, Any]:
+    version = store.get_cv_version(conn, version_id)
+    if version is None or version["role_id"] != role_id:
+        owner = "the master" if role_id is None else f"role {role_id}"
+        raise ApiError(f"No CV version {version_id} for {owner}", 404)
+    return version
+
+
+def _restore_cv(conn: sqlite3.Connection, role_id: int | None, version_id: int) -> dict[str, Any]:
+    """Restore an old version as a new `edit` version (R8: history is append-only)."""
+    version = _require_version(conn, role_id, version_id)
+    return _save_cv(conn, role_id, {"content": version["content"], "note": f"Restored version {version_id}"})
+
+
 def _save_cv(conn: sqlite3.Connection, role_id: int | None, payload: dict[str, Any]) -> dict[str, Any]:
     """Save a CV as a new `edit` version, unless the content is unchanged."""
     content = payload.get("content")
@@ -337,21 +352,27 @@ _GET_ROUTES = [
     (re.compile(r"/api/roles"), "list_roles"),
     (re.compile(_ROLE), "get_role"),
     (re.compile(_ROLE + r"/cv"), "get_role_cv"),
+    (re.compile(_ROLE + r"/cv/versions/(?P<version>\d+)"), "get_role_cv_version"),
     (re.compile(_ROLE + r"/merge"), "get_merge"),
     (re.compile(_ROLE + r"/runs"), "list_runs"),
     (re.compile(_ROLE + r"/runs/(?P<kind>cv|research)/(?P<run>\d+)"), "get_run"),
     (re.compile(_ROLE + r"/runs/cv/(?P<run>\d+)/cv\.(?P<format>pdf|docx)"), "get_run_document"),
     (re.compile(r"/api/master/cv"), "get_master_cv"),
+    (re.compile(r"/api/master/cv/versions/(?P<version>\d+)"), "get_master_cv_version"),
+    (re.compile(r"/api/master/import"), "get_import"),
 ]
 _POST_ROUTES = [
     (re.compile(r"/api/roles"), "create_role"),
     (re.compile(_ROLE), "update_role"),
     (re.compile(_ROLE + r"/delete"), "delete_role"),
     (re.compile(_ROLE + r"/cv"), "save_role_cv"),
+    (re.compile(_ROLE + r"/cv/versions/(?P<version>\d+)/restore"), "restore_role_cv"),
     (re.compile(_ROLE + r"/merge"), "save_merge"),
     (re.compile(_ROLE + r"/runs/(?P<kind>cv|research)"), "start_run"),
     (re.compile(_ROLE + r"/runs/(?P<kind>cv|research)/(?P<run>\d+)/current"), "select_run"),
     (re.compile(r"/api/master/cv"), "save_master_cv"),
+    (re.compile(r"/api/master/cv/versions/(?P<version>\d+)/restore"), "restore_master_cv"),
+    (re.compile(r"/api/master/import"), "save_import"),
 ]
 
 
@@ -444,15 +465,44 @@ def _save_master_cv(conn, role, params, query, payload, deps):
     return _save_cv(conn, None, payload)
 
 
+def _get_cv_version(conn, role, params, query, payload, deps):
+    return {"version": camel(_require_version(conn, role and role["id"], int(params["version"])))}
+
+
+def _restore_cv_handler(conn, role, params, query, payload, deps):
+    return _restore_cv(conn, role and role["id"], int(params["version"]))
+
+
+def _version_id(payload: dict[str, Any], key: str) -> int:
+    value = payload.get(key)
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ApiError(f"{key} must be the version id from the merge view")
+    return value
+
+
+def _get_import(conn, role, params, query, payload, deps):
+    return role_merge.import_view(conn, IMPORT_PATH)
+
+
+def _save_import(conn, role, params, query, payload, deps):
+    source_hash = payload.get("sourceHash")
+    if not isinstance(source_hash, str):
+        raise ApiError("sourceHash must be the file hash from the merge view")
+    accept, resolutions = role_merge.parse_decisions(payload.get("accept", []), payload.get("resolutions", []))
+    result = role_merge.apply_import(
+        conn, target_id=_version_id(payload, "targetId"), source_hash=source_hash, accept=accept,
+        resolutions=resolutions, note=_optional_text(payload, "note"), path=IMPORT_PATH,
+    )
+    return {"success": True, **result, "masterCv": _cv_payload(conn, None)}
+
+
 def _get_merge(conn, role, params, query, payload, deps):
     return role_merge.view(conn, role["id"], query.get("direction", ""))
 
 
 def _save_merge(conn, role, params, query, payload, deps):
     direction = payload.get("direction", "")
-    target_id, source_id = payload.get("targetId"), payload.get("sourceId")
-    if not all(isinstance(value, int) and not isinstance(value, bool) for value in (target_id, source_id)):
-        raise ApiError("targetId and sourceId must be the version ids from the merge view")
+    target_id, source_id = _version_id(payload, "targetId"), _version_id(payload, "sourceId")
     accept, resolutions = role_merge.parse_decisions(payload.get("accept", []), payload.get("resolutions", []))
     result = role_merge.apply(
         conn, role["id"], direction, target_id=target_id, source_id=source_id, accept=accept,
@@ -503,6 +553,12 @@ _HANDLERS = {
     "save_role_cv": _save_role_cv,
     "get_master_cv": _get_master_cv,
     "save_master_cv": _save_master_cv,
+    "get_role_cv_version": _get_cv_version,
+    "get_master_cv_version": _get_cv_version,
+    "restore_role_cv": _restore_cv_handler,
+    "restore_master_cv": _restore_cv_handler,
+    "get_import": _get_import,
+    "save_import": _save_import,
     "get_merge": _get_merge,
     "save_merge": _save_merge,
     "list_runs": _list_runs,

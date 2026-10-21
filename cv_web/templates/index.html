@@ -192,6 +192,25 @@
                                                 Pull from master
                                             </button>
                                             <button
+                                                id="importCvBtn"
+                                                class="btn btn-secondary"
+                                                type="button"
+                                                title="Merge hand edits in input/CV.md into the master CV (you pick which)"
+                                                data-role-only
+                                                data-master-only
+                                            >
+                                                Import CV.md
+                                            </button>
+                                            <button
+                                                id="cvHistoryBtn"
+                                                class="btn btn-secondary"
+                                                type="button"
+                                                title="Versions of the open CV; restore one as a new version"
+                                                data-role-only
+                                            >
+                                                History
+                                            </button>
+                                            <button
                                                 class="btn btn-secondary file-load-btn"
                                                 data-file="cv"
                                             >
@@ -649,6 +668,23 @@
                 <div class="role-dialog-actions">
                     <button id="mergeCancelBtn" class="btn btn-secondary" type="button">Cancel</button>
                     <button id="mergeApplyBtn" class="btn btn-primary" type="button">Apply ticked changes</button>
+                </div>
+            </div>
+        </dialog>
+
+        <dialog id="historyDialog" class="role-dialog merge-dialog">
+            <div class="role-dialog-form">
+                <h2 id="historyTitle">CV history</h2>
+                <div class="history-body">
+                    <ul id="historyList" class="history-list"></ul>
+                    <pre id="historyContent" class="history-content"></pre>
+                </div>
+                <p id="historyError" class="merge-error" role="alert"></p>
+                <div class="role-dialog-actions">
+                    <button id="historyCloseBtn" class="btn btn-secondary" type="button">Close</button>
+                    <button id="historyRestoreBtn" class="btn btn-primary" type="button" disabled>
+                        Restore as new version
+                    </button>
                 </div>
             </div>
         </dialog>

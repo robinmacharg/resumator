@@ -92,6 +92,10 @@ Master and role CVs are the same kind of thing (CV source text with history), so
   version it was last synced with. That's the common ancestor a three-way merge needs (R7). As built (step 10): a
   pull sets it to the current master; a promote moves it to the new master version only when the role already has
   every master change since its base (otherwise those changes would look like role reverts on the next promote).
+- Import (R12, as built in step 11): the "master version it was last imported from" can't be the base, because a
+  merged import version holds master edits the file lacks, which would then show as file reverts. The base is the
+  file text at the last import, kept in `setting.master_import_text` (no schema change); before the first UI import
+  it falls back to the newest `import` version (the migration's v1 is the file verbatim), else empty.
 - `source` records how the version was made: `seed`, `edit`, `promote`, `pull`, `import` or `example`.
 - Merging is entry-level (R11). `cv_source.py` already parses the CV into sections and `##` entries, so each side
   becomes a map keyed by section and entry heading. A three-way comparison (base vs role vs master) classifies each

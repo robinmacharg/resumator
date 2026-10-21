@@ -62,7 +62,8 @@ Suggested shape:
 - **Merge limits (promote/pull)**: entry-level only (R11). A renamed heading shows as a removal plus an addition;
   reordering on the incoming side is ignored; section titles show their lower-case key ("in roles"). After a promote
   while master changes are still unpulled, the role's base stays put, so editing a promoted entry again before a
-  pull shows as a conflict on the next pull (`cv_web/role_merge.py`).
+  pull shows as a conflict on the next pull (`cv_web/role_merge.py`). Import has no file-to-master sync the other
+  way (R10): master edits never reach `input/CV.md`.
 - **Stale venv**: `.venv` is Python 3.9.6, and `generate_cv.py`, `research_role.py` and `cv_convert.py` fail to import
   on it (`int | None` annotations without `from __future__ import annotations`). Things only work because the npm
   scripts fall back to the system `python3`. Rebuild the venv with Python 3.10 or newer.

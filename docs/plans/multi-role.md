@@ -7,8 +7,8 @@ demand.
 
 **Status:** IN PROGRESS. Design agreed (R1–R21). Stage S1 (steps 1–5) done: spike, `cv_web/store.py`, `cv_merge.py`,
 `cv_convert.render_cv`, `--io json` pipe mode. S2 steps 6–8 done: `cv_web/role_runner.py`, the migration (run on this
-install), and the role API (`cv_web/server_roles.py`). Step 9 (the UI) is done, so S2 is complete. S3 step 10
-(promote and pull) is done; next is step 11 (master version history and import).
+install), and the role API (`cv_web/server_roles.py`). Step 9 (the UI) is done, so S2 is complete. S3 (steps 10–11:
+promote and pull, version history and import) is done. Next is S4, step 12 (first-run flow).
 Work happens on branch `feature/20261021-multi-role` (from `develop`).
 
 **Files:** this one holds the status, steps and Handoff (read it every session). The design (decisions R1–R21,
@@ -44,7 +44,7 @@ Each stage ends with the app working and tests passing. One-shot CLI behaviour i
 | # | Step | Output | Status |
 |---|---|---|---|
 | 10 | Promote and pull: merge view (one checkbox per entry, removals unticked by default, conflicts highlighted, inline `difflib` diff) over the S1 engine (R7, R11) | Two-way sync | done |
-| 11 | Master version history (view and restore as a new version) and "Import `input/CV.md` as master" (R12) | History and import | todo |
+| 11 | Master version history (view and restore as a new version) and "Import `input/CV.md` as master" (R12) | History and import | done |
 
 **S4 — Finish**
 
@@ -99,9 +99,9 @@ in-memory rendering is too slow; the fallback is a private temp directory per re
 
 ## Handoff
 
-For the next session: the design is agreed (R1–R21). Steps 1–10 are done; next is S3, step 11 (master version
-history and "Import `input/CV.md` as master"). Work on branch `feature/20261021-multi-role`. Steps 1–10 are committed
-(step 10 in "multi-role step 10"). `input/jobspec.txt` has an unrelated uncommitted
+For the next session: the design is agreed (R1–R21). Steps 1–11 are done (S3 complete); next is S4, step 12
+(first-run flow, R3). Work on branch `feature/20261021-multi-role`. Steps 1–11 are committed (step 11 in
+"multi-role step 11"). `input/jobspec.txt` has an unrelated uncommitted
 change of the user's: leave it out of commits. The Schema section in multi-role-design.md is what's built.
 
 **This install's DB** (`cv_web/resumator.db`, gitignored) was migrated by the user: master v1 (`import`), role 1
@@ -133,7 +133,13 @@ Headless Chrome (`/Applications/Google Chrome.app`) with `--remote-debugging-por
 - Known backend limit (from step 8): `role_runner.run_script` doesn't start a new process session, so research stop
   falls back to `terminate()` of the script; a provider child may outlive it. Mind Ctrl-C for the step 13 CLI.
 
-**Step 10 gave promote and pull** (docs/architecture.md "Role API", static/ARCHITECTURE.md). Key points for step 11:
+**Steps 10–11 gave promote, pull, import and history** (docs/architecture.md "Role API", static/ARCHITECTURE.md).
+Step 11 as built: `cv-history-feature.js` (History button, role or master CV, restore = a new `edit` version via
+`…/cv/versions/<v>/restore`) and import through the merge dialog (`GET/POST /api/master/import`, Import CV.md button
+shown only with the master open). The import base is the file text at the last import in `setting.master_import_text`
+(design doc, "CV versions"). For step 12: file mode only remains for an empty DB, and the first-run choice
+(example data or blank) replaces it; `setting` can hold `first_run_done`. The `example` CV source already exists.
+Step 10 notes, kept for reference:
 - `cv_web/role_merge.py`: `view(conn, role_id, direction)` / `parse_decisions` / `apply(…)` over `cv_merge`. Routes
   `GET/POST /api/roles/<id>/merge`. The base rule (pull moves it, promote only when nothing is left to pull) is in
   the design doc's "CV versions" section.

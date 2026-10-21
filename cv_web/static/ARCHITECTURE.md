@@ -27,6 +27,7 @@ flowchart TD
     App --> RoleWorkspace[role-workspace-feature.js]
     App --> RoleRuns[role-runs-feature.js]
     App --> RoleMerge[role-merge-feature.js]
+    App --> CvHistory[cv-history-feature.js]
     App --> Research[research-feature.js]
     App --> CVPipeline[cv-pipeline-feature.js]
     App --> Logs[logs-feature.js]
@@ -132,11 +133,17 @@ flowchart TD
   - The active role's CV run picker. The picked run is previewed through `setCvRunSource` (PDF rendered on demand
     in the selected theme, plus a DOCX link), and the Tailored tab shows its model JSON.
 
-- `role-merge-feature.js` (multi-role plan step 10)
-  - **Promote to master** / **Pull from master** buttons beside the CV picker open the merge dialog: one checkbox
+- `role-merge-feature.js` (multi-role plan steps 10 and 11)
+  - **Promote to master** / **Pull from master** buttons beside the CV picker, and **Import CV.md** (shown only
+    while the master is open: `body.cv-master`, `[data-master-only]`), open the merge dialog: one checkbox
     per changed entry (removals unticked), an inline diff, and keep / take / edit choices for conflicts, which must
     all be answered. Refuses while the CV editor has unsaved edits; after saving it reloads the open CV
     (`loadOpenCv` from the role workspace). A pull with nothing to merge still moves a stale base silently.
+
+- `cv-history-feature.js` (multi-role plan step 11)
+  - **History** opens the open CV's versions (role or master), newest marked current; picking one shows its text,
+    and **Restore as new version** saves it as a new version (refused while the CV editor has unsaved edits), then
+    reloads the open CV.
 
 - `app-operations-feature.js`
   - Handles file save/load/reload, tailored output refresh, and server restart flow.
@@ -177,7 +184,8 @@ This map identifies which frontend feature owns each backend/static endpoint int
 | `/api/research/format` | `research-feature.js` | Format research PDF output. |
 | `/api/research/reset-prompt` | `research-feature.js` | Restore default research prompt file. |
 | `/api/roles`, `/api/roles/<id>` (read, update, `/delete`), `/api/roles/<id>/cv`, `/api/master/cv` | `role-workspace-feature.js` | Role list, create/update/archive/delete, role and master CV read/save. Routes in [docs/architecture.md](../../docs/architecture.md) "Role API". |
-| `/api/roles/<id>/merge` (view, save) | `role-merge-feature.js` | Promote/pull merge view and saving it. |
+| `/api/roles/<id>/merge`, `/api/master/import` (view, save) | `role-merge-feature.js` | Promote/pull/import merge view and saving it. |
+| `…/cv/versions/<v>`, `…/cv/versions/<v>/restore` (role or master) | `cv-history-feature.js` | Version history and restore. |
 | `/api/roles/<id>/runs`, `…/runs/cv/<run>`, `…/runs/cv/<run>/cv.pdf\|docx` | `role-runs-feature.js` (documents via `pdf-preview-feature.js`) | Run history, run detail for the Tailored tab, on-demand PDF/DOCX. |
 | `/api/roles/<id>/runs/cv`, `…/runs/research` | `cv-pipeline-feature.js`, `research-feature.js` | Start role runs; progress on the shared `/api/run/status` and `/api/research/status`. |
 | `/output/tailored.md` | `app-operations-feature.js` | Load tailored markdown output into viewer. |
@@ -211,7 +219,7 @@ These features expose callbacks needed by higher-level workflow modules.
 - `steering-feature.js`
 - `cv-pipeline-feature.js`
 
-`role-runs-feature.js`, `role-workspace-feature.js` and `role-merge-feature.js` are built just after the draft feature; the features they
+`role-runs-feature.js`, `role-workspace-feature.js`, `role-merge-feature.js` and `cv-history-feature.js` are built just after the draft feature; the features they
 call back into (steering, theme) are reached through late-bound arrows, called only after composition.
 
 These modules orchestrate backend operations but do not query the DOM directly.

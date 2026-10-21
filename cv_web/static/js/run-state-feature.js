@@ -73,6 +73,8 @@ export function createRunStateFeature(ctx) {
             els.cvSourceSelect,
             els.promoteCvBtn,
             els.pullCvBtn,
+            els.cvHistoryBtn,
+            els.importCvBtn,
         ].forEach((el) => {
             if (!el) {
                 return;

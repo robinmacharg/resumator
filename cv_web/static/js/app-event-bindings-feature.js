@@ -23,7 +23,8 @@
  * @property {any} [steeringFeature] Steering feature API.
  * @property {any} [roleWorkspaceFeature] Role sidebar, CV source and role controls.
  * @property {any} [roleRunsFeature] Role run-history picker.
- * @property {any} [roleMergeFeature] Promote/pull merge view.
+ * @property {any} [roleMergeFeature] Promote/pull/import merge view.
+ * @property {any} [cvHistoryFeature] CV version history dialog.
  */
 
 /**
@@ -46,6 +47,7 @@ export function createAppEventBindingsFeature(ctx) {
         roleWorkspaceFeature,
         roleRunsFeature,
         roleMergeFeature,
+        cvHistoryFeature,
     } = ctx;
 
     /**
@@ -184,10 +186,19 @@ export function createAppEventBindingsFeature(ctx) {
         if (roleMergeFeature) {
             bindOptionalClick(els.promoteCvBtn, () => roleMergeFeature.openMerge("promote"));
             bindOptionalClick(els.pullCvBtn, () => roleMergeFeature.openMerge("pull"));
+            bindOptionalClick(els.importCvBtn, () => roleMergeFeature.openMerge("import"));
             bindOptionalClick(els.mergeApplyBtn, roleMergeFeature.applyMerge);
             bindOptionalClick(els.mergeCancelBtn, roleMergeFeature.closeMerge);
             if (els.mergeDialog) {
                 els.mergeDialog.addEventListener("close", roleMergeFeature.closeMerge);
+            }
+        }
+        if (cvHistoryFeature) {
+            bindOptionalClick(els.cvHistoryBtn, cvHistoryFeature.openHistory);
+            bindOptionalClick(els.historyRestoreBtn, cvHistoryFeature.restoreSelected);
+            bindOptionalClick(els.historyCloseBtn, cvHistoryFeature.closeHistory);
+            if (els.historyDialog) {
+                els.historyDialog.addEventListener("close", cvHistoryFeature.closeHistory);
             }
         }
         if (roleRunsFeature && els.runSelect) {

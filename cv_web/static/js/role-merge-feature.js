@@ -1,8 +1,8 @@
 /**
  * Architecture role:
- * - Layer: domain workflow feature used by app bootstrap (multi-role plan step 10).
- * - Responsibility: "Promote to master" and "Pull from master": the merge view dialog over
- *   `GET/POST /api/roles/<id>/merge`, then reloading the open CV.
+ * - Layer: domain workflow feature used by app bootstrap (multi-role plan steps 10 and 11).
+ * - Responsibility: "Promote to master", "Pull from master" (`GET/POST /api/roles/<id>/merge`) and "Import
+ *   input/CV.md as master" (`GET/POST /api/master/import`): the merge view dialog, then reloading the open CV.
  *
  * Plain-language purpose:
  * - Shows each changed CV entry with a checkbox and an inline diff. Removals start unticked so nothing is lost by
@@ -25,6 +25,14 @@ const DIRECTION_TEXT = {
         incoming: "master",
         none: "Nothing to pull: the role CV is up to date with the master.",
         done: "Pulled master changes into the role CV.",
+    },
+    import: {
+        title: "Import input/CV.md as master",
+        hint: "Changes in input/CV.md since it was last imported. Ticked ones are copied into the master.",
+        current: "master",
+        incoming: "file",
+        none: "Nothing to import: input/CV.md has no changes since it was last imported.",
+        done: "Imported input/CV.md into the master CV.",
     },
 };
 
@@ -178,7 +186,7 @@ export function createRoleMergeFeature(ctx) {
 
     /**
      * Open the merge view for a direction. Refuses while the CV editor has unsaved edits.
-     * @param {"promote" | "pull"} direction
+     * @param {"promote" | "pull" | "import"} direction
      * @returns {Promise<void>}
      */
     async function openMerge(direction) {
@@ -191,7 +199,11 @@ export function createRoleMergeFeature(ctx) {
             return;
         }
         try {
-            const view = await api(`/api/roles/${state.activeRoleId}/merge?direction=${direction}`);
+            const path =
+                direction === "import"
+                    ? "/api/master/import"
+                    : `/api/roles/${state.activeRoleId}/merge?direction=${direction}`;
+            const view = await api(path);
             if (!view.changes.length) {
                 if (direction === "pull" && view.baseBehind) {
                     // Nothing to merge, but record that the role is now in sync with the newer master.
@@ -213,6 +225,12 @@ export function createRoleMergeFeature(ctx) {
      * @returns {Promise<any>}
      */
     function saveDecisions(direction, view, accept, resolutions) {
+        if (direction === "import") {
+            return api("/api/master/import", {
+                method: "POST",
+                body: JSON.stringify({ targetId: view.targetId, sourceHash: view.sourceHash, accept, resolutions }),
+            });
+        }
         return api(`/api/roles/${state.activeRoleId}/merge`, {
             method: "POST",
             body: JSON.stringify({

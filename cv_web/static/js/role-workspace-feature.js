@@ -122,6 +122,7 @@ export function createRoleWorkspaceFeature(ctx) {
         const active = isActive();
         if (els.body) {
             els.body.classList.toggle("role-mode", active);
+            els.body.classList.toggle("cv-master", active && state.cvSource === "master");
         }
         editableFiles.cv.tabLabel = active ? CV_LABELS[state.cvSource] : "CV";
         if (els.cvSourceSelect) {

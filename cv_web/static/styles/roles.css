@@ -2,7 +2,8 @@
 
 /* Shows role-only controls in role mode and file-only controls otherwise. */
 body:not(.role-mode) [data-role-only],
-body.role-mode [data-file-only] {
+body.role-mode [data-file-only],
+body:not(.cv-master) [data-master-only] {
   display: none !important;
 }
 
@@ -252,6 +253,58 @@ body.role-mode [data-file-only] {
 .merge-error {
   color: var(--danger);
   min-height: 1em;
+}
+
+/* Version list beside the selected version's text (step 11). */
+.history-body {
+  display: flex;
+  gap: 0.6rem;
+  height: 60vh;
+  min-height: 0;
+}
+
+/* Scrolls the version list. */
+.history-list {
+  list-style: none;
+  flex: 0 0 18rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+/* One version line; the shown one is highlighted. */
+.history-item {
+  width: 100%;
+  margin-bottom: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-item:hover,
+.history-item.active {
+  border-color: var(--line);
+  background: #fff;
+}
+
+/* The selected version's text (light, like the merge diff). */
+.history-content {
+  flex: 1;
+  max-height: none;
+  margin: 0;
+  padding: 0.5rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
 }
 
 /* Stacks the sidebar above the panes on narrow screens. */

@@ -19,6 +19,7 @@ import { createOutputDisplayFeature } from "./js/output-display-feature.js";
 import { createPdfPreviewFeature } from "./js/pdf-preview-feature.js";
 import { createProviderModelFeature } from "./js/provider-model-feature.js";
 import { createResearchFeature } from "./js/research-feature.js";
+import { createCvHistoryFeature } from "./js/cv-history-feature.js";
 import { createRoleMergeFeature } from "./js/role-merge-feature.js";
 import { createRoleRunsFeature } from "./js/role-runs-feature.js";
 import { createRoleWorkspaceFeature } from "./js/role-workspace-feature.js";
@@ -82,6 +83,15 @@ const els = {
     cvSourceSelect: document.getElementById("cvSourceSelect"),
     promoteCvBtn: document.getElementById("promoteCvBtn"),
     pullCvBtn: document.getElementById("pullCvBtn"),
+    cvHistoryBtn: document.getElementById("cvHistoryBtn"),
+    importCvBtn: document.getElementById("importCvBtn"),
+    historyDialog: document.getElementById("historyDialog"),
+    historyTitle: document.getElementById("historyTitle"),
+    historyList: document.getElementById("historyList"),
+    historyContent: document.getElementById("historyContent"),
+    historyError: document.getElementById("historyError"),
+    historyRestoreBtn: document.getElementById("historyRestoreBtn"),
+    historyCloseBtn: document.getElementById("historyCloseBtn"),
     mergeDialog: document.getElementById("mergeDialog"),
     mergeTitle: document.getElementById("mergeTitle"),
     mergeHint: document.getElementById("mergeHint"),
@@ -333,6 +343,17 @@ const roleMergeFeature = createRoleMergeFeature({
     loadOpenCv: roleWorkspaceFeature.loadOpenCv,
 });
 
+// Version history of the open CV (role or master): view and restore as a new version.
+const cvHistoryFeature = createCvHistoryFeature({
+    state,
+    els,
+    api,
+    setStatus,
+    currentFileValues,
+    loadOpenCv: roleWorkspaceFeature.loadOpenCv,
+    formatDateTime: (value) => formatPreviewDateTime(value, "?"),
+});
+
 // Role-mode hooks shared by the CV and research run features.
 const roleRunDeps = {
     getActiveRoleId: () => state.activeRoleId,
@@ -498,6 +519,7 @@ const appEventBindingsFeature = createAppEventBindingsFeature({
     roleWorkspaceFeature,
     roleRunsFeature,
     roleMergeFeature,
+    cvHistoryFeature,
 });
 
 // Final startup launcher for one-time app boot order.

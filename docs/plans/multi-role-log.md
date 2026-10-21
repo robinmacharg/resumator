@@ -154,3 +154,16 @@ are history, not instructions.
   kept it, base moved) and the dirty-editor refusal; `input/CV.md` unchanged. Docs: architecture.md, static
   ARCHITECTURE.md, gaps.md (merge limits), design doc (base rule), AGENTS.md.
 - 2026-10-21 · Process · Committed step 10 at the user's request ("multi-role step 10"); `input/jobspec.txt` left out.
+- 2026-10-21 · Step 11 · Done. Version history: `GET …/cv/versions/<v>` and `POST …/restore` for
+  role and master CVs (restore = a new `edit` version, "Restored version N"), with `cv-history-feature.js` (History
+  button; works for whichever CV is open, a small widening of the step's "master" scope). Import (R12):
+  `role_merge.import_view`/`apply_import`, `GET/POST /api/master/import`, the merge dialog's `import` mode, and an
+  Import CV.md button shown only with the master open. Differed from the design: the base isn't "the master version
+  last imported from" (a test showed a merged import version makes master-only edits look like file reverts,
+  ticked by default); it's the file text at the last import in `setting.master_import_text`, falling back to the
+  newest `import` version, else empty. Declined file changes don't come back. Fixed during the check: a global
+  `pre` max-height clipped the history text. 6 new Python tests (262) and 4 frontend (87) pass. A CDP smoke test on
+  a fresh scratch DB copy with an edited scratch `CV.md` covered the button visibility, import, "nothing left to
+  import", history and restore; `input/CV.md` unchanged. The live DB has the user's own promote trials (20:36 UTC,
+  roles 2–3), checked to be theirs, not test writes. Docs: architecture.md, static ARCHITECTURE.md, gaps.md, design doc.
+- 2026-10-21 · Process · Committed step 11 at the user's request ("multi-role step 11"); `input/jobspec.txt` left out.

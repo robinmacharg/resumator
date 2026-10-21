@@ -1,4 +1,5 @@
-"""Promote and pull between a role's CV and the master CV (multi-role step 10, R7, R11).
+"""Promote and pull between a role's CV and the master CV (multi-role step 10, R7, R11), and importing
+`input/CV.md` into the master through the same merge view (step 11, R12).
 
 Architecture role:
 - Layer: workflow over `cv_web/store.py` and `cv_merge.py` (no HTTP; the role API and a future CLI call it).
@@ -13,11 +14,18 @@ Design notes (docs/plans/multi-role-design.md R7, R11):
   base (nothing left to pull). Moving it otherwise would make those master changes look like role reverts on the
   next promote. The move is a role version with unchanged content and source `promote`.
 - The view carries the version ids it was built from; saving refuses (stale) if either CV changed since.
+- Import: base = the file text as last imported (setting `master_import_text`; before the first import through
+  the UI, the newest master `import` version, else empty), ours = master, theirs = the file. Saved as an `import`
+  master version, and the file text becomes the next base even when nothing was accepted, so declined file changes
+  don't come back. The base can't be the saved master version: it holds master edits the file lacks, which would
+  then look like file reverts. The file has no version id, so its SHA-256 marks a stale view.
 """
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
+from pathlib import Path
 from typing import Any
 
 import cv_merge
@@ -26,6 +34,10 @@ from cv_web import store
 PROMOTE = "promote"
 PULL = "pull"
 DIRECTIONS = (PROMOTE, PULL)
+IMPORT = "import"
+
+IMPORT_BASE_SETTING = "master_import_text"  # file text at the last import (R12 merge base)
+IMPORT_PATH = Path(__file__).resolve().parent.parent / "input" / "CV.md"
 
 # Conflict choices from the client: keep the target's text, take the source's, or edited text.
 CHOICES = ("current", "incoming", "edit")
@@ -61,31 +73,35 @@ def _key(change: cv_merge.Change) -> list[str]:
     return list(change.key)
 
 
+def _changes_payload(changes: list[cv_merge.Change]) -> list[dict[str, Any]]:
+    defaults = cv_merge.default_accept(changes)
+    return [
+        {
+            "key": _key(change),
+            "kind": change.kind,
+            "heading": change.heading,
+            "status": change.status,
+            "base": change.base,
+            "current": change.ours,
+            "incoming": change.theirs,
+            "diff": change.diff,
+            "accept": change.key in defaults,
+        }
+        for change in changes
+    ]
+
+
 def view(conn: sqlite3.Connection, role_id: int, direction: str) -> dict[str, Any]:
     """The merge view: every unit needing a decision, with default ticks and an inline diff (camelCase keys)."""
     sides = _sides(conn, role_id, direction)
     base, target, source = sides["base"], sides["target"], sides["source"]
     changes = cv_merge.compare(base["content"], target["content"], source["content"])
-    defaults = cv_merge.default_accept(changes)
     return {
         "direction": direction,
         "baseId": base["id"],
         "targetId": target["id"],
         "sourceId": source["id"],
-        "changes": [
-            {
-                "key": _key(change),
-                "kind": change.kind,
-                "heading": change.heading,
-                "status": change.status,
-                "base": change.base,
-                "current": change.ours,
-                "incoming": change.theirs,
-                "diff": change.diff,
-                "accept": change.key in defaults,
-            }
-            for change in changes
-        ],
+        "changes": _changes_payload(changes),
         # Pull with nothing to merge still moves the base when the master has moved on.
         "baseBehind": base["id"] != sides["master"]["id"],
     }
@@ -130,6 +146,20 @@ def parse_decisions(
     return keys, resolved
 
 
+def _check_decisions(
+    changes: list[cv_merge.Change], accept: set[tuple[str, str]], resolutions: dict[tuple[str, str], str | None]
+) -> None:
+    """Ticks must name non-conflict changes, resolutions conflicts, and every conflict needs one."""
+    conflicts = {change.key for change in changes if change.status == cv_merge.CONFLICT}
+    others = {change.key for change in changes} - conflicts
+    if accept - others:
+        raise MergeError("accept names entries that aren't changes in this merge")
+    if set(resolutions) - conflicts:
+        raise MergeError("resolutions name entries that aren't conflicts in this merge")
+    if conflicts - set(resolutions):
+        raise MergeError(f"Resolve every conflict first ({len(conflicts - set(resolutions))} left)")
+
+
 def apply(
     conn: sqlite3.Connection,
     role_id: int,
@@ -148,14 +178,7 @@ def apply(
         if (target["id"], source["id"]) != (target_id, source_id):
             raise MergeError("The role or master CV changed since the merge view opened; open it again", 409)
         changes = cv_merge.compare(base["content"], target["content"], source["content"])
-        conflicts = {change.key for change in changes if change.status == cv_merge.CONFLICT}
-        others = {change.key for change in changes} - conflicts
-        if accept - others:
-            raise MergeError("accept names entries that aren't changes in this merge")
-        if set(resolutions) - conflicts:
-            raise MergeError("resolutions name entries that aren't conflicts in this merge")
-        if conflicts - set(resolutions):
-            raise MergeError(f"Resolve every conflict first ({len(conflicts - set(resolutions))} left)")
+        _check_decisions(changes, accept, resolutions)
         merged = cv_merge.merge(base["content"], target["content"], source["content"], accept, resolutions).text
 
         if direction == PULL:
@@ -178,3 +201,71 @@ def apply(
                 note=f"Synced with master version {version_id} after promote",
             )
         return {"unchanged": False, "versionId": version_id, "baseMoved": base_moved}
+
+
+# ---------------------------------------------------------------------------
+# Import input/CV.md as master (R12)
+# ---------------------------------------------------------------------------
+
+
+def file_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _import_sides(conn: sqlite3.Connection, path: Path) -> tuple[str, str, dict[str, Any], str]:
+    """Base text and where it came from (`lastImport`, `importVersion` or `none`), current master, file text."""
+    master = store.current_cv_version(conn, None)
+    if master is None:
+        raise MergeError("There is no master CV", 409)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise MergeError(f"Can't read {path.name}: {exc.strerror or exc}", 409) from exc
+    base_text = store.get_setting(conn, IMPORT_BASE_SETTING)
+    if base_text is not None:
+        return base_text, "lastImport", master, text
+    version = next(
+        (row for row in store.list_cv_versions(conn, None, include_content=True) if row["source"] == IMPORT), None
+    )
+    if version is not None:
+        return version["content"], "importVersion", master, text
+    return "", "none", master, text
+
+
+def import_view(conn: sqlite3.Connection, path: Path = IMPORT_PATH) -> dict[str, Any]:
+    """Merge view for importing the file into the master (same change shape as `view`)."""
+    base_text, base_from, master, text = _import_sides(conn, path)
+    return {
+        "direction": IMPORT,
+        "baseFrom": base_from,
+        "targetId": master["id"],
+        "sourceHash": file_hash(text),
+        "changes": _changes_payload(cv_merge.compare(base_text, master["content"], text)),
+    }
+
+
+def apply_import(
+    conn: sqlite3.Connection,
+    *,
+    target_id: int,
+    source_hash: str,
+    accept: set[tuple[str, str]],
+    resolutions: dict[tuple[str, str], str | None],
+    note: str | None = None,
+    path: Path = IMPORT_PATH,
+) -> dict[str, Any]:
+    """Save the import as a new `import` master version and record the file as the next base.
+
+    Returns `{unchanged, versionId}`; `unchanged` means the master didn't change (the base may still move).
+    """
+    with store.transaction(conn):
+        base_text, _, master, text = _import_sides(conn, path)
+        if (master["id"], file_hash(text)) != (target_id, source_hash):
+            raise MergeError(f"The master CV or {path.name} changed since the merge view opened; open it again", 409)
+        _check_decisions(cv_merge.compare(base_text, master["content"], text), accept, resolutions)
+        merged = cv_merge.merge(base_text, master["content"], text, accept, resolutions).text
+        store.set_setting(conn, IMPORT_BASE_SETTING, text)
+        if merged == master["content"]:
+            return {"unchanged": True, "versionId": None}
+        version_id = store.add_cv_version(conn, merged, source=IMPORT, note=note or f"Imported {path.name}")
+        return {"unchanged": False, "versionId": version_id}

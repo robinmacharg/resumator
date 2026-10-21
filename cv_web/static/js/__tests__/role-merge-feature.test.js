@@ -193,3 +193,46 @@ test("a refused save stays in the dialog with the error", async () => {
     feature.closeMerge();
     assert.equal(dialog.open, false);
 });
+
+test("import uses the master import routes and the file hash", async () => {
+    global.document = { createElement: fakeElement };
+    const calls = [];
+    const dialog = Object.assign(fakeElement("dialog"), {
+        open: false,
+        showModal() {
+            this.open = true;
+        },
+        close() {
+            this.open = false;
+        },
+    });
+    const els = {
+        mergeDialog: dialog,
+        mergeTitle: fakeElement("h2"),
+        mergeHint: fakeElement("p"),
+        mergeList: fakeElement("ul"),
+        mergeError: fakeElement("p"),
+    };
+    const feature = createRoleMergeFeature({
+        state: { activeRoleId: 4, diskFiles: { cv: "" } },
+        els,
+        api: async (path, options = {}) => {
+            calls.push({ path, method: options.method || "GET", body: options.body && JSON.parse(options.body) });
+            return options.method
+                ? { unchanged: false }
+                : { direction: "import", targetId: 7, sourceHash: "abc", changes: CHANGES.slice(0, 1) };
+        },
+        setStatus: () => {},
+        currentFileValues: () => ({ cv: "" }),
+        loadOpenCv: async () => {},
+    });
+    await feature.openMerge("import");
+    assert.equal(els.mergeTitle.textContent, "Import input/CV.md as master");
+    await feature.applyMerge();
+    assert.deepEqual(calls[0], { path: "/api/master/import", method: "GET", body: undefined });
+    assert.deepEqual(calls[1], {
+        path: "/api/master/import",
+        method: "POST",
+        body: { targetId: 7, sourceHash: "abc", accept: [["roles", "a"]], resolutions: [] },
+    });
+});

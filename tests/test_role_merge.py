@@ -175,5 +175,63 @@ class PullTests(RoleMergeTestCase):
                 role_merge.parse_decisions(accept, resolutions)
 
 
+class ImportTests(RoleMergeTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.path = Path(self.enterContext(tempfile.TemporaryDirectory())) / "CV.md"
+        self.path.write_text(cv(ANALYST, TUTOR), encoding="utf-8")  # what master v1 was imported from
+
+    def save_import(self, accept=None, resolutions=None, **ids):
+        current = role_merge.import_view(self.conn, self.path)
+        if accept is None:
+            accept = {tuple(change["key"]) for change in current["changes"] if change["accept"]}
+        return role_merge.apply_import(
+            self.conn, target_id=ids.get("target_id", current["targetId"]),
+            source_hash=ids.get("source_hash", current["sourceHash"]), accept=set(accept),
+            resolutions=resolutions or {}, path=self.path,
+        )
+
+    def test_unchanged_file_has_nothing_to_import(self) -> None:
+        body = role_merge.import_view(self.conn, self.path)
+        self.assertEqual((body["changes"], body["baseFrom"], body["targetId"]), ([], "importVersion", self.master_v1))
+
+    def test_hand_edits_merge_with_master_edits(self) -> None:
+        self.edit_master(cv(ANALYST + "\n- Master edit.", TUTOR))
+        self.path.write_text(cv(ANALYST, TUTOR, CLERK), encoding="utf-8")
+        body = role_merge.import_view(self.conn, self.path)
+        self.assertEqual([(c["status"], tuple(c["key"])) for c in body["changes"]], [("added", CLERK_KEY)])
+        result = self.save_import()
+        master = self.master_cv()
+        self.assertEqual((master["id"], master["source"]), (result["versionId"], "import"))
+        self.assertEqual(master["content"], cv(ANALYST + "\n- Master edit.", TUTOR, CLERK))
+        # The file text is the next base: nothing left to import, and the master's own edit isn't offered back.
+        body = role_merge.import_view(self.conn, self.path)
+        self.assertEqual((body["changes"], body["baseFrom"]), ([], "lastImport"))
+
+    def test_without_an_import_version_the_base_is_empty(self) -> None:
+        self.conn.execute("UPDATE cv_version SET source = 'edit' WHERE id = ?", (self.master_v1,))
+        self.path.write_text(cv(ANALYST + "\n- File edit.", CLERK), encoding="utf-8")
+        body = role_merge.import_view(self.conn, self.path)
+        self.assertEqual(body["baseFrom"], "none")
+        self.assertEqual(
+            [(c["status"], tuple(c["key"])) for c in body["changes"]], [("conflict", ANALYST_KEY), ("added", CLERK_KEY)]
+        )
+
+    def test_refusals(self) -> None:
+        body = role_merge.import_view(self.conn, self.path)
+        self.path.write_text(cv(ANALYST), encoding="utf-8")
+        with self.assertRaises(role_merge.MergeError) as raised:
+            self.save_import(source_hash=body["sourceHash"])
+        self.assertEqual(raised.exception.status, 409)
+        with self.assertRaises(role_merge.MergeError) as raised:
+            role_merge.import_view(self.conn, self.path.with_name("missing.md"))
+        self.assertEqual(raised.exception.status, 409)
+        # Declining everything leaves the master alone but records the file, so the change isn't offered again.
+        self.assertEqual(len(role_merge.import_view(self.conn, self.path)["changes"]), 1)
+        self.assertTrue(self.save_import(accept=set())["unchanged"])
+        self.assertEqual(self.master_cv()["id"], self.master_v1)
+        self.assertEqual(role_merge.import_view(self.conn, self.path)["changes"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

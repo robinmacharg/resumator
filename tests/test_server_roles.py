@@ -181,6 +181,39 @@ class MergeTests(ServerRolesTestCase):
         self.json("POST", path, {**stale, "targetId": view["targetId"], "accept": "all"}, status=400)
 
 
+class HistoryAndImportTests(ServerRolesTestCase):
+    def test_version_read_and_restore(self) -> None:
+        store.add_cv_version(self.conn, MINIMAL + "\nMore.\n", source="edit", role_id=self.role_id)
+        path = f"/api/roles/{self.role_id}/cv/versions/{self.cv_id}"
+        self.assertEqual(self.json("GET", path)["version"]["content"], MINIMAL)
+        body = self.json("POST", path + "/restore")
+        self.assertEqual((body["cv"]["content"], body["cv"]["note"]), (MINIMAL, f"Restored version {self.cv_id}"))
+        self.assertEqual((body["cv"]["source"], body["unchanged"]), ("edit", False))
+        self.assertTrue(self.json("POST", path + "/restore")["unchanged"])
+
+        master_path = f"/api/master/cv/versions/{self.master_id}"
+        self.assertEqual(self.json("GET", master_path)["version"]["roleId"], None)
+        self.assertTrue(self.json("POST", master_path + "/restore")["unchanged"])
+        # A version of another CV is 404 on both sides.
+        self.json("GET", f"/api/master/cv/versions/{self.cv_id}", status=404)
+        self.json("GET", f"/api/roles/{self.role_id}/cv/versions/{self.master_id}", status=404)
+
+    def test_import_round_trip(self) -> None:
+        cv_path = Path(self.enterContext(tempfile.TemporaryDirectory())) / "CV.md"
+        self.enterContext(mock.patch.object(server_roles, "IMPORT_PATH", cv_path))
+        cv_path.write_text(MINIMAL + "\n# Education\n\n## School\nDates: 2000\n", encoding="utf-8")
+        view = self.json("GET", "/api/master/import")
+        self.assertEqual([c["key"] for c in view["changes"]], [["education", ""], ["education", "school"]])
+        body = self.json("POST", "/api/master/import", {
+            "targetId": view["targetId"], "sourceHash": view["sourceHash"],
+            "accept": [c["key"] for c in view["changes"]], "resolutions": [],
+        })
+        self.assertEqual(body["masterCv"]["cv"]["source"], "import")
+        self.assertIn("## School", body["masterCv"]["cv"]["content"])
+        self.json("POST", "/api/master/import", {"targetId": view["targetId"], "sourceHash": 1}, status=400)
+        self.json("POST", "/api/master/import", {"targetId": view["targetId"], "sourceHash": "x"}, status=409)
+
+
 class RunTests(ServerRolesTestCase):
     def test_list_get_and_select(self) -> None:
         first = self.add_run()
