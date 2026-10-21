@@ -6,3 +6,4 @@ __pycache__
 /tailored_dev.*
 /cv_web/resumator.db*
 /cv_web/backups/
+.env
