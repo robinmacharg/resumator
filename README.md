@@ -1,8 +1,8 @@
 # Resumator
 
 A local web tool that tailors a master CV to a job spec with an LLM and renders the result as PDF and DOCX. It also
-generates role research and interview prep notes. You can choose between several LLM backends: Gemini CLI, OpenAI,
-Hugging Face, a local Swiftlet server, or Copilot via a VS Code bridge.
+generates role research and interview prep notes. You can choose between several LLM backends: Claude Code CLI,
+Gemini CLI, OpenAI, Hugging Face, a local Swiftlet server, or Copilot via a VS Code bridge.
 
 **Docs:** [architecture](docs/architecture.md) · [LLM backends](docs/backends.md) ·
 [CV formats](docs/cv-format.md) · [gaps & roadmap](docs/gaps.md) · [frontend](cv_web/static/ARCHITECTURE.md) ·
@@ -13,6 +13,7 @@ Hugging Face, a local Swiftlet server, or Copilot via a VS Code bridge.
 - Python 3.10+ (standard library only, so `pip install` is not needed)
 - `pandoc` and `typst` for PDF/DOCX output: `brew install pandoc typst`
 - At least one backend, configured in `.env` (see [docs/backends.md](docs/backends.md)):
+  - Claude Code: the `claude` CLI, logged in (`claude auth`)
   - Gemini: `npm install -g @google/gemini-cli`, authenticated in your shell
   - OpenAI: `OPENAI_API_KEY` · Hugging Face: `HF_API_TOKEN` · Swiftlet: a local server at `SWIFTLET_API_URL`
   - VS Code bridge: see [VSCodeExtension/README.md](VSCodeExtension/README.md)

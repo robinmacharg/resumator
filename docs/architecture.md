@@ -66,6 +66,6 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 
 ## Tests
 
-- `tests/`: unittest coverage for the server helpers and `env_utils`. Nothing covers `generate_cv`, `cv_convert`,
-  or the backends.
+- `tests/`: unittest coverage for the server helpers, `env_utils` and the `claudecode` backend (with a fake `claude`
+  on PATH). Nothing covers `generate_cv`, `cv_convert`, or the other backends.
 - `cv_web/static/js/__tests__/`: `node --test` coverage of the frontend feature modules.

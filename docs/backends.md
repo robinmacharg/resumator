@@ -37,11 +37,15 @@ optional `VSCODE_BRIDGE_SYSTEM_PROMPT`).
 
 | id | Transport | Enabled when | Model env (primary / fallbacks CSV) | Other env |
 |---|---|---|---|---|
+| `claudecode` | `claude -p` CLI subprocess. The prompt goes on stdin; output is `--output-format json` and the model text is its `result`. Runs from an empty temp dir with `--tools "" --safe-mode --no-session-persistence` and its own `--system-prompt`, so no project or user context leaks in. Uses the CLI's own login (subscription or API key) | `claude` on PATH and `BACKEND_CLAUDECODE_ENABLED` ≠ false | `CLAUDECODE_MODEL` (default `opus`; aliases `opus`, `sonnet`, `fable`, `haiku` or a full id) / `CLAUDECODE_MODEL_FALLBACKS` | `CLAUDECODE_SYSTEM_PROMPT`, `CLAUDECODE_EFFORT` (`--effort`). An API error status (404/429/503) goes into stderr so model fallback works |
 | `gemini` | `gemini` CLI subprocess (`--skip-trust --model M --prompt P`), uses the CLI's own auth | always | `GEMINI_MODEL` / `GEMINI_MODEL_FALLBACKS`. Built-in fallback list is appended | `CV_FAST_MODE` (picks the flash-lite default), `GEMINI_CLI_TRUST_WORKSPACE`, `RESEARCH_GEMINI_*` 429 tuning |
 | `huggingface` | HTTP OpenAI-style chat completions, `HUGGINGFACE_API_URL` (default HF router) | `HF_API_TOKEN` / `HUGGINGFACE_API_TOKEN` set | `HUGGINGFACE_MODEL` / `HUGGINGFACE_MODEL_FALLBACKS` | `HUGGINGFACE_MAX_RETRIES`, `HUGGINGFACE_INITIAL_BACKOFF_SECONDS` |
 | `openai` | HTTP chat completions, `OPENAI_API_URL` | `OPENAI_API_KEY` / `OPENAI_TOKEN` set | `OPENAI_MODEL` / `OPENAI_MODEL_FALLBACKS` | `OPENAI_MAX_RETRIES`, `OPENAI_INITIAL_BACKOFF_SECONDS` |
 | `swiftlet` | HTTP chat completions to a local server, `SWIFTLET_API_URL` (default `127.0.0.1:8080/v1/chat/completions`) | always (no health check, so it fails at run time if the server is down) | `SWIFTLET_MODEL` / `SWIFTLET_MODEL_FALLBACKS` | `SWIFTLET_MAX_RETRIES`, `SWIFTLET_INITIAL_BACKOFF_SECONDS` |
 | `vscodebridge` | HTTP `POST {prompt, systemPrompt?}` to the VS Code extension (`VSCODE_BRIDGE_API_URL`, default `127.0.0.1:8766/generate`), which calls Copilot via `vscode.lm` | `BACKEND_VSCODEBRIDGE_ENABLED` ≠ false, and either `/health` reports `modelReady` or autostart is on | `VSCODE_BRIDGE_MODEL` (label only; the extension picks the Copilot model) | `VSCODE_BRIDGE_API_KEY` (`x-api-key`), `_AUTOSTART` (default true, runs `VSCodeExtension/start_isolated_bridge.sh` or `_STARTUP_CMD`), `_STARTUP_TIMEOUT_SECONDS`, `_MAX_RETRIES`, `_INITIAL_BACKOFF_SECONDS`, `_SYSTEM_PROMPT` |
+
+Note: the default provider is the first enabled backend alphabetically, which is now `claudecode` whenever `claude`
+is installed. Set `MODEL_PROVIDER` in `.env` to choose a different default.
 
 The HTTP clients send `temperature: 0.2`, retry with exponential backoff on retryable statuses, and write a debug log
 for every attempt.
@@ -49,7 +53,8 @@ for every attempt.
 ## Adding a backend
 
 1. Create `backends/<id>/module.py` with a class implementing the protocol and `get_backend()`. Copy
-   `backends/openai/module.py`, the smallest HTTP example.
+   `backends/openai/module.py` (the smallest HTTP example) or `backends/claudecode/module.py` (the simplest CLI
+   subprocess example).
 2. Put the transport in `provider_clients.py` as `run_<id>_attempt(...)`. Follow an existing HTTP runner for
    retry, backoff, log and `AttemptResult` handling.
 3. In `interrogate`, disable the backend with a clear `reason` when credentials or config are missing.
