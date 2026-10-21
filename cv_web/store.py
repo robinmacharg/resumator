@@ -5,7 +5,7 @@ Architecture role:
 - Responsibility: open the DB, apply ordered schema migrations, and provide CRUD for roles, CV versions (master
   and role), prompt versions, CV runs, research runs and settings, plus an online `backup`.
 
-Design notes (docs/plans/multi-role.md R8, R9, R13, R15, R18):
+Design notes (docs/plans/multi-role-design.md R8, R9, R13, R15, R18):
 - One append-only `cv_version` table holds master (`role_id IS NULL`) and role CVs. A CV's current text is its
   newest row; `base_master_id` on role rows is the master version last synced with (the merge ancestor).
 - Every `*_json` column has a `json_valid` CHECK. Writers take Python values and encode them; readers decode them.

@@ -1,4 +1,4 @@
-"""One-time migration of a single-role install into the multi-role store (docs/plans/multi-role.md R4).
+"""One-time migration of a single-role install into the multi-role store (docs/plans/multi-role-design.md R4).
 
 Architecture role:
 - Layer: CLI over `cv_web/store.py` (run once, from the repo root: `python3 -m cv_web.migrate_single_role`).

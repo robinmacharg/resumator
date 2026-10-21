@@ -5,7 +5,7 @@ Architecture role:
 - Responsibility: the one place that turns a role into a run. The server (step 8) and the role CLI (step 13) both
   call `run_cv` / `run_research`; the scripts never see the DB.
 
-Design notes (docs/plans/multi-role.md, "Run I/O"):
+Design notes (docs/plans/multi-role-design.md, "Run I/O"):
 - The request goes in on stdin, stderr lines are streamed to `on_log` as they arrive and saved as the run's `log`,
   and stdout is read whole as the one JSON result.
 - The prompt text actually sent is saved in `prompt_version` and linked by hash (R15).
