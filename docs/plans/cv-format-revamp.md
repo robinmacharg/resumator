@@ -4,7 +4,7 @@
 a revised generation contract whose output matches the target layout; and styling that lives in theme files rather
 than in code.
 
-**Status:** steps 1–4 done. Next: step 5 (formalise the source format).
+**Status:** steps 1–4 done. Next: step 5 (formalise the source format). See [Handoff](#handoff).
 
 ## Why
 
@@ -29,6 +29,8 @@ than in code.
 | D8 | Contact links line is on by default and switchable with a directive (`Contact links: no`). Extra subheader lines come from repeatable `Subheader:` fields | Your call. UI checkbox deferred |
 | D9 | Earlier career line keeps the current format: `**Title** \| _Company_ (skills) - Mon YYYY - Mon YYYY` | Your call, matching the existing generated CV |
 | D10 | Add the Claude Code backend **next**, before the contract and pipeline work | See "Backend order" below |
+| D11 | **Steering:** optional `input/steering.md` holding the user's free text. When it's non-empty, `build_prompt` appends a `=== CANDIDATE STEERING ===` section that wraps the text in agent instructions (below). Empty or missing means no section. No UI changes for now: edit the file directly | Your call. The file stands in for a UI field |
+| D12 | The Copilot comparison run comes last (step 11), once the pipeline is stable | Saves Copilot tokens |
 
 ### Backend order (D10)
 
@@ -46,6 +48,23 @@ Add `backends/claudecode/` before steps 5–9, for these reasons:
 Watch for: `claude -p` brings its own system prompt, tools and project context. The backend should run it with tools
 disabled from a neutral working directory (check the exact flags when implementing). `--json-schema` may let the CLI
 enforce the contract directly; the existing validator stays as the backstop.
+
+### Steering section (D11)
+
+Draft of what `build_prompt` appends when `input/steering.md` is non-empty (finalise in step 7):
+
+```text
+=== CANDIDATE STEERING ===
+In addition to the job specification, the candidate wants this CV to emphasise the following. Use it to guide
+which roles, bullets, skills and projects you select, how you order them, and how you phrase the headline and
+summary. It never overrides the truthfulness rules: do not invent or stretch facts to satisfy it. If it conflicts
+with the job specification, favour the job specification and lean towards the steering where the evidence allows.
+
+Steering: "multi-domain skills"
+```
+
+The quoted text is the file's content, trimmed. Append mode, as now, because `prompt.md` contains literal JSON
+braces ([cv-format.md §2](../cv-format.md)).
 
 ## Output requirements (target layout)
 
@@ -93,14 +112,40 @@ Recorded from the brief so later steps can check against it.
 | 1 | Draft the source format and import rules | [docs/cv-source-format.md](../cv-source-format.md) | done |
 | 2 | Convert the attached 2023 PDF CV to the draft format | [input/CV.v2.md](../../input/CV.v2.md) (`input/CV.md` untouched) | done |
 | 3 | Review gate: format and conversion reviewed, questions answered | D3, D4, D7–D10 | done |
-| 4 | Claude Code backend: `backends/claudecode/module.py` (`claude -p`, JSON output, model selection, tools off) plus a smoke test. Baseline: run the current pipeline on Claude and compare with the Copilot `tailored_dev.pdf` | Second backend, baseline comparison | done |
+| 4 | Claude Code backend: `backends/claudecode/module.py` (`claude -p`, JSON output, model selection, tools off) plus a smoke test. Baseline: run the current pipeline on Claude and compare with the existing `tailored_dev.pdf` | Second backend, baseline comparison | done |
 | 5 | Formalise the source format: `cv_source.py` (stdlib parse → dict, strip comments, collect elided phrases, apply directives, lint required fields, date forms, `TODO`s and unknown keys) plus tests; finalise the spec; `input/import_prompt.md` from the import rules | Parser, linter, spec | todo |
 | 6 | Styling: spike how pandoc carries named styles (fenced divs/spans with `custom-style`: DOCX supports them natively; Typst probably needs a small pandoc Lua filter mapping them to theme functions). Then move all current looks into `themes/default.typ` + `themes/reference.docx`, and add one compact preset | Theme files; `cv_convert` emits no styling | todo |
-| 7 | Output contract v2: rewrite the `prompt.md` output section per the gap table; update `validate_and_normalize_payload` and `render_tagged_markdown` (semantic names from step 6); add tests for the validator and renderer | Revised contract | todo |
-| 8 | Wire the pipeline: `generate_cv` parses the source, sends it (comments stripped) plus computed facts (today, 10-year cutoff, directives) to the model; elision check and page count after render (read the PDF's `/Pages /Count`; counting `/Type /Page` markers over-counts) | End-to-end run | todo |
-| 9 | Swap in: replace `input/CV.md` with the reviewed v2 (back up the old one); run the full pipeline on both backends against the current job spec; compare | Real output | todo |
+| 7 | `prompt.md` v2. **Input contract:** replace the stale "Input Contract" block (it describes `—` separators and `subsection:` labels) with a short description of the new source format: sections, entries, fields, elision means context-only (D3), comments already stripped, directives, `TODO`. **Output contract:** rewrite per the gap table. Also add the steering rule (D11). Then update `validate_and_normalize_payload` and `render_tagged_markdown` (semantic names from step 6); add tests for the validator and renderer | Revised contract | todo |
+| 8 | Wire the pipeline: `generate_cv` parses the source, sends it (comments stripped) plus computed facts (today, 10-year cutoff, directives) to the model; elision check and page count after render (read the PDF's `/Pages /Count`; counting `/Type /Page` markers over-counts). Steering (D11): read `input/steering.md` if present, append the section, record the text as `metadata.steering` in `tailored.model.json`. No UI or `EDITOR_FILES` changes | End-to-end run | todo |
+| 9 | Swap in: replace `input/CV.md` with the reviewed v2 (back up the old one); run the full pipeline on Claude against the current job spec; compare with the step 4 baselines | Real output | todo |
 | 10 | Docs: update `cv-format.md`, `backends.md`, `gaps.md` (P2 schema/linter items resolved; P1 import narrowed), `AGENTS.md` | Docs in sync | todo |
-| — | Later (UI): CV import (upload → extract → `import_prompt.md` → lint → review/replace); page-fit controls (theme preset or "compact" request); directive checkboxes | | later |
+| 11 | Copilot comparison (D12): one run via the VS Code bridge on the final pipeline; three-way comparison with Claude and the Gemini baseline | Comparison notes | todo |
+| — | Later (UI): steering field (D11); CV import (upload → extract → `import_prompt.md` → lint → review/replace); page-fit controls (theme preset or "compact" request); directive checkboxes | | later |
+
+## Handoff
+
+For the next session. Read this section, the Decisions table and the step you're on; skip the Log unless needed.
+
+- **Branch:** `improvement/20261021-integrate-claude-revamp-cv-format` (off `develop`). Steps 1–4 committed.
+- **Not ours:** the working tree also holds the user's uncommitted edits to `cv_web/static/package.json`,
+  `input/jobspec.txt`, `input/prompt.md`, `input/research_company.txt` and `input/research_urls.txt`. Never stage them.
+  Their `prompt.md` edit (the stale "Input Contract" block) is what step 7 replaces; build on whatever is committed
+  by then.
+- **Working agreement:** stop and report after each step; update the docs in the same step
+  ([AGENTS.md](../../AGENTS.md) "Doc upkeep"); add a Log line; commit only when asked. No UI changes unless asked.
+- **Next: step 5.** Write `cv_source.py` at the repo root, stdlib only. Use the `parse → dict` shape described in
+  [cv-source-format.md](../cv-source-format.md), and note that D3 changed: elided text stays in the prompt; the parser
+  only *collects* elided phrases for the post-generation check. Lint `input/CV.v2.md` (it should pass, apart from
+  info-level notes). Add tests in `tests/`, a `python3 cv_source.py --lint [path]` CLI, and `input/import_prompt.md`
+  from the spec's import rules. Then remove the "draft" banner from the spec and update its D3/D4 wording if needed.
+- **Gotchas:**
+  - Run scripts from the repo root (cwd-relative `input/` and `output/`).
+  - Never echo `.env` values.
+  - In zsh, `echo ====X` fails (`=cmd` expansion), so quote it.
+  - `pdftoppm` isn't installed, so PDFs can't be viewed as images; `mdls -name kMDItemNumberOfPages` gives page
+    counts.
+  - `output/` is gitignored; the baselines live in `output/baseline-gemini-2.5-flash/` and the latest Opus run is in
+    `output/tailored*`.
 
 ## Open questions
 
@@ -126,3 +171,6 @@ None outstanding. New ones go here as steps raise them.
   requirement in a named role (Jenkins attributed to Actual Experience, where Gemini claimed "CI/CD & Jenkins
   Specialist") and drops filler ("Fluent English"). Opus flaws: an uppercase "1996 - MAY 2023" intro, and This One
   moved to earlier career. Both of these the v2 contract addresses (computed date span, three-letter months).
+- 2026-10-21 · Planning · Added D11 (steering via `input/steering.md`, file only and no UI yet; wired in step 8,
+  prompt rule in step 7) and D12 (Copilot comparison deferred to the new step 11). Widened step 7 to replace the
+  stale `prompt.md` input contract. Added a Handoff section ahead of a new session.
