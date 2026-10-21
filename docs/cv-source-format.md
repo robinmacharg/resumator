@@ -1,13 +1,13 @@
 # CV source format (v1)
 
-> Agreed format ([plan](plans/cv-format-revamp.md)). `input/CV.md` moves to it at plan step 9; until then
-> [cv-format.md §1](cv-format.md#1-input-master-cv-inputcvmd) describes the current file.
+> Agreed format ([plan](plans/cv-format-revamp.md)). `input/CV.md` uses it; the previous free-form CV is kept as
+> `input/CV.v1.md` for reference.
 
 The master CV (`input/CV.md`) is the candidate's full record: every fact, nothing tailored. The generator selects,
 orders and rewords for each job; this file never needs to look like the output. When in doubt, include it here and
 let the generator drop it.
 
-Worked example: [input/CV.v2.md](../input/CV.v2.md).
+Worked example: [input/CV.md](../input/CV.md).
 
 ## Shape
 

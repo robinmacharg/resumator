@@ -5,40 +5,9 @@ The CV exists in four forms, in this order: **input master CV** â†’ **prompt** â
 
 ## 1. Input master CV (`input/CV.md`)
 
-This is a de facto format: nothing parses it except the LLM. Current layout:
-
-```markdown
----                                  # YAML front matter
-candidate: {name, title, location, phone, email, linkedin, github, stackoverflow, availability, clearance}
-metadata: {target_roles: [..], last_updated: YYYY-MM-DD}
-skills_raw: {status, <group>: [..], ...}   # free-form skills pool for the model to regroup
----
-# Professional Summary               # prose paragraphs
----
-# Current & Recent Experience
-## <Role title> | <Company>
-**Dates:** Month YYYY - Month YYYY|Present
-**App Store:** <url>                 # optional; the prompt has rules to carry this through as app_store_url
-**Keywords:** `[a, b, c]`
-* achievement bullets
----
-# Earlier Experience (Summary View)
-## <Role> | <Company>
-**Dates:** ... | **Location:** ...
-*Summary:* one paragraph
-## Earlier Engineering Roles         # bullets: **Role | Company** (*dates*): summary
----
-# Open Source & Key Projects         # bullets: **Name:** desc ([link](url))
----
-# Education, Certifications & Governance   # bullets
-```
-
-Notes:
-- `---` separates sections, but the first pair is YAML front matter. Only the model reads this file, so there is no
-  strict parsing.
-- `input/prompt.md` (v2) already describes the v1 source format ([cv-source-format.md](cv-source-format.md)), which
-  this file moves to at [plan](plans/cv-format-revamp.md) step 9.
-- Hygiene issues in the current file are listed in [gaps.md](gaps.md).
+Markdown in the CV source format: [cv-source-format.md](cv-source-format.md). `cv_source.py` parses and lints it;
+`generate_cv` refuses a file with lint errors. The previous free-form CV (YAML front matter, read only by the model)
+is kept as `input/CV.v1.md` and is not used by the pipeline.
 
 ## 2. Prompt assembly (`generate_cv.build_prompt`)
 

@@ -51,7 +51,7 @@ Suggested shape:
   suggests setting `GEMINI_MODEL*` after all attempts fail. It also prints "Gemini CLI returned empty output". The
   log directory is named `gemini_debug_logs` for all providers.
 - **Fast mode cuts the end of the CV**: `CV_FAST_MODE` keeps the first 18,000 chars of the prompt text. With the
-  v1 source format that drops whole trailing sections (on `CV.v2.md`: late projects, Education, Certifications,
+  v1 source format that drops whole trailing sections (on the v1-format `CV.md`: late projects, Education, Certifications,
   Skills). Truncate per section (for example oldest roles first) or raise the limit.
 - **No output history**: each run overwrites `output/tailored*`. Consider `output/<company>-<date>/` snapshots that
   include the job spec and steering.

@@ -192,7 +192,7 @@ class LintCvSourceTests(unittest.TestCase):
         self.assertIn("# Candidate: 'github' should be a full URL", warnings)
 
     def test_worked_example_has_no_errors_or_warnings(self) -> None:
-        text = Path(__file__).resolve().parent.parent.joinpath("input", "CV.v2.md").read_text(encoding="utf-8")
+        text = Path(__file__).resolve().parent.parent.joinpath("input", "CV.md").read_text(encoding="utf-8")
 
         levels = {item["level"] for item in lint(text)}
 

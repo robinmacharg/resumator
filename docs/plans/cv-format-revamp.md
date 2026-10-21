@@ -4,7 +4,7 @@
 a revised generation contract whose output matches the target layout; and styling that lives in theme files rather
 than in code.
 
-**Status:** steps 1–8 done. Next: step 9 (swap in the v2 CV). See [Handoff](#handoff).
+**Status:** steps 1–8 done; step 9 swap done, comparison pending. Next: step 9 comparison. See [Handoff](#handoff).
 
 ## Why
 
@@ -141,14 +141,13 @@ For the next session. Read this section, the Decisions table and the step you're
   FACTS and steering, passes `role_cutoff` and `directives`, and collects warnings (rule breaches, elision leaks,
   pages > 2). They print and go into `metadata` of `tailored.model.json` with `page_count` and `steering`. Details in
   [cv-format.md §2–3](../cv-format.md).
-- **State:** `input/CV.md` is still old-format, so a plain `python3 generate_cv.py` (and the UI) now stops at the lint
-  step. Step 9 fixes that by swapping in `CV.v2.md`.
-- **Next: step 9.** Back up `input/CV.md` (for example `input/CV.v1.md.bak`), copy `CV.v2.md` over it, run
-  `python3 generate_cv.py --provider claudecode`, and compare with `output/baseline-gemini-2.5-flash/` and the step 4
-  Opus run.
-  - **Fast mode is on in `.env`** (`CV_FAST_MODE`) and truncates the 22k-char v2 prompt text to 18k, which drops Education,
-    Certifications, Skills and late projects. `.env` overrides the shell env, so ask the user to turn it off before
-    the step 9 comparison (logged in [gaps.md](../gaps.md)).
+- **State:** swap done: `input/CV.md` is the v2 source and the old file is `input/CV.v1.md` (both via `git mv`). The
+  web UI server was restarted and lists Claude Code as enabled and the default (first enabled backend). It needs no
+  key: the `claude` CLI's own login is used.
+- **Next: step 9 comparison.** Run `python3 generate_cv.py --provider claudecode` (or from the UI) and compare with
+  `output/baseline-gemini-2.5-flash/` and the step 4 Opus run.
+  - Fast mode truncates the 22k-char v2 prompt text to 18k ([gaps.md](../gaps.md)). The user turned it off in
+    `.env` after step 8.
   - The step 8 trial run (fast mode on) came out at **3 pages**. Opus listed all 15 earlier roles one per line, and
     Education held only the Scrum Master certificate (the degree was truncated away). Recheck the page count with
     fast mode off before tuning anything.
@@ -230,3 +229,7 @@ None outstanding. New ones go here as steps raise them.
   single-point dates are now valid (D19). The second run passed: 5 selected roles, all after the cutoff, 3 pages
   (warning shown). Found that `.env` fast mode truncates the v2 CV (gaps.md). 14 new tests; 116/116 pass. Docs:
   cv-format.md §2–3, architecture.md, AGENTS.md, gaps.md.
+- 2026-10-21 · Step 9 (swap) · User turned fast mode off. `git mv` moved `CV.md` to `CV.v1.md` and `CV.v2.md` to `CV.md`,
+  and references were updated (cv-format.md §1 now points to the source-format spec, plus cv-source-format.md,
+  gaps.md and the `test_cv_source` fixture). The UI server had been running since before step 4 and showed Claude
+  Code as disabled ("module load failed"); `/api/server/restart` fixed it. 116/116 pass. Comparison not run yet.
