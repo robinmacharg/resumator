@@ -18,6 +18,7 @@
 | `cv_merge.py` | Entry-level three-way merge of CV source text (`split_units`, `compare`, `merge`) for promote/pull between master and role CVs. Pure functions; not yet wired in ([plan](plans/multi-role.md)) |
 | `cv_web/store.py` | SQLite data layer for the multi-role workspace (`cv_web/resumator.db`, gitignored): migrations, roles, master/role CV versions, prompt versions, CV and research runs, settings, `backup`. Not yet wired in ([plan](plans/multi-role.md)) |
 | `cv_web/role_runner.py` | Role runs (`run_cv`, `run_research`): builds the `--io json` request from the store (role CV, job spec, steering, theme, prompt template text saved as a `prompt_version`), runs the script from the repo root, streams stderr to an `on_log` callback, and saves the `cv_run`/`research_run` row with the log (errors appended). Returns `pdf_base64` without storing it. Not yet wired in ([plan](plans/multi-role.md)) |
+| `cv_web/migrate_single_role.py` | One-time CLI (`python3 -m cv_web.migrate_single_role --name … [--archive DIR] [--no-research]`): imports `input/CV.md` as a master `import` version and a first role (job spec, seeded CV, current and archived CV runs, research run) from today's `input/`/`output/` files. Provider, model, theme and prompt hash stay NULL (not recorded in those files). Skips when the role exists; one transaction |
 | `VSCodeExtension/` | VS Code extension that exposes Copilot over local HTTP (`vscodebridge` backend) |
 
 ## CV pipeline data flow
@@ -77,7 +78,7 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 
 ## Tests
 
-- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_merge`, `store` (temp DBs), `role_runner` (real scripts on a temp DB with a fake `claude`), `cv_convert` (render tests skip
+- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_merge`, `store` (temp DBs), `role_runner` (real scripts on a temp DB with a fake `claude`), `migrate_single_role` (fixture files), `cv_convert` (render tests skip
   without pandoc/typst; the in-memory vs file-route parity test also skips without a local `output/tailored.md`) and the `claudecode` backend (with a fake `claude` on PATH). Nothing covers `generate_cv` or
   the other backends.
 - `cv_web/static/js/__tests__/`: `node --test` coverage of the frontend feature modules.
