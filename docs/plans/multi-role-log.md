@@ -123,3 +123,21 @@ are history, not instructions.
   provider child (no new session in `run_script`). 20 tests in `tests/test_server_roles.py`; the full suite (243)
   and the frontend tests (50) pass; smoke-tested over HTTP on a scratch copy of the real DB (run 3 renders, 133 KB
   compact PDF). architecture.md ("Role API"), static/ARCHITECTURE.md and AGENTS.md are updated.
+- 2026-10-21 · Step 9 UI · Done (not committed); stage S2 is complete. New `role-workspace-feature.js` (sidebar,
+  **+** dialog, status select = archive, delete, role switch with an unsaved-edits confirm, Role CV / Master CV
+  picker, role-owned `cv`/`jobspec` editors saved through the Role API, steering debounced and theme saved on the
+  role, one-time localStorage copy) and `role-runs-feature.js` (run picker, preview via `setCvRunSource` with a
+  DOCX link, Tailored tab shows the run's model JSON). Hooks added to the draft, steering, theme, preview,
+  pipeline, research, operations, run-state, init and bindings features; sidebar, dialog and pickers in
+  `index.html`, new `styles/roles.css`. Decided: role mode = the DB has roles (else file mode until step 12);
+  the selected role is remembered in localStorage, not `setting.last_role_id`; the CV and job spec are role-owned
+  keys that `draft-files-feature` keeps out of file payloads, drafts and snapshots (the file endpoints write
+  `input/`); the format button is hidden in role mode (a theme change re-renders on demand); role runs save dirty
+  role editors, steering and prompt files first, and send the steering as shown. Research runs go to the role
+  API, but past role research and its PDF aren't shown (gap logged in gaps.md: needs a research render route).
+  No "make current" button (the API has it). 28 new frontend tests (78 total) and the Python suite (243) pass. A
+  headless-Chrome CDP smoke test on a scratch DB copy (port 8799) covered boot, master toggle, save (new `edit`
+  version, `input/CV.md` untouched), theme, run picker, steering, create, archive, delete and reload. Not run: a
+  real role CV or research run from the UI (model call). Docs: static/ARCHITECTURE.md, architecture.md, gaps.md,
+  cv-format.md.
+- 2026-10-21 · Process · Committed step 9 at the user's request ("multi-role step 9"); `input/jobspec.txt` left out.

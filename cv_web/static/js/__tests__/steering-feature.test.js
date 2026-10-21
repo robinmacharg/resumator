@@ -71,3 +71,30 @@ test("steering request sends trimmed text only when enabled", () => {
     els.steerCheckbox.checked = false;
     assert.deepEqual(feature.getSteeringRequest(), { enabled: false, text: "" });
 });
+
+test("steering edits go to the role-mode handler instead of localStorage when it takes them", () => {
+    global.localStorage = createLocalStorageMock();
+    const seen = [];
+    let roleMode = true;
+    const els = { steeringEditor: { value: "" }, steerCheckbox: { checked: true } };
+    const feature = createSteeringFeature({
+        els,
+        localStorageKeys,
+        onSteeringChanged: (steering) => {
+            seen.push(steering);
+            return roleMode;
+        },
+    });
+
+    feature.applySteering({ text: "role note", enabled: false });
+    assert.equal(els.steeringEditor.value, "role note");
+    assert.equal(els.steerCheckbox.checked, false);
+
+    feature.handleSteeringInput();
+    assert.deepEqual(seen, [{ text: "role note", enabled: false }]);
+    assert.equal(localStorage.getItem(localStorageKeys.steering_text), null);
+
+    roleMode = false;
+    feature.handleSteeringInput();
+    assert.equal(localStorage.getItem(localStorageKeys.steering_text), "role note");
+});

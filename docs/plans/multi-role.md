@@ -7,7 +7,8 @@ demand.
 
 **Status:** IN PROGRESS. Design agreed (R1–R21). Stage S1 (steps 1–5) done: spike, `cv_web/store.py`, `cv_merge.py`,
 `cv_convert.render_cv`, `--io json` pipe mode. S2 steps 6–8 done: `cv_web/role_runner.py`, the migration (run on this
-install), and the role API (`cv_web/server_roles.py`). Next is step 9, the UI, which ends S2.
+install), and the role API (`cv_web/server_roles.py`). Step 9 (the UI) is done, so S2 is complete. Next is
+S3, step 10 (promote and pull).
 Work happens on branch `feature/20261021-multi-role` (from `develop`).
 
 **Files:** this one holds the status, steps and Handoff (read it every session). The design (decisions R1–R21,
@@ -36,7 +37,7 @@ Each stage ends with the app working and tests passing. One-shot CLI behaviour i
 | 6 | `role_runner.py`: request from DB → script → result → run row, prompt saved (R15), log saved | Runs persisted | done |
 | 7 | Migration command (R4); run it on this install: master v1 from `input/CV.md`, Quantum Base role, current and archived CV runs, current research | Migrated | done |
 | 8 | Server API: `/api/roles` (list, create, update, archive = status `closed` (R21), delete), `/api/roles/<id>/cv` (read, save as a new version), runs (list, select current, start), PDF/DOCX of a run and theme through the memory cache (R16); existing endpoints scoped to a role | API | done |
-| 9 | UI: sidebar with **+**, role switching, CV tab edits the role CV, master opened and edited directly (no merge yet), steering and theme per role (one-time copy from localStorage), run-history picker | Roles usable | todo |
+| 9 | UI: sidebar with **+**, role switching, CV tab edits the role CV, master opened and edited directly (no merge yet), steering and theme per role (one-time copy from localStorage), run-history picker | Roles usable | done |
 
 **S3 — Master versions and merge**
 
@@ -98,48 +99,45 @@ in-memory rendering is too slow; the fallback is a private temp directory per re
 
 ## Handoff
 
-For the next session: the design is agreed (R1–R21). S1 and S2 steps 6–8 are done; step 9 (the UI) finishes S2. Work on
-branch `feature/20261021-multi-role`. Steps 1–8 are committed (step 8 in "multi-role step 8").
-`input/jobspec.txt` has an unrelated uncommitted change of the user's: leave it out of commits.
-The Schema section in multi-role-design.md is what's built.
+For the next session: the design is agreed (R1–R21). S1 and S2 (steps 1–9) are done; next is S3, step 10 (promote and
+pull). Work on branch `feature/20261021-multi-role`. Steps 1–9 are committed (step 9 in "multi-role step 9"). `input/jobspec.txt` has an unrelated uncommitted
+change of the user's: leave it out of commits. The Schema section in multi-role-design.md is what's built.
 
 **This install's DB** (`cv_web/resumator.db`, gitignored) was migrated by the user: master v1 (`import`), role 1
 "Quantum Base" (slug `quantum-base`, its CV is version 2, `seed`), 3 CV runs (ids 1–2 archived, 3 current, all
 with NULL provider/model/theme/prompt hash) and no research (`--no-research`). Don't write to it in checks: copy it
-with SQLite's backup API into the scratchpad and point `server_roles.DB_PATH` at the copy.
+with SQLite's backup API into the scratchpad and point `server_roles.DB_PATH` at the copy. The user's own server
+may be running on 8765; smoke-test on another port by setting `server.PORT` before `server.run_server()`.
+Headless Chrome (`/Applications/Google Chrome.app`) with `--remote-debugging-port` plus Node 24's built-in
+`WebSocket` drives the UI over CDP well (step 9 log entry).
 
-**Step 8 gave the role API**, `cv_web/server_roles.py` (`dispatch(handler, method, parsed, payload, deps)`, tried by
-`server_http_handlers.dispatch_get/post` before their 404; returns False for routes it doesn't own). Routes and JSON
-shapes: docs/architecture.md, "Role API". Key points for step 9:
-- camelCase keys everywhere (`camel(row)`); role fields in: `name, slug, company, status, jobspec, steeringText,
-  steeringEnabled, theme`. Create seeds the CV from the master. Archive = update `{status: "closed"}`. Delete is
-  `POST …/delete` (the API is GET/POST only, like the rest).
-- CV save: `POST /api/roles/<id>/cv` or `/api/master/cv` with `{content, note}` adds an `edit` version, or returns
-  `unchanged: true`. Responses carry `{cv, versions}`.
-- Runs: `POST /api/roles/<id>/runs/cv` `{selectedProvider, selectedModel, theme, steering}` (null = the role's) and
-  `…/runs/research` `{…, company, urls, dryRun}`. They share `RUN_LOCK`/`RESEARCH_RUN_LOCK` and the live state, so
-  the UI keeps polling `/api/run/status` / `/api/research/status`. Those carry `kind: "role-cv"` and `roleId`, and
-  `runId` and `error` once finished. That is how the existing endpoints are scoped to a role.
-- PDF/DOCX: `GET /api/roles/<id>/runs/cv/<run>/cv.pdf?theme=` (no `theme` = the run's; empty = default). They're
-  re-rendered from `raw_output` (`run_markdown`: validated with the run day's cutoff, plus the CV version's
-  directives) through `RENDER_CACHE` (LRU, 32). A finished run warms its own PDF. Measured on run 3: about 0.2–1.2 s
-  cold, 1 ms cached.
-- The file-based endpoints (`/api/state`, `/api/save`, `/api/run/full|format`, research) are unchanged, and today's
-  UI still uses them. In step 9 the CV and job spec editors, steering and theme move to the role; the prompt and
-  `.env` editors stay file-based. The steering/theme localStorage copy happens once (see the steps table).
-- Known limit: `role_runner.run_script` doesn't start a new process session, so research stop
-  (`request_stop_research_run`) falls back to `terminate()` of the script; a provider child process may outlive it.
-  Fix there (`start_new_session=True`) if stop matters; mind Ctrl-C for the step 13 CLI.
-- `setting.last_role_id` isn't written by the API yet. Step 9 decides where the selected role is remembered.
-Tests: `tests/test_server_roles.py` (20; temp DB, `render_cv` and `role_runner.run_cv/run_research` patched).
+**The Role API** is in `cv_web/server_roles.py`; routes and JSON shapes are in docs/architecture.md, "Role API"
+(camelCase keys; GET/POST only; CV saves are `POST …/cv` `{content, note}` → an `edit` version or `unchanged`).
 
+**Step 9 gave the role UI** (cv_web/static/ARCHITECTURE.md has the module notes). Key points for step 10:
+- `role-workspace-feature.js` owns the CV editor in role mode. `state.cvSource` is `"role"` or `"master"`
+  (`cvSourceSelect`), `loadOpenCv` loads it, `saveFile("cv")` saves the open one, and `applyRoleFiles({cv})` sets
+  the editor and the saved snapshot. The CV tab label (`editableFiles.cv.tabLabel`) says which CV is open.
+  Promote and Pull buttons belong in the CV editor head beside `cvSourceSelect` (`data-role-only`); after a merge
+  is saved, reload the open CV with `loadOpenCv` / `applyRoleFiles`.
+- Unsaved edits: `hasUnsavedEdits()` / `confirmDiscard`. Save or refuse before opening a merge view.
+- Run-time disabling is `run-state-feature.applyControlDisabledState` (the sidebar is a `<fieldset>`); add new
+  role controls there.
+- The merge view needs new API routes (none exist yet): for example `GET …/merge?direction=promote|pull` returning
+  the `cv_merge` entries and conflicts, and `POST` with `accept`/`resolutions`. The role CV row has
+  `base_master_id`. Promote and pull add versions with sources `promote`/`pull` (check `store` for the allowed
+  `source` values and how `base_master_id` moves).
+- Known UI limits: no "make current" run button (the API has `…/current`); past role research runs and the
+  research PDF aren't shown (docs/gaps.md); file mode only remains for an empty DB (step 12 replaces it).
+- Known backend limit (from step 8): `role_runner.run_script` doesn't start a new process session, so research stop
+  falls back to `terminate()` of the script; a provider child may outlive it. Mind Ctrl-C for the step 13 CLI.
+
+For step 10: `cv_merge.merge(base, ours, theirs, accept, resolutions)`; promote is ours = master, theirs = role,
+pull is ours = role, theirs = master, base = the role's `base_master_id` version.
 Baseline test material (user's suggestion): `input/CV.md` and the current outputs `output/tailored.md`,
 `tailored.model.json`, `tailored_dev.pdf` and `tailored_dev.docx` (21 Oct; `tailored.pdf`/`.docx` from July are stale).
 Use them read-only for local checks, and in tests only with a skip when they're absent (`output/` is gitignored and the
-CV is real), without copying their content into committed fixtures. `tailored_dev.pdf` was rendered with the
-`compact` theme.
-For step 10: `cv_merge.merge(base, ours, theirs, accept, resolutions)`; promote is ours = master, theirs = role,
-pull is ours = role, theirs = master, base = the role's `base_master_id` version.
+CV is real), without copying their content into committed fixtures.
 Schema changes go in a new `store.MIGRATIONS` entry; never edit migration 1. Keep the diagram and SQL in step. Each
 stage should leave the app working. S5 (steps 15–18, token efficiency) is a follow-up after S4. The related work is in
 [cv-format-revamp.md](cv-format-revamp.md) (steering D11/D23, theme picker, run metadata).

@@ -1,0 +1,164 @@
+/* Role sidebar and role-mode controls (multi-role plan step 9). */
+
+/* Shows role-only controls in role mode and file-only controls otherwise. */
+body:not(.role-mode) [data-role-only],
+body.role-mode [data-file-only] {
+  display: none !important;
+}
+
+/* Places the role sidebar beside the editor/preview layout. */
+.workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Lets the existing two-pane layout take the remaining width. */
+.workspace > .layout {
+  min-width: 0;
+}
+
+/* Styles the fixed-width role sidebar. */
+.role-sidebar {
+  width: 15rem;
+  flex: 0 0 auto;
+  padding: 1rem 0 1rem 1rem;
+  min-height: 0;
+}
+
+/* Stacks sidebar content; a disabled fieldset disables every control during runs. */
+.role-sidebar-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100%;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--panel);
+  min-height: 0;
+}
+
+/* Places the "Roles" heading and + button on one line. */
+.role-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Scrolls the role list when it outgrows the sidebar. */
+.role-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Styles one role entry: name over company, status and last run date. */
+.role-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 0.3rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Highlights hovered and active roles. */
+.role-item:hover,
+.role-item.active {
+  border-color: var(--line);
+  background: #fff;
+}
+
+/* Marks the active role with the brand colour. */
+.role-item.active {
+  border-left: 3px solid var(--brand);
+}
+
+/* Dims closed (archived) roles. */
+.role-item.closed {
+  opacity: 0.55;
+}
+
+/* Role name line. */
+.role-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Secondary role details line. */
+.role-meta,
+.role-empty {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* Stacks the status picker and delete button at the bottom of the sidebar. */
+.role-sidebar-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+/* Spaces the preview header links. */
+.preview-header a + a {
+  margin-left: 0.6rem;
+}
+
+/* Styles the new-role dialog. */
+.role-dialog {
+  width: min(36rem, 92vw);
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--panel);
+}
+
+/* Lays out the new-role form fields. */
+.role-dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Tightens the dialog heading and hint. */
+.role-dialog-form h2,
+.role-dialog-form p {
+  margin: 0;
+}
+
+/* Gives the pasted job spec room. */
+.role-dialog-form textarea {
+  min-height: 12rem;
+}
+
+/* Right-aligns the dialog buttons. */
+.role-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+/* Stacks the sidebar above the panes on narrow screens. */
+@media (max-width: 1100px) {
+  .workspace {
+    flex-direction: column;
+  }
+
+  .role-sidebar {
+    width: auto;
+    padding: 1rem 1rem 0;
+  }
+}

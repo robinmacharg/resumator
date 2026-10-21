@@ -160,3 +160,53 @@ test("cv pipeline runPipeline failure path emits error status", async () => {
     assert.equal(last.message, "Run failed. Open logs for details.");
     assert.equal(last.isError, true);
 });
+
+test("cv pipeline in role mode saves edits, starts a role run and reloads its history", async () => {
+    const order = [];
+    let kickoffBody = null;
+    const { ctx, calls } = createContext({
+        getActiveRoleId: () => 5,
+        getSteeringRequest: () => ({ enabled: true, text: "AI focus" }),
+        saveRoleEditsBeforeRun: async () => order.push("save"),
+        afterRoleCvRun: async (roleId, run) => order.push(`after:${roleId}:${run.runId}`),
+        api: async (path, options = {}) => {
+            order.push(path);
+            if (path === "/api/roles/5/runs/cv") {
+                kickoffBody = JSON.parse(options.body);
+                return { run: { kind: "role-cv", success: null } };
+            }
+            if (path === "/api/run/status") {
+                return { running: false, run: { kind: "role-cv", success: true, elapsedSeconds: 9, runId: 12 } };
+            }
+            throw new Error(`unexpected ${path}`);
+        },
+    });
+    const feature = createCvPipelineFeature(ctx);
+
+    await feature.runPipeline("full");
+
+    assert.deepEqual(order, ["save", "/api/roles/5/runs/cv", "/api/run/status", "after:5:12"]);
+    assert.deepEqual(kickoffBody, {
+        selectedProvider: "gemini",
+        selectedModel: "model-x",
+        theme: null,
+        steering: "AI focus",
+    });
+    assert.equal(calls.updateDiskSnapshot.length, 0);
+    assert.deepEqual(calls.setStatus.at(-1), { message: "Run complete (9s), saved as run #12.", isError: false });
+    assert.deepEqual(calls.setRunning, [true, false]);
+});
+
+test("cv pipeline in role mode reports the run's error", async () => {
+    const { ctx, calls } = createContext({
+        getActiveRoleId: () => 5,
+        api: async (path) =>
+            path === "/api/run/status"
+                ? { running: false, run: { success: false, error: "model output invalid" } }
+                : { run: null },
+    });
+
+    await createCvPipelineFeature(ctx).runPipeline("full");
+
+    assert.deepEqual(calls.setStatus.at(-1), { message: "Run failed: model output invalid", isError: true });
+});

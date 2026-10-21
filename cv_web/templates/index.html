@@ -31,528 +31,596 @@
             </div>
         </header>
 
-        <main class="layout">
-            <section class="editor-pane">
-                <div class="status-row">
-                    <span id="statusText">Loading...</span>
-                </div>
-
-                <div class="tabbar top-tabbar" role="tablist" aria-label="Top-level tabs">
-                    <button class="tab-btn active" data-tab="cv" role="tab" aria-selected="true">
-                        CV
-                    </button>
-                    <button class="tab-btn" data-tab="research" role="tab" aria-selected="false">
-                        Research
-                    </button>
-                    <button class="tab-btn" data-tab="logs" role="tab" aria-selected="false">
-                        Logs
-                    </button>
-                </div>
-
-                <div class="tab-panels">
-                    <section id="panel-top-cv" class="tab-panel active" role="tabpanel">
-                        <div class="cv-actions-row">
-                            <button id="runFormatBtn" class="btn btn-primary">
-                                Run Formatting Only
-                            </button>
-                            <button id="runFullBtn" class="btn btn-primary">
-                                Run Full Pipeline
-                            </button>
-                            <label class="inline-toggle" for="steerCheckbox">
-                                <input id="steerCheckbox" type="checkbox" checked />
-                                Steer CV generation
-                            </label>
-                            <label class="model-picker cv-theme-picker" for="themeSelect">
-                                <span>Theme</span>
-                                <select id="themeSelect" aria-label="PDF theme selection">
-                                    <option value="default">Default</option>
-                                </select>
-                            </label>
-                        </div>
-
-                        <div class="cv-subtabbar" role="tablist" aria-label="CV tabs">
-                            <button
-                                class="cv-subtab-btn active"
-                                data-cv-tab="cv"
-                                role="tab"
-                                aria-selected="true"
-                            >
-                                <span class="tab-label" data-label-for="cv">CV</span>
-                            </button>
-                            <button
-                                class="cv-subtab-btn"
-                                data-cv-tab="prompt"
-                                role="tab"
-                                aria-selected="false"
-                            >
-                                <span class="tab-label" data-label-for="prompt">CV Prompt</span>
-                            </button>
-                            <button
-                                class="cv-subtab-btn"
-                                data-cv-tab="jobspec"
-                                role="tab"
-                                aria-selected="false"
-                            >
-                                <span class="tab-label" data-label-for="jobspec">Job Spec</span>
-                            </button>
-                            <button
-                                class="cv-subtab-btn"
-                                data-cv-tab="steering"
-                                role="tab"
-                                aria-selected="false"
-                            >
-                                Steering
-                            </button>
-                            <button
-                                class="cv-subtab-btn"
-                                data-cv-tab="env"
-                                role="tab"
-                                aria-selected="false"
-                            >
-                                <span class="tab-label" data-label-for="env">Env</span>
-                            </button>
-                            <button
-                                class="cv-subtab-btn"
-                                data-cv-tab="tailored"
-                                role="tab"
-                                aria-selected="false"
-                            >
-                                Tailored
-                            </button>
-                        </div>
-
-                        <div class="cv-subpanels">
-                            <section id="tab-cv" class="cv-subpanel active" role="tabpanel">
-                                <div class="editor-head">
-                                    <label id="cvTitle" for="cvEditor">CV</label>
-                                    <div class="file-actions">
-                                        <button
-                                            class="btn btn-secondary file-load-btn"
-                                            data-file="cv"
-                                        >
-                                            Load from Disk
-                                        </button>
-                                        <button
-                                            class="btn btn-secondary file-save-btn"
-                                            data-file="cv"
-                                        >
-                                            Save
-                                        </button>
-                                    </div>
-                                </div>
-                                <textarea id="cvEditor" spellcheck="false"></textarea>
-                            </section>
-
-                            <section id="tab-prompt" class="cv-subpanel" role="tabpanel">
-                                <div class="editor-head">
-                                    <label id="promptTitle" for="promptEditor">CV Prompt</label>
-                                    <div class="file-actions">
-                                        <button
-                                            class="btn btn-secondary file-load-btn"
-                                            data-file="prompt"
-                                        >
-                                            Load from Disk
-                                        </button>
-                                        <button
-                                            class="btn btn-secondary file-save-btn"
-                                            data-file="prompt"
-                                        >
-                                            Save
-                                        </button>
-                                    </div>
-                                </div>
-                                <textarea id="promptEditor" spellcheck="false"></textarea>
-                            </section>
-
-                            <section id="tab-jobspec" class="cv-subpanel" role="tabpanel">
-                                <div class="editor-head">
-                                    <label id="jobspecTitle" for="jobspecEditor">Job Spec</label>
-                                    <div class="file-actions">
-                                        <button
-                                            class="btn btn-secondary file-load-btn"
-                                            data-file="jobspec"
-                                        >
-                                            Load from Disk
-                                        </button>
-                                        <button
-                                            class="btn btn-secondary file-save-btn"
-                                            data-file="jobspec"
-                                        >
-                                            Save
-                                        </button>
-                                    </div>
-                                </div>
-                                <textarea id="jobspecEditor" spellcheck="false"></textarea>
-                            </section>
-
-                            <section id="tab-steering" class="cv-subpanel" role="tabpanel">
-                                <div class="editor-head">
-                                    <label for="steeringEditor">
-                                        Steering (kept in this browser; sent with full runs when
-                                        "Steer CV generation" is ticked)
-                                    </label>
-                                </div>
-                                <textarea
-                                    id="steeringEditor"
-                                    spellcheck="true"
-                                    placeholder="What should this CV emphasise? e.g. multi-domain skills, recent AI tooling work"
-                                ></textarea>
-                            </section>
-
-                            <section id="tab-env" class="cv-subpanel" role="tabpanel">
-                                <div class="editor-head">
-                                    <label id="envTitle" for="envEditor">Env</label>
-                                    <div class="file-actions">
-                                        <button
-                                            class="btn btn-secondary file-load-btn"
-                                            data-file="env"
-                                        >
-                                            Load from Disk
-                                        </button>
-                                        <button
-                                            class="btn btn-secondary file-save-btn"
-                                            data-file="env"
-                                        >
-                                            Save
-                                        </button>
-                                    </div>
-                                </div>
-                                <textarea id="envEditor" spellcheck="false"></textarea>
-                            </section>
-
-                            <section id="tab-tailored" class="cv-subpanel" role="tabpanel">
-                                <label for="tailoredViewer">tailored.md (read-only)</label>
-                                <textarea
-                                    id="tailoredViewer"
-                                    spellcheck="false"
-                                    readonly
-                                ></textarea>
-                            </section>
-                        </div>
-                    </section>
-
-                    <section id="tab-research" class="tab-panel" role="tabpanel">
-                        <div id="research-section-controls" class="research-controls">
-                            <div class="research-input-grid">
-                                <label for="researchCompanyInput">Company Name</label>
-                                <input
-                                    id="researchCompanyInput"
-                                    type="text"
-                                    placeholder="e.g. Checkout.com"
-                                />
-
-                                <label for="researchUrlsInput">Role URLs (one per line)</label>
-                                <textarea
-                                    id="researchUrlsInput"
-                                    spellcheck="false"
-                                    placeholder="https://example.com/job\nhttps://example.com/company"
-                                ></textarea>
-                            </div>
-
-                            <div class="research-actions">
-                                <label class="inline-toggle" for="researchDryRunCheckbox">
-                                    <input id="researchDryRunCheckbox" type="checkbox" />
-                                    Dry run
-                                </label>
-                                <button id="runResearchBtn" class="btn btn-primary">
-                                    Run Research
-                                </button>
-                                <button id="formatResearchBtn" class="btn btn-secondary">
-                                    Format Research PDF
-                                </button>
-                                <button id="resetResearchPromptBtn" class="btn btn-secondary">
-                                    Reset Prompt to Default
-                                </button>
-                                <span id="researchStatusText">Idle.</span>
-                            </div>
-                        </div>
-
+        <div class="workspace">
+            <aside class="role-sidebar" aria-label="Roles">
+                <fieldset id="roleSidebarControls" class="role-sidebar-controls">
+                    <div class="role-sidebar-head">
+                        <strong>Roles</strong>
                         <button
-                            id="researchSplitterTop"
-                            class="research-section-splitter"
-                            data-research-splitter="top"
+                            id="newRoleBtn"
+                            class="btn btn-secondary icon-btn"
                             type="button"
-                            aria-label="Resize research top and middle sections"
+                            title="New role (its CV starts as a copy of the master CV)"
+                            aria-label="New role"
                         >
-                            <div class="splitter-grip" aria-hidden="true"></div>
+                            +
                         </button>
+                    </div>
+                    <ul id="roleList" class="role-list"></ul>
+                    <div class="role-sidebar-foot" data-role-only>
+                        <label class="model-picker" for="roleStatusSelect">
+                            <span>Status</span>
+                            <select id="roleStatusSelect" aria-label="Role status">
+                                <option value="draft">Draft</option>
+                                <option value="applied">Applied</option>
+                                <option value="closed">Closed (archived)</option>
+                            </select>
+                        </label>
+                        <button id="deleteRoleBtn" class="btn btn-secondary" type="button">
+                            Delete role
+                        </button>
+                    </div>
+                </fieldset>
+            </aside>
 
-                        <div id="research-section-input" class="research-input-wrap">
-                            <div
-                                class="research-input-tabbar"
-                                role="tablist"
-                                aria-label="Research input tabs"
-                            >
+            <main class="layout">
+                <section class="editor-pane">
+                    <div class="status-row">
+                        <strong id="activeRoleLabel" data-role-only></strong>
+                        <span id="statusText">Loading...</span>
+                    </div>
+
+                    <div class="tabbar top-tabbar" role="tablist" aria-label="Top-level tabs">
+                        <button class="tab-btn active" data-tab="cv" role="tab" aria-selected="true">
+                            CV
+                        </button>
+                        <button class="tab-btn" data-tab="research" role="tab" aria-selected="false">
+                            Research
+                        </button>
+                        <button class="tab-btn" data-tab="logs" role="tab" aria-selected="false">
+                            Logs
+                        </button>
+                    </div>
+
+                    <div class="tab-panels">
+                        <section id="panel-top-cv" class="tab-panel active" role="tabpanel">
+                            <div class="cv-actions-row">
+                                <button id="runFormatBtn" class="btn btn-primary" data-file-only>
+                                    Run Formatting Only
+                                </button>
+                                <button id="runFullBtn" class="btn btn-primary">
+                                    Run Full Pipeline
+                                </button>
+                                <label class="inline-toggle" for="steerCheckbox">
+                                    <input id="steerCheckbox" type="checkbox" checked />
+                                    Steer CV generation
+                                </label>
+                                <label class="model-picker cv-run-picker" for="runSelect" data-role-only>
+                                    <span>Run</span>
+                                    <select id="runSelect" aria-label="CV run to preview">
+                                        <option value="">No runs yet</option>
+                                    </select>
+                                </label>
+                                <label class="model-picker cv-theme-picker" for="themeSelect">
+                                    <span>Theme</span>
+                                    <select id="themeSelect" aria-label="PDF theme selection">
+                                        <option value="default">Default</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <div class="cv-subtabbar" role="tablist" aria-label="CV tabs">
                                 <button
-                                    class="research-input-tab-btn active"
-                                    data-research-input-tab="query"
+                                    class="cv-subtab-btn active"
+                                    data-cv-tab="cv"
                                     role="tab"
                                     aria-selected="true"
                                 >
-                                    Query
+                                    <span class="tab-label" data-label-for="cv">CV</span>
                                 </button>
                                 <button
-                                    class="research-input-tab-btn"
-                                    data-research-input-tab="jobspec"
+                                    class="cv-subtab-btn"
+                                    data-cv-tab="prompt"
                                     role="tab"
                                     aria-selected="false"
                                 >
-                                    Job Spec
+                                    <span class="tab-label" data-label-for="prompt">CV Prompt</span>
                                 </button>
                                 <button
-                                    class="research-input-tab-btn"
-                                    data-research-input-tab="cv"
+                                    class="cv-subtab-btn"
+                                    data-cv-tab="jobspec"
                                     role="tab"
                                     aria-selected="false"
                                 >
-                                    CV
+                                    <span class="tab-label" data-label-for="jobspec">Job Spec</span>
+                                </button>
+                                <button
+                                    class="cv-subtab-btn"
+                                    data-cv-tab="steering"
+                                    role="tab"
+                                    aria-selected="false"
+                                >
+                                    Steering
+                                </button>
+                                <button
+                                    class="cv-subtab-btn"
+                                    data-cv-tab="env"
+                                    role="tab"
+                                    aria-selected="false"
+                                >
+                                    <span class="tab-label" data-label-for="env">Env</span>
+                                </button>
+                                <button
+                                    class="cv-subtab-btn"
+                                    data-cv-tab="tailored"
+                                    role="tab"
+                                    aria-selected="false"
+                                >
+                                    Tailored
                                 </button>
                             </div>
 
-                            <section
-                                id="research-input-panel-query"
-                                class="research-input-panel active"
-                                role="tabpanel"
+                            <div class="cv-subpanels">
+                                <section id="tab-cv" class="cv-subpanel active" role="tabpanel">
+                                    <div class="editor-head">
+                                        <label id="cvTitle" for="cvEditor">CV</label>
+                                        <div class="file-actions">
+                                            <select
+                                                id="cvSourceSelect"
+                                                aria-label="Which CV to edit"
+                                                data-role-only
+                                            >
+                                                <option value="role">Role CV</option>
+                                                <option value="master">Master CV</option>
+                                            </select>
+                                            <button
+                                                class="btn btn-secondary file-load-btn"
+                                                data-file="cv"
+                                            >
+                                                Load from Disk
+                                            </button>
+                                            <button
+                                                class="btn btn-secondary file-save-btn"
+                                                data-file="cv"
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <textarea id="cvEditor" spellcheck="false"></textarea>
+                                </section>
+
+                                <section id="tab-prompt" class="cv-subpanel" role="tabpanel">
+                                    <div class="editor-head">
+                                        <label id="promptTitle" for="promptEditor">CV Prompt</label>
+                                        <div class="file-actions">
+                                            <button
+                                                class="btn btn-secondary file-load-btn"
+                                                data-file="prompt"
+                                            >
+                                                Load from Disk
+                                            </button>
+                                            <button
+                                                class="btn btn-secondary file-save-btn"
+                                                data-file="prompt"
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <textarea id="promptEditor" spellcheck="false"></textarea>
+                                </section>
+
+                                <section id="tab-jobspec" class="cv-subpanel" role="tabpanel">
+                                    <div class="editor-head">
+                                        <label id="jobspecTitle" for="jobspecEditor">Job Spec</label>
+                                        <div class="file-actions">
+                                            <button
+                                                class="btn btn-secondary file-load-btn"
+                                                data-file="jobspec"
+                                            >
+                                                Load from Disk
+                                            </button>
+                                            <button
+                                                class="btn btn-secondary file-save-btn"
+                                                data-file="jobspec"
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <textarea id="jobspecEditor" spellcheck="false"></textarea>
+                                </section>
+
+                                <section id="tab-steering" class="cv-subpanel" role="tabpanel">
+                                    <div class="editor-head">
+                                        <label for="steeringEditor">
+                                            <span data-file-only>Steering (kept in this browser; sent with full
+                                            runs when "Steer CV generation" is ticked)</span>
+                                            <span data-role-only>Steering (saved on this role; sent with full runs
+                                            when "Steer CV generation" is ticked)</span>
+                                        </label>
+                                    </div>
+                                    <textarea
+                                        id="steeringEditor"
+                                        spellcheck="true"
+                                        placeholder="What should this CV emphasise? e.g. multi-domain skills, recent AI tooling work"
+                                    ></textarea>
+                                </section>
+
+                                <section id="tab-env" class="cv-subpanel" role="tabpanel">
+                                    <div class="editor-head">
+                                        <label id="envTitle" for="envEditor">Env</label>
+                                        <div class="file-actions">
+                                            <button
+                                                class="btn btn-secondary file-load-btn"
+                                                data-file="env"
+                                            >
+                                                Load from Disk
+                                            </button>
+                                            <button
+                                                class="btn btn-secondary file-save-btn"
+                                                data-file="env"
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <textarea id="envEditor" spellcheck="false"></textarea>
+                                </section>
+
+                                <section id="tab-tailored" class="cv-subpanel" role="tabpanel">
+                                    <label id="tailoredTitle" for="tailoredViewer">tailored.md (read-only)</label>
+                                    <textarea
+                                        id="tailoredViewer"
+                                        spellcheck="false"
+                                        readonly
+                                    ></textarea>
+                                </section>
+                            </div>
+                        </section>
+
+                        <section id="tab-research" class="tab-panel" role="tabpanel">
+                            <div id="research-section-controls" class="research-controls">
+                                <div class="research-input-grid">
+                                    <label for="researchCompanyInput">Company Name</label>
+                                    <input
+                                        id="researchCompanyInput"
+                                        type="text"
+                                        placeholder="e.g. Checkout.com"
+                                    />
+
+                                    <label for="researchUrlsInput">Role URLs (one per line)</label>
+                                    <textarea
+                                        id="researchUrlsInput"
+                                        spellcheck="false"
+                                        placeholder="https://example.com/job\nhttps://example.com/company"
+                                    ></textarea>
+                                </div>
+
+                                <div class="research-actions">
+                                    <label class="inline-toggle" for="researchDryRunCheckbox">
+                                        <input id="researchDryRunCheckbox" type="checkbox" />
+                                        Dry run
+                                    </label>
+                                    <button id="runResearchBtn" class="btn btn-primary">
+                                        Run Research
+                                    </button>
+                                    <button id="formatResearchBtn" class="btn btn-secondary">
+                                        Format Research PDF
+                                    </button>
+                                    <button id="resetResearchPromptBtn" class="btn btn-secondary">
+                                        Reset Prompt to Default
+                                    </button>
+                                    <span id="researchStatusText">Idle.</span>
+                                </div>
+                            </div>
+
+                            <button
+                                id="researchSplitterTop"
+                                class="research-section-splitter"
+                                data-research-splitter="top"
+                                type="button"
+                                aria-label="Resize research top and middle sections"
                             >
-                                <div class="editor-head">
-                                    <label id="researchPromptTitle" for="researchPromptEditor"
-                                        >Research Role</label
+                                <div class="splitter-grip" aria-hidden="true"></div>
+                            </button>
+
+                            <div id="research-section-input" class="research-input-wrap">
+                                <div
+                                    class="research-input-tabbar"
+                                    role="tablist"
+                                    aria-label="Research input tabs"
+                                >
+                                    <button
+                                        class="research-input-tab-btn active"
+                                        data-research-input-tab="query"
+                                        role="tab"
+                                        aria-selected="true"
                                     >
-                                    <div class="file-actions">
-                                        <button
-                                            class="btn btn-secondary file-load-btn"
-                                            data-file="research_prompt"
-                                        >
-                                            Load from Disk
-                                        </button>
-                                        <button
-                                            class="btn btn-secondary file-save-btn"
-                                            data-file="research_prompt"
-                                        >
-                                            Save
-                                        </button>
-                                    </div>
+                                        Query
+                                    </button>
+                                    <button
+                                        class="research-input-tab-btn"
+                                        data-research-input-tab="jobspec"
+                                        role="tab"
+                                        aria-selected="false"
+                                    >
+                                        Job Spec
+                                    </button>
+                                    <button
+                                        class="research-input-tab-btn"
+                                        data-research-input-tab="cv"
+                                        role="tab"
+                                        aria-selected="false"
+                                    >
+                                        CV
+                                    </button>
                                 </div>
-                                <textarea id="researchPromptEditor" spellcheck="false"></textarea>
-                            </section>
 
-                            <section
-                                id="research-input-panel-jobspec"
-                                class="research-input-panel"
-                                role="tabpanel"
+                                <section
+                                    id="research-input-panel-query"
+                                    class="research-input-panel active"
+                                    role="tabpanel"
+                                >
+                                    <div class="editor-head">
+                                        <label id="researchPromptTitle" for="researchPromptEditor"
+                                            >Research Role</label
+                                        >
+                                        <div class="file-actions">
+                                            <button
+                                                class="btn btn-secondary file-load-btn"
+                                                data-file="research_prompt"
+                                            >
+                                                Load from Disk
+                                            </button>
+                                            <button
+                                                class="btn btn-secondary file-save-btn"
+                                                data-file="research_prompt"
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <textarea id="researchPromptEditor" spellcheck="false"></textarea>
+                                </section>
+
+                                <section
+                                    id="research-input-panel-jobspec"
+                                    class="research-input-panel"
+                                    role="tabpanel"
+                                >
+                                    <div class="editor-head">
+                                        <label for="researchJobspecEditor">Job Spec</label>
+                                        <div class="file-actions">
+                                            <button
+                                                class="btn btn-secondary file-load-btn"
+                                                data-file="jobspec"
+                                            >
+                                                Load from Disk
+                                            </button>
+                                            <button
+                                                class="btn btn-secondary file-save-btn"
+                                                data-file="jobspec"
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <textarea id="researchJobspecEditor" spellcheck="false"></textarea>
+                                </section>
+
+                                <section
+                                    id="research-input-panel-cv"
+                                    class="research-input-panel"
+                                    role="tabpanel"
+                                >
+                                    <div class="editor-head">
+                                        <label for="researchCvEditor">CV</label>
+                                        <div class="file-actions">
+                                            <button
+                                                class="btn btn-secondary file-load-btn"
+                                                data-file="cv"
+                                            >
+                                                Load from Disk
+                                            </button>
+                                            <button
+                                                class="btn btn-secondary file-save-btn"
+                                                data-file="cv"
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <textarea id="researchCvEditor" spellcheck="false"></textarea>
+                                </section>
+                            </div>
+
+                            <button
+                                id="researchSplitterBottom"
+                                class="research-section-splitter"
+                                data-research-splitter="bottom"
+                                type="button"
+                                aria-label="Resize research middle and bottom sections"
                             >
-                                <div class="editor-head">
-                                    <label for="researchJobspecEditor">Job Spec</label>
-                                    <div class="file-actions">
-                                        <button
-                                            class="btn btn-secondary file-load-btn"
-                                            data-file="jobspec"
-                                        >
-                                            Load from Disk
-                                        </button>
-                                        <button
-                                            class="btn btn-secondary file-save-btn"
-                                            data-file="jobspec"
-                                        >
-                                            Save
-                                        </button>
-                                    </div>
+                                <div class="splitter-grip" aria-hidden="true"></div>
+                            </button>
+
+                            <div id="research-section-output" class="research-output-wrap">
+                                <div class="research-output-head">
+                                    <label for="researchOutput">Research Output</label>
+                                    <span
+                                        id="researchAutoscrollIndicator"
+                                        class="autoscroll-indicator"
+                                        aria-live="polite"
+                                        aria-hidden="true"
+                                    ></span>
+                                    <button
+                                        id="copyResearchOutputBtn"
+                                        class="btn btn-secondary icon-btn"
+                                        type="button"
+                                        title="Copy research output"
+                                        aria-label="Copy research output"
+                                    >
+                                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                            <path
+                                                d="M9 9h11v11H9zM4 4h11v2H6v9H4z"
+                                                fill="currentColor"
+                                            />
+                                        </svg>
+                                    </button>
                                 </div>
-                                <textarea id="researchJobspecEditor" spellcheck="false"></textarea>
-                            </section>
-
-                            <section
-                                id="research-input-panel-cv"
-                                class="research-input-panel"
-                                role="tabpanel"
-                            >
-                                <div class="editor-head">
-                                    <label for="researchCvEditor">CV</label>
-                                    <div class="file-actions">
-                                        <button
-                                            class="btn btn-secondary file-load-btn"
-                                            data-file="cv"
-                                        >
-                                            Load from Disk
-                                        </button>
-                                        <button
-                                            class="btn btn-secondary file-save-btn"
-                                            data-file="cv"
-                                        >
-                                            Save
-                                        </button>
-                                    </div>
+                                <div
+                                    class="research-output-tabbar"
+                                    role="tablist"
+                                    aria-label="Research output tabs"
+                                >
+                                    <button
+                                        class="research-output-tab-btn active"
+                                        data-research-output-tab="console"
+                                        role="tab"
+                                        aria-selected="true"
+                                    >
+                                        Console Log
+                                    </button>
+                                    <button
+                                        class="research-output-tab-btn"
+                                        data-research-output-tab="built_query"
+                                        role="tab"
+                                        aria-selected="false"
+                                    >
+                                        Built Query
+                                    </button>
+                                    <button
+                                        class="research-output-tab-btn"
+                                        data-research-output-tab="command"
+                                        role="tab"
+                                        aria-selected="false"
+                                    >
+                                        Command
+                                    </button>
                                 </div>
-                                <textarea id="researchCvEditor" spellcheck="false"></textarea>
-                            </section>
-                        </div>
+                                <section
+                                    id="research-output-panel-console"
+                                    class="research-output-panel active"
+                                    role="tabpanel"
+                                >
+                                    <pre id="researchOutput">No research output yet.</pre>
+                                </section>
+                                <section
+                                    id="research-output-panel-built-query"
+                                    class="research-output-panel"
+                                    role="tabpanel"
+                                >
+                                    <pre id="researchBuiltQueryOutput">
+    No built query yet. Run Research first.</pre
+                                    >
+                                </section>
+                                <section
+                                    id="research-output-panel-command"
+                                    class="research-output-panel"
+                                    role="tabpanel"
+                                >
+                                    <textarea id="researchCommandOutput" spellcheck="false" readonly>
+    No command yet. Run Research first.</textarea
+                                    >
+                                </section>
+                            </div>
+                        </section>
 
-                        <button
-                            id="researchSplitterBottom"
-                            class="research-section-splitter"
-                            data-research-splitter="bottom"
-                            type="button"
-                            aria-label="Resize research middle and bottom sections"
-                        >
-                            <div class="splitter-grip" aria-hidden="true"></div>
-                        </button>
-
-                        <div id="research-section-output" class="research-output-wrap">
-                            <div class="research-output-head">
-                                <label for="researchOutput">Research Output</label>
+                        <section id="tab-logs" class="tab-panel logs" role="tabpanel">
+                            <div class="logs-header">
+                                <strong>Logs</strong>
                                 <span
-                                    id="researchAutoscrollIndicator"
+                                    id="logsAutoscrollIndicator"
                                     class="autoscroll-indicator"
                                     aria-live="polite"
                                     aria-hidden="true"
                                 ></span>
-                                <button
-                                    id="copyResearchOutputBtn"
-                                    class="btn btn-secondary icon-btn"
-                                    type="button"
-                                    title="Copy research output"
-                                    aria-label="Copy research output"
-                                >
-                                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                        <path
-                                            d="M9 9h11v11H9zM4 4h11v2H6v9H4z"
-                                            fill="currentColor"
-                                        />
-                                    </svg>
+                                <button id="refreshLogsBtn" class="btn btn-secondary">
+                                    Refresh Logs
                                 </button>
                             </div>
-                            <div
-                                class="research-output-tabbar"
-                                role="tablist"
-                                aria-label="Research output tabs"
-                            >
+
+                            <div class="logs-tabbar" role="tablist" aria-label="Log tabs">
                                 <button
-                                    class="research-output-tab-btn active"
-                                    data-research-output-tab="console"
+                                    class="log-tab-btn active"
+                                    data-log-tab="run"
                                     role="tab"
                                     aria-selected="true"
                                 >
-                                    Console Log
+                                    Run Log
                                 </button>
                                 <button
-                                    class="research-output-tab-btn"
-                                    data-research-output-tab="built_query"
+                                    class="log-tab-btn"
+                                    data-log-tab="debug"
                                     role="tab"
                                     aria-selected="false"
                                 >
-                                    Built Query
-                                </button>
-                                <button
-                                    class="research-output-tab-btn"
-                                    data-research-output-tab="command"
-                                    role="tab"
-                                    aria-selected="false"
-                                >
-                                    Command
+                                    Debug Log
                                 </button>
                             </div>
-                            <section
-                                id="research-output-panel-console"
-                                class="research-output-panel active"
-                                role="tabpanel"
-                            >
-                                <pre id="researchOutput">No research output yet.</pre>
-                            </section>
-                            <section
-                                id="research-output-panel-built-query"
-                                class="research-output-panel"
-                                role="tabpanel"
-                            >
-                                <pre id="researchBuiltQueryOutput">
-No built query yet. Run Research first.</pre
-                                >
-                            </section>
-                            <section
-                                id="research-output-panel-command"
-                                class="research-output-panel"
-                                role="tabpanel"
-                            >
-                                <textarea id="researchCommandOutput" spellcheck="false" readonly>
-No command yet. Run Research first.</textarea
-                                >
-                            </section>
-                        </div>
-                    </section>
 
-                    <section id="tab-logs" class="tab-panel logs" role="tabpanel">
-                        <div class="logs-header">
-                            <strong>Logs</strong>
-                            <span
-                                id="logsAutoscrollIndicator"
-                                class="autoscroll-indicator"
-                                aria-live="polite"
-                                aria-hidden="true"
-                            ></span>
-                            <button id="refreshLogsBtn" class="btn btn-secondary">
-                                Refresh Logs
-                            </button>
-                        </div>
+                            <section id="log-panel-run" class="log-panel active" role="tabpanel">
+                                <pre id="runLogOutput">No logs yet.</pre>
+                            </section>
 
-                        <div class="logs-tabbar" role="tablist" aria-label="Log tabs">
-                            <button
-                                class="log-tab-btn active"
-                                data-log-tab="run"
-                                role="tab"
-                                aria-selected="true"
-                            >
-                                Run Log
-                            </button>
-                            <button
-                                class="log-tab-btn"
-                                data-log-tab="debug"
-                                role="tab"
-                                aria-selected="false"
-                            >
-                                Debug Log
-                            </button>
-                        </div>
-
-                        <section id="log-panel-run" class="log-panel active" role="tabpanel">
-                            <pre id="runLogOutput">No logs yet.</pre>
+                            <section id="log-panel-debug" class="log-panel" role="tabpanel">
+                                <div class="logs-controls">
+                                    <select id="logSelect">
+                                        <option value="">Select debug log...</option>
+                                    </select>
+                                </div>
+                                <pre id="debugLogOutput">Select a debug log to view its content.</pre>
+                            </section>
                         </section>
+                    </div>
+                </section>
 
-                        <section id="log-panel-debug" class="log-panel" role="tabpanel">
-                            <div class="logs-controls">
-                                <select id="logSelect">
-                                    <option value="">Select debug log...</option>
-                                </select>
-                            </div>
-                            <pre id="debugLogOutput">Select a debug log to view its content.</pre>
-                        </section>
-                    </section>
+                <div
+                    id="paneSplitter"
+                    class="pane-splitter"
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label="Resize editor and preview panes"
+                >
+                    <div class="splitter-grip" aria-hidden="true"></div>
                 </div>
-            </section>
 
-            <div
-                id="paneSplitter"
-                class="pane-splitter"
-                role="separator"
-                aria-orientation="vertical"
-                aria-label="Resize editor and preview panes"
-            >
-                <div class="splitter-grip" aria-hidden="true"></div>
-            </div>
+                <aside class="preview-pane">
+                    <div class="preview-header">
+                        <strong id="pdfPreviewTitle">PDF Preview (CV)</strong>
+                        <a
+                            id="pdfPreviewOpenLink"
+                            href="/output/tailored_dev.pdf"
+                            target="_blank"
+                            rel="noopener"
+                            >Open in New Tab</a
+                        >
+                        <a id="pdfPreviewDocxLink" href="#" hidden>DOCX</a>
+                    </div>
+                    <div id="pdfPlaceholder" class="pdf-placeholder">No document availabel</div>
+                    <iframe id="pdfPreview" title="PDF Preview" src="/output/tailored_dev.pdf"></iframe>
+                </aside>
+            </main>
+        </div>
 
-            <aside class="preview-pane">
-                <div class="preview-header">
-                    <strong id="pdfPreviewTitle">PDF Preview (CV)</strong>
-                    <a
-                        id="pdfPreviewOpenLink"
-                        href="/output/tailored_dev.pdf"
-                        target="_blank"
-                        rel="noopener"
-                        >Open in New Tab</a
-                    >
+        <dialog id="newRoleDialog" class="role-dialog">
+            <form id="newRoleForm" class="role-dialog-form">
+                <h2>New role</h2>
+                <p>Its CV starts as a copy of the master CV.</p>
+                <label for="newRoleNameInput">Name</label>
+                <input id="newRoleNameInput" type="text" required placeholder="e.g. Senior Engineer" />
+                <label for="newRoleCompanyInput">Company</label>
+                <input id="newRoleCompanyInput" type="text" placeholder="e.g. Checkout.com" />
+                <label for="newRoleJobspecInput">Job spec</label>
+                <textarea id="newRoleJobspecInput" spellcheck="false" placeholder="Paste the job spec"></textarea>
+                <div class="role-dialog-actions">
+                    <button id="newRoleCancelBtn" class="btn btn-secondary" type="button">Cancel</button>
+                    <button class="btn btn-primary" type="submit">Create role</button>
                 </div>
-                <div id="pdfPlaceholder" class="pdf-placeholder">No document availabel</div>
-                <iframe id="pdfPreview" title="PDF Preview" src="/output/tailored_dev.pdf"></iframe>
-            </aside>
-        </main>
+            </form>
+        </dialog>
 
         <script type="module" src="/static/app.js"></script>
     </body>

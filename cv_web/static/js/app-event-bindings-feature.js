@@ -21,6 +21,8 @@
  * @property {any} providerModelFeature Provider/model feature API.
  * @property {any} [themeFeature] PDF theme feature API.
  * @property {any} [steeringFeature] Steering feature API.
+ * @property {any} [roleWorkspaceFeature] Role sidebar, CV source and role controls.
+ * @property {any} [roleRunsFeature] Role run-history picker.
  */
 
 /**
@@ -40,6 +42,8 @@ export function createAppEventBindingsFeature(ctx) {
         providerModelFeature,
         themeFeature,
         steeringFeature,
+        roleWorkspaceFeature,
+        roleRunsFeature,
     } = ctx;
 
     /**
@@ -157,6 +161,26 @@ export function createAppEventBindingsFeature(ctx) {
             if (els.steerCheckbox) {
                 els.steerCheckbox.addEventListener("change", steeringFeature.handleSteerCheckboxChanged);
             }
+        }
+        if (roleWorkspaceFeature) {
+            bindOptionalClick(els.newRoleBtn, roleWorkspaceFeature.openNewRoleDialog);
+            bindOptionalClick(els.deleteRoleBtn, roleWorkspaceFeature.deleteActiveRole);
+            bindOptionalClick(els.newRoleCancelBtn, () => els.newRoleDialog.close());
+            if (els.newRoleForm) {
+                els.newRoleForm.addEventListener("submit", (event) => {
+                    event.preventDefault();
+                    roleWorkspaceFeature.createRoleFromDialog();
+                });
+            }
+            if (els.roleStatusSelect) {
+                els.roleStatusSelect.addEventListener("change", roleWorkspaceFeature.handleStatusChanged);
+            }
+            if (els.cvSourceSelect) {
+                els.cvSourceSelect.addEventListener("change", roleWorkspaceFeature.handleCvSourceChanged);
+            }
+        }
+        if (roleRunsFeature && els.runSelect) {
+            els.runSelect.addEventListener("change", roleRunsFeature.handleRunSelectChanged);
         }
     }
 

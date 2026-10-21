@@ -81,7 +81,11 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 
 JSON in and out, camelCase keys (store rows converted by `camel`). Errors are `{error}` with 400 (bad request), 404
 (unknown role or a run of another role), 409 (conflict: run in progress, no master, nothing to render) or 500.
-The UI doesn't use these yet ([plan](plans/multi-role.md) step 9); the file-based endpoints above are unchanged.
+The UI uses them whenever the DB has roles ("role mode", `role-workspace-feature.js` and `role-runs-feature.js`;
+see [static/ARCHITECTURE.md](../cv_web/static/ARCHITECTURE.md)). With no roles it keeps the file-based endpoints above,
+which are unchanged. In role mode the CV and job spec editors never reach them, so `input/CV.md` isn't overwritten;
+the prompt and `.env` editors stay file-based. Role research runs are stored, but the UI doesn't list or render
+them yet (see [gaps.md](gaps.md)).
 
 | Route | What |
 |---|---|

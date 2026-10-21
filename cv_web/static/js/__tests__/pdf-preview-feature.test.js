@@ -228,3 +228,35 @@ test("pdf preview shows no steering marker for an unsteered CV", () => {
     assert.ok(els.pdfPreviewTitle.textContent.startsWith("PDF Preview (CV"));
     assert.equal(els.pdfPreviewTitle.title, "");
 });
+
+test("pdf preview shows a role run, and goes back to files when the source is cleared", () => {
+    const els = createEls();
+    els.pdfPreview.getAttribute = () => els.pdfPreview.src;
+    els.pdfPreviewDocxLink = { hidden: true, href: "" };
+    const feature = createPdfPreviewFeature({ els, getActivePreviewKind: () => "cv" });
+
+    feature.setCvRunSource({
+        url: "/api/roles/1/runs/cv/3/cv.pdf?theme=",
+        docxUrl: "/api/roles/1/runs/cv/3/cv.docx",
+        label: "run #3",
+        steering: "AI",
+        generatedAt: null,
+    });
+    feature.updatePreview();
+
+    assert.equal(els.pdfPreview.src, "/api/roles/1/runs/cv/3/cv.pdf?theme=");
+    assert.equal(els.pdfPreviewOpenLink.href, "/api/roles/1/runs/cv/3/cv.pdf?theme=");
+    assert.equal(els.pdfPreviewDocxLink.hidden, false);
+    assert.match(els.pdfPreviewTitle.textContent, /^🧭 PDF Preview \(CV, run #3, /);
+
+    feature.setCvRunSource({ url: null, docxUrl: null, label: "no runs yet", steering: "", generatedAt: null });
+    feature.updatePreview();
+    assert.equal(els.pdfPreview.classList.has("hidden"), true);
+    assert.equal(els.pdfPlaceholder.textContent, "No runs yet for this role");
+    assert.equal(els.pdfPreviewDocxLink.hidden, true);
+
+    feature.setCvRunSource(null);
+    feature.updatePreview();
+    assert.equal(els.pdfPreviewDocxLink.hidden, true);
+    assert.match(els.pdfPreviewOpenLink.href, /^\/output\//);
+});

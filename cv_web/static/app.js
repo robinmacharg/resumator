@@ -19,11 +19,18 @@ import { createOutputDisplayFeature } from "./js/output-display-feature.js";
 import { createPdfPreviewFeature } from "./js/pdf-preview-feature.js";
 import { createProviderModelFeature } from "./js/provider-model-feature.js";
 import { createResearchFeature } from "./js/research-feature.js";
+import { createRoleRunsFeature } from "./js/role-runs-feature.js";
+import { createRoleWorkspaceFeature } from "./js/role-workspace-feature.js";
 import { createRunStateFeature } from "./js/run-state-feature.js";
 import { createSteeringFeature } from "./js/steering-feature.js";
 import { createThemeFeature } from "./js/theme-feature.js";
 import { createUiLayoutFeature } from "./js/ui-layout-feature.js";
-import { formatCommandForDisplay, formatTimestampToSecond, sleep } from "./js/app-utils.js";
+import {
+    formatCommandForDisplay,
+    formatPreviewDateTime,
+    formatTimestampToSecond,
+    sleep,
+} from "./js/app-utils.js";
 
 // Phase 1: shared runtime state used across feature modules.
 const state = {
@@ -47,11 +54,32 @@ const state = {
     runStatusTimerId: null,
     runStatusStartMs: 0,
     runStatusMessage: "",
+    // Role mode (multi-role plan): null = file mode (no roles yet).
+    activeRoleId: null,
+    roles: [],
+    cvSource: "role",
+    cvRuns: [],
+    selectedCvRunId: null,
 };
 
 // Phase 2: stable DOM registry collected once and injected into features.
 const els = {
+    body: document.body,
     statusText: document.getElementById("statusText"),
+    activeRoleLabel: document.getElementById("activeRoleLabel"),
+    roleSidebarControls: document.getElementById("roleSidebarControls"),
+    roleList: document.getElementById("roleList"),
+    newRoleBtn: document.getElementById("newRoleBtn"),
+    roleStatusSelect: document.getElementById("roleStatusSelect"),
+    deleteRoleBtn: document.getElementById("deleteRoleBtn"),
+    newRoleDialog: document.getElementById("newRoleDialog"),
+    newRoleForm: document.getElementById("newRoleForm"),
+    newRoleNameInput: document.getElementById("newRoleNameInput"),
+    newRoleCompanyInput: document.getElementById("newRoleCompanyInput"),
+    newRoleJobspecInput: document.getElementById("newRoleJobspecInput"),
+    newRoleCancelBtn: document.getElementById("newRoleCancelBtn"),
+    cvSourceSelect: document.getElementById("cvSourceSelect"),
+    runSelect: document.getElementById("runSelect"),
     providerSelect: document.getElementById("providerSelect"),
     modelSelect: document.getElementById("modelSelect"),
     themeSelect: document.getElementById("themeSelect"),
@@ -77,6 +105,7 @@ const els = {
     jobspecEditor: document.getElementById("jobspecEditor"),
     envEditor: document.getElementById("envEditor"),
     tailoredViewer: document.getElementById("tailoredViewer"),
+    tailoredTitle: document.getElementById("tailoredTitle"),
     runFormatBtn: document.getElementById("runFormatBtn"),
     runFullBtn: document.getElementById("runFullBtn"),
     restartServerBtn: document.getElementById("restartServerBtn"),
@@ -89,6 +118,7 @@ const els = {
     pdfPlaceholder: document.getElementById("pdfPlaceholder"),
     pdfPreviewTitle: document.getElementById("pdfPreviewTitle"),
     pdfPreviewOpenLink: document.getElementById("pdfPreviewOpenLink"),
+    pdfPreviewDocxLink: document.getElementById("pdfPreviewDocxLink"),
     layout: document.querySelector(".layout"),
     paneSplitter: document.getElementById("paneSplitter"),
     tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
@@ -179,12 +209,16 @@ const LS_KEYS = {
     selected_theme: "cvweb.selected_theme",
     steering_text: "cvweb.steering_text",
     steering_enabled: "cvweb.steering_enabled",
+    active_role_id: "cvweb.active_role_id",
+    // Set once this browser's steering/theme were copied into the first role opened.
+    roles_local_copied: "cvweb.roles.local_copied",
 };
 
 // Shared preview wiring used across composed features.
 const previewBindings = {
     applyCvOutputState: previewFeature.applyCvOutputState,
     applyResearchPreviewState: previewFeature.applyResearchOutputState,
+    setCvRunSource: previewFeature.setCvRunSource,
     updatePreview: previewFeature.updatePreview,
 };
 
@@ -234,10 +268,14 @@ const draftFilesFeature = createDraftFilesFeature({
     editableFiles: EDITABLE_FILES,
     localStorageKeys: LS_KEYS,
     setStatus,
+    // Late-bound: only called after composition.
+    getRoleOwnedKeys: () => roleWorkspaceFeature.getRoleOwnedKeys(),
 });
 
 const {
     currentFiles,
+    currentFileValues,
+    applyRoleFiles,
     syncDirtyIndicators,
     writeDraftToLocalStorage,
     hasLocalDraft,
@@ -247,6 +285,39 @@ const {
     bindMirroredEditors,
     bindAutosave,
 } = draftFilesFeature;
+
+// Role run history: run picker, preview source and Tailored tab for the active role.
+const roleRunsFeature = createRoleRunsFeature({
+    state,
+    els,
+    api,
+    setStatus,
+    setCvRunSource: previewBindings.setCvRunSource,
+    updatePreview: previewBindings.updatePreview,
+    formatDateTime: (value) => formatPreviewDateTime(value, "?"),
+});
+
+// Role sidebar and role-owned editors (CV, job spec); steering/theme callbacks are late-bound.
+const roleWorkspaceFeature = createRoleWorkspaceFeature({
+    state,
+    els,
+    api,
+    editableFiles: EDITABLE_FILES,
+    localStorageKeys: LS_KEYS,
+    setStatus,
+    applyRoleFiles,
+    syncDirtyIndicators,
+    currentFileValues,
+    applySteering: (steering) => steeringFeature.applySteering(steering),
+    applyTheme: (theme) => themeFeature.applyTheme(theme),
+    roleRunsFeature,
+});
+
+// Role-mode hooks shared by the CV and research run features.
+const roleRunDeps = {
+    getActiveRoleId: () => state.activeRoleId,
+    saveRoleEditsBeforeRun: roleWorkspaceFeature.saveEditsBeforeRun,
+};
 
 // Shared dependency bundles reused by workflow features.
 const workflowDeps = {
@@ -273,6 +344,11 @@ const appOperationsFeature = createAppOperationsFeature({
     applyCvOutputState: previewBindings.applyCvOutputState,
     updatePreview: previewBindings.updatePreview,
     setRunning,
+    roleFiles: {
+        saveFile: roleWorkspaceFeature.saveFile,
+        reloadFile: roleWorkspaceFeature.reloadFile,
+        refreshTailoredOutput: roleRunsFeature.refreshTailoredOutput,
+    },
 });
 
 const { refreshTailoredOutput } = appOperationsFeature;
@@ -289,6 +365,8 @@ const researchFeature = createResearchFeature({
     setResearchCommandOutput,
     renderResearchState,
     summarizeResearchOutput,
+    ...roleRunDeps,
+    afterRoleResearchRun: () => roleWorkspaceFeature.refreshRoles(),
 });
 
 // Logs retrieval and selection handling.
@@ -319,10 +397,11 @@ const providerModelFeature = createProviderModelFeature({
     localStorageKeys: LS_KEYS,
 });
 
-// Steering note and "Steer CV generation" toggle, kept in localStorage.
+// Steering note and "Steer CV generation" toggle: on the role in role mode, else in localStorage.
 const steeringFeature = createSteeringFeature({
     els,
     localStorageKeys: LS_KEYS,
+    onSteeringChanged: roleWorkspaceFeature.handleSteeringChanged,
 });
 
 // CV pipeline run orchestrator and polling coordinator.
@@ -338,14 +417,20 @@ const cvPipelineFeature = createCvPipelineFeature({
     refreshTailoredOutput,
     refreshLogs: logsFeature.refreshLogs,
     summarizeRun,
+    ...roleRunDeps,
+    afterRoleCvRun: async (roleId, run) => {
+        await roleRunsFeature.afterCvRun(roleId, run);
+        await roleWorkspaceFeature.refreshRoles();
+    },
 });
 
-// PDF theme selection: persisted, and re-runs formatting on change.
+// PDF theme selection: on the role in role mode (re-renders the preview), else persisted and re-formatted.
 const themeFeature = createThemeFeature({
     state,
     els,
     localStorageKeys: LS_KEYS,
     runPipeline: cvPipelineFeature.runPipeline,
+    onThemeChanged: roleWorkspaceFeature.handleThemeChanged,
 });
 
 // Startup state restoration coordinator.
@@ -373,6 +458,7 @@ const appInitializationFeature = createAppInitializationFeature({
     setResearchRunning,
     updatePreview: previewBindings.updatePreview,
     refreshTailoredOutput,
+    roleWorkspaceFeature,
 });
 
 const { initialize } = appInitializationFeature;
@@ -389,6 +475,8 @@ const appEventBindingsFeature = createAppEventBindingsFeature({
     providerModelFeature,
     themeFeature,
     steeringFeature,
+    roleWorkspaceFeature,
+    roleRunsFeature,
 });
 
 // Final startup launcher for one-time app boot order.

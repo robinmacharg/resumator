@@ -24,6 +24,8 @@ flowchart TD
     App --> ProviderModel[provider-model-feature.js]
     App --> Theme[theme-feature.js]
     App --> Steering[steering-feature.js]
+    App --> RoleWorkspace[role-workspace-feature.js]
+    App --> RoleRuns[role-runs-feature.js]
     App --> Research[research-feature.js]
     App --> CVPipeline[cv-pipeline-feature.js]
     App --> Logs[logs-feature.js]
@@ -42,7 +44,12 @@ flowchart TD
     Research --> Utils
     Research --> ApiClient
 
+    RoleWorkspace --> RoleRuns
+    CVPipeline -. role mode hooks .-> RoleWorkspace
+    Research -. role mode hooks .-> RoleWorkspace
+
     Init --> ApiClient
+    Init --> RoleWorkspace
     Init --> Layout
     Init --> ProviderModel
     Init --> Research
@@ -102,11 +109,27 @@ flowchart TD
 
 - `theme-feature.js`
   - Fills the CV-tab PDF theme selector from `/api/state` `themes` (the `themes/*.typ` presets), persists the choice,
-    and re-runs formatting only when it changes.
+    and re-runs formatting only when it changes. In role mode `onThemeChanged` saves it on the role and re-renders
+    the preview instead (no format run); `applyTheme` shows a role's theme.
 
 - `steering-feature.js`
   - Keeps the Steering tab text and the "Steer CV generation" checkbox in localStorage and builds the `steering`
-    object (`{enabled, text}`) that full runs send.
+    object (`{enabled, text}`) that full runs send. In role mode `onSteeringChanged` (the role workspace) saves
+    edits on the role instead; `applySteering` shows a role's steering.
+
+- `role-workspace-feature.js` (multi-role plan step 9)
+  - Role sidebar (list, **+** dialog, status select where `closed` = archive, delete) and role selection
+    (remembered in localStorage). With roles in the DB the app is in **role mode** (`body.role-mode`;
+    `[data-role-only]`/`[data-file-only]` elements show and hide); with none it keeps file mode.
+  - Owns the `cv` and `jobspec` editors in role mode (`getRoleOwnedKeys`): loads and saves them through the Role
+    API, with a Role CV / Master CV picker (the CV tab label says which). `draft-files-feature.js` keeps these keys
+    out of file payloads, browser drafts and file snapshots, so `input/` is never written with role content.
+  - Saves steering (debounced) and theme on the role; one-time copy of this browser's steering and theme into the
+    first role opened. `saveEditsBeforeRun` saves dirty role editors, steering and prompt files before role runs.
+
+- `role-runs-feature.js` (multi-role plan step 9)
+  - The active role's CV run picker. The picked run is previewed through `setCvRunSource` (PDF rendered on demand
+    in the selected theme, plus a DOCX link), and the Tailored tab shows its model JSON.
 
 - `app-operations-feature.js`
   - Handles file save/load/reload, tailored output refresh, and server restart flow.
@@ -146,7 +169,9 @@ This map identifies which frontend feature owns each backend/static endpoint int
 | `/api/research/stop` | `research-feature.js` | Request stop for active research run. |
 | `/api/research/format` | `research-feature.js` | Format research PDF output. |
 | `/api/research/reset-prompt` | `research-feature.js` | Restore default research prompt file. |
-| `/api/roles…`, `/api/master/cv` | none yet (step 9 of [the multi-role plan](../../docs/plans/multi-role.md)) | Role API; routes in [docs/architecture.md](../../docs/architecture.md) "Role API". |
+| `/api/roles`, `/api/roles/<id>` (read, update, `/delete`), `/api/roles/<id>/cv`, `/api/master/cv` | `role-workspace-feature.js` | Role list, create/update/archive/delete, role and master CV read/save. Routes in [docs/architecture.md](../../docs/architecture.md) "Role API". |
+| `/api/roles/<id>/runs`, `…/runs/cv/<run>`, `…/runs/cv/<run>/cv.pdf\|docx` | `role-runs-feature.js` (documents via `pdf-preview-feature.js`) | Run history, run detail for the Tailored tab, on-demand PDF/DOCX. |
+| `/api/roles/<id>/runs/cv`, `…/runs/research` | `cv-pipeline-feature.js`, `research-feature.js` | Start role runs; progress on the shared `/api/run/status` and `/api/research/status`. |
 | `/output/tailored.md` | `app-operations-feature.js` | Load tailored markdown output into viewer. |
 
 ## app.js Composition Walkthrough
@@ -177,6 +202,9 @@ These features expose callbacks needed by higher-level workflow modules.
 - `theme-feature.js`
 - `steering-feature.js`
 - `cv-pipeline-feature.js`
+
+`role-runs-feature.js` and `role-workspace-feature.js` are built just after the draft feature; the features they
+call back into (steering, theme) are reached through late-bound arrows, called only after composition.
 
 These modules orchestrate backend operations but do not query the DOM directly.
 

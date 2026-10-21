@@ -31,6 +31,9 @@ import { pollUntilDone } from "./async-workflow-utils.js";
  * @property {() => Promise<void>} refreshLogs Refresh logs UI.
  * @property {(run: any) => string} summarizeRun Convert run payload to display text.
  * @property {() => {enabled: boolean, text: string}} [getSteeringRequest] Steering for full runs.
+ * @property {() => number | null} [getActiveRoleId] Role mode: the active role, or null for file mode.
+ * @property {() => Promise<void>} [saveRoleEditsBeforeRun] Role mode: save unsaved role edits first.
+ * @property {(roleId: number, run: any) => Promise<void>} [afterRoleCvRun] Role mode: reload the run history.
  */
 
 /**
@@ -59,6 +62,9 @@ export function createCvPipelineFeature(ctx) {
         refreshLogs,
         summarizeRun,
         getSteeringRequest,
+        getActiveRoleId,
+        saveRoleEditsBeforeRun,
+        afterRoleCvRun,
     } = ctx;
 
     /**
@@ -97,6 +103,11 @@ export function createCvPipelineFeature(ctx) {
      * @returns {Promise<void>}
      */
     async function runPipeline(kind) {
+        const roleId = getActiveRoleId ? getActiveRoleId() : null;
+        if (roleId !== null) {
+            await runRolePipeline(roleId);
+            return;
+        }
         setRunning(true);
         startRunStatusTimer(
             kind === "full" ? "Running full pipeline..." : "Running formatting only...",
@@ -139,6 +150,60 @@ export function createCvPipelineFeature(ctx) {
                 setStatus(`Run complete (${run.elapsedSeconds}s).`);
             } else {
                 setStatus("Run failed. Open logs for details.", true);
+            }
+        } catch (err) {
+            stopRunStatusTimer();
+            setStatus(`Run failed: ${err.message}`, true);
+            setRunLogOutput(err.stack || err.message);
+        } finally {
+            stopRunStatusTimer();
+            setRunning(false);
+        }
+    }
+
+    /**
+     * Role mode: save the role's edits, then start a stored role CV run (`POST /api/roles/<id>/runs/cv`) and poll
+     * the shared run status. There is no format-only run: role PDFs render on demand.
+     * Steering is sent as shown (role-saved steering may still be debouncing); the theme is the role's.
+     * @param {number} roleId
+     * @returns {Promise<void>}
+     */
+    async function runRolePipeline(roleId) {
+        setRunning(true);
+        startRunStatusTimer("Running full pipeline for this role...");
+        setRunLogOutput("Starting run...");
+
+        try {
+            writeDraftToLocalStorage();
+            if (saveRoleEditsBeforeRun) {
+                await saveRoleEditsBeforeRun();
+            }
+            const steering = getSteeringRequest ? getSteeringRequest() : null;
+            const kickoff = await api(`/api/roles/${roleId}/runs/cv`, {
+                method: "POST",
+                body: JSON.stringify({
+                    selectedProvider: state.selectedProvider || "gemini",
+                    selectedModel: state.selectedModel || "",
+                    theme: null,
+                    steering: steering ? steering.text : null,
+                }),
+            });
+            if (kickoff.run) {
+                setRunLogOutput(summarizeRun(kickoff.run));
+            }
+
+            const run = await waitForRunCompletion();
+            if (afterRoleCvRun) {
+                await afterRoleCvRun(roleId, run);
+            }
+            await refreshLogs();
+
+            stopRunStatusTimer();
+            if (run && run.success) {
+                setStatus(`Run complete (${run.elapsedSeconds}s), saved as run #${run.runId}.`);
+            } else {
+                const reason = run && run.error ? `: ${run.error}` : ". Open logs for details.";
+                setStatus(`Run failed${reason}`, true);
             }
         } catch (err) {
             stopRunStatusTimer();

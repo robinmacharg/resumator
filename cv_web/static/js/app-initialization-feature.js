@@ -40,6 +40,7 @@ import { getStorageString } from "./storage-utils.js";
  * @property {(running: boolean) => void} setResearchRunning Research running-state setter.
  * @property {() => void} updatePreview Refresh preview rendering.
  * @property {() => Promise<void>} refreshTailoredOutput Refresh tailored markdown output.
+ * @property {{initialize: () => Promise<void>}} [roleWorkspaceFeature] Role sidebar; opens a role when there are any.
  */
 
 /**
@@ -76,6 +77,7 @@ export function createAppInitializationFeature(ctx) {
         setResearchRunning,
         updatePreview,
         refreshTailoredOutput,
+        roleWorkspaceFeature,
     } = ctx;
 
     /**
@@ -198,6 +200,10 @@ export function createAppInitializationFeature(ctx) {
             }
 
             await restoreResearchRuntimeState();
+
+            if (roleWorkspaceFeature) {
+                await roleWorkspaceFeature.initialize();
+            }
 
             updatePreview();
             await refreshTailoredOutput();

@@ -29,6 +29,9 @@ import { parseResearchUrlsInput } from "./app-utils.js";
  * @property {(command: any) => void} setResearchCommandOutput Research command renderer.
  * @property {(payload: any) => void} renderResearchState Apply research state to UI.
  * @property {(run: any) => string} summarizeResearchOutput Convert run payload to display text.
+ * @property {() => number | null} [getActiveRoleId] Role mode: the active role, or null for file mode.
+ * @property {() => Promise<void>} [saveRoleEditsBeforeRun] Role mode: save unsaved edits first.
+ * @property {(roleId: number, run: any) => Promise<void>} [afterRoleResearchRun] Role mode: after a stored run.
  */
 
 /**
@@ -55,6 +58,9 @@ export function createResearchFeature(ctx) {
         setResearchCommandOutput,
         renderResearchState,
         summarizeResearchOutput,
+        getActiveRoleId,
+        saveRoleEditsBeforeRun,
+        afterRoleResearchRun,
     } = ctx;
 
     /**
@@ -96,8 +102,9 @@ export function createResearchFeature(ctx) {
      * @returns {Promise<void>}
      */
     async function runResearch() {
+        const roleId = getActiveRoleId ? getActiveRoleId() : null;
         const companyName = (els.researchCompanyInput.value || "").trim();
-        if (!companyName) {
+        if (!companyName && roleId === null) {
             setStatus("Company name is required for research run.", true);
             setResearchStatus("Company name is required.", true);
             return;
@@ -124,18 +131,21 @@ export function createResearchFeature(ctx) {
 
         try {
             writeDraftToLocalStorage();
-            const kickoff = await api("/api/research/run", {
-                method: "POST",
-                body: JSON.stringify({
-                    files: currentFiles(),
-                    companyName,
-                    urls,
-                    dryRun: Boolean(els.researchDryRunCheckbox.checked),
-                    autoFormatPdf: true,
-                    selectedProvider: state.selectedProvider || "gemini",
-                    selectedModel: state.selectedModel || "",
-                }),
-            });
+            const kickoff =
+                roleId === null
+                    ? await api("/api/research/run", {
+                          method: "POST",
+                          body: JSON.stringify({
+                              files: currentFiles(),
+                              companyName,
+                              urls,
+                              dryRun: Boolean(els.researchDryRunCheckbox.checked),
+                              autoFormatPdf: true,
+                              selectedProvider: state.selectedProvider || "gemini",
+                              selectedModel: state.selectedModel || "",
+                          }),
+                      })
+                    : await startRoleResearch(roleId, companyName, urls);
 
             if (kickoff.run) {
                 setResearchOutput(summarizeResearchOutput(kickoff.run));
@@ -154,9 +164,13 @@ export function createResearchFeature(ctx) {
                 setStatus("Research run failed. See Research Output.", true);
             }
 
-            const refreshed = await api("/api/research/state");
-            renderResearchState(refreshed);
-            updatePreviewCacheBuster();
+            if (roleId === null) {
+                const refreshed = await api("/api/research/state");
+                renderResearchState(refreshed);
+                updatePreviewCacheBuster();
+            } else if (afterRoleResearchRun) {
+                await afterRoleResearchRun(roleId, run);
+            }
         } catch (err) {
             setResearchStatus(`Research run failed: ${err.message}`, true);
             setResearchOutput(err.stack || err.message);
@@ -170,6 +184,30 @@ export function createResearchFeature(ctx) {
      * Request stop for active research run.
      * @returns {Promise<void>}
      */
+    /**
+     * Role mode: save unsaved edits (the research prompt is still a file), then start a stored role research run.
+     * An empty company uses the role's. Progress comes from the shared `/api/research/status`.
+     * @param {number} roleId
+     * @param {string} companyName
+     * @param {string[]} urls
+     * @returns {Promise<any>} Kickoff payload.
+     */
+    async function startRoleResearch(roleId, companyName, urls) {
+        if (saveRoleEditsBeforeRun) {
+            await saveRoleEditsBeforeRun();
+        }
+        return api(`/api/roles/${roleId}/runs/research`, {
+            method: "POST",
+            body: JSON.stringify({
+                selectedProvider: state.selectedProvider || "gemini",
+                selectedModel: state.selectedModel || "",
+                company: companyName || null,
+                urls,
+                dryRun: Boolean(els.researchDryRunCheckbox.checked),
+            }),
+        });
+    }
+
     async function stopResearch() {
         setResearchStatus("Stopping research run...");
         setStatus("Stopping research run...");

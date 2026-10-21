@@ -27,15 +27,15 @@ A per-application free-text instruction, for example "emphasise React Native lea
 mention the fintech background".
 
 Suggested shape:
-1. Done, differently: the web UI has a Steering tab on the CV tab, kept in browser localStorage rather than a file,
-   plus a "Steer CV generation" checkbox. Full runs send the text; the server writes it to `output/steering.run.md`
+1. Done, differently: the web UI has a Steering tab on the CV tab, kept on the role in role mode (in browser
+   localStorage with no roles; copied once into the first role opened), plus a "Steer CV generation" checkbox. Full runs send the text; the server writes it to `output/steering.run.md`
    and passes `--steering-file`, or `--no-steering` when unticked or empty. A 🧭 before the PDF title marks a CV
    generated with steering (from `metadata.steering`).
 2. Done: `generate_cv` reads `input/steering.md` (or `--steering-file`) and appends `=== CANDIDATE STEERING ===`
    when it's non-empty ([cv-format.md §2](cv-format.md)).
 3. Done: `prompt.md` v2 says steering adjusts emphasis, selection and ordering only and never overrides the
    truthfulness constraints.
-4. Optional: pass the steering to `research_role.build_prompt` as well; persist it per job alongside the job spec.
+4. Optional: pass the steering to `research_role.build_prompt` as well. (Persisting it per job is done: roles.)
 5. Done: the steering text is recorded as `metadata.steering` in `tailored.model.json`.
 
 ## P2 — Correctness and hygiene
@@ -54,8 +54,11 @@ Suggested shape:
 - **Fast mode cuts the end of the CV**: `CV_FAST_MODE` keeps the first 18,000 chars of the prompt text. With the
   v1 source format that drops whole trailing sections (on the v1-format `CV.md`: late projects, Education, Certifications,
   Skills). Truncate per section (for example oldest roles first) or raise the limit.
-- **No output history**: each run overwrites `output/tailored*`. Consider `output/<company>-<date>/` snapshots that
-  include the job spec and steering.
+- **No output history (file mode)**: each file-mode run overwrites `output/tailored*`. Role mode keeps every run
+  per role, with its steering ([plan](plans/multi-role.md)).
+- **Role research isn't shown**: role research runs are stored (`research_run`), but the Research tab only shows
+  the live log; past runs, the formatted output and the research PDF still come from `output/` files. Needs a
+  run list in the tab and a research render route (like the CV run PDF).
 - **Stale venv**: `.venv` is Python 3.9.6, and `generate_cv.py`, `research_role.py` and `cv_convert.py` fail to import
   on it (`int | None` annotations without `from __future__ import annotations`). Things only work because the npm
   scripts fall back to the system `python3`. Rebuild the venv with Python 3.10 or newer.

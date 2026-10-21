@@ -93,7 +93,7 @@ const PREVIEW_CONFIG = {
  * Purpose: centralize CV/Research preview rendering with shared behavior.
  *
  * @param {PdfPreviewFeatureContext} ctx Feature dependencies.
- * @returns {{applyCvOutputState: (payload: any) => void, applyResearchOutputState: (payload: any) => void, updatePreview: () => void}} Public preview API.
+ * @returns {{applyCvOutputState: (payload: any) => void, applyResearchOutputState: (payload: any) => void, setCvRunSource: (source: any) => void, updatePreview: () => void}} Public preview API.
  */
 export function createPdfPreviewFeature(ctx) {
     const { els, getActivePreviewKind } = ctx;
@@ -102,6 +102,69 @@ export function createPdfPreviewFeature(ctx) {
         cv: { exists: false, mtime: null, sourceGeneratedAt: null, steering: "" },
         research: { exists: false, mtime: null, sourceGeneratedAt: null, steering: "" },
     };
+
+    // Role mode: the CV preview shows a stored run, rendered on demand by the Role API (null = file mode).
+    let cvRunSource = null;
+
+    /**
+     * Use a role run as the CV preview, or go back to `output/` files with null.
+     * @param {{url: string | null, docxUrl: string | null, label: string, steering: string, generatedAt: string | null} | null} source
+     * @returns {void}
+     */
+    function setCvRunSource(source) {
+        cvRunSource = source;
+    }
+
+    /**
+     * Show or hide the role run's DOCX link.
+     * @param {string | null} href
+     * @returns {void}
+     */
+    function setDocxLink(href) {
+        if (!els.pdfPreviewDocxLink) {
+            return;
+        }
+        els.pdfPreviewDocxLink.hidden = !href;
+        if (href) {
+            els.pdfPreviewDocxLink.href = href;
+        }
+    }
+
+    /**
+     * Render the CV preview for a role run.
+     * @returns {void}
+     */
+    function renderRunPreview() {
+        const source = cvRunSource;
+        if (els.pdfPreviewTitle) {
+            const steeringPrefix = source.steering ? `${STEERING_INDICATOR} ` : "";
+            els.pdfPreviewTitle.textContent =
+                `${steeringPrefix}PDF Preview (CV, ${source.label}, ` +
+                `Generated: ${formatSourceGeneratedForPreview(source.generatedAt)})`;
+            els.pdfPreviewTitle.title = source.steering ? `Steered: ${source.steering}` : "";
+        }
+        if (els.pdfPreviewOpenLink) {
+            els.pdfPreviewOpenLink.href = source.url || "#";
+            els.pdfPreviewOpenLink.style.pointerEvents = source.url ? "auto" : "none";
+            els.pdfPreviewOpenLink.style.opacity = source.url ? "1" : "0.45";
+        }
+        setDocxLink(source.docxUrl);
+        if (source.url) {
+            els.pdfPreview.classList.remove("hidden");
+            if (els.pdfPlaceholder) {
+                els.pdfPlaceholder.classList.remove("visible");
+            }
+            if (els.pdfPreview.getAttribute("src") !== source.url) {
+                els.pdfPreview.src = source.url;
+            }
+            return;
+        }
+        els.pdfPreview.classList.add("hidden");
+        if (els.pdfPlaceholder) {
+            els.pdfPlaceholder.classList.add("visible");
+            els.pdfPlaceholder.textContent = "No runs yet for this role";
+        }
+    }
 
     /**
      * Format unix mtime seconds into user-facing preview timestamp.
@@ -171,6 +234,11 @@ export function createPdfPreviewFeature(ctx) {
      */
     function updatePreview() {
         const kind = getActivePreviewKind() === "research" ? "research" : "cv";
+        if (kind === "cv" && cvRunSource) {
+            renderRunPreview();
+            return;
+        }
+        setDocxLink(null);
         const cfg = PREVIEW_CONFIG[kind];
         const state = previewState[kind];
 
@@ -210,6 +278,7 @@ export function createPdfPreviewFeature(ctx) {
     return {
         applyCvOutputState,
         applyResearchOutputState,
+        setCvRunSource,
         updatePreview,
     };
 }
