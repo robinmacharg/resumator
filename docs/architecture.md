@@ -14,6 +14,8 @@
 | `provider_clients.py` | Transport per provider (`run_<provider>_attempt`) → `AttemptResult`; writes per-attempt logs |
 | `env_utils.py` | `.env` parser |
 | `cv_web/` | stdlib `http.server` UI wrapper. Runs the CLIs as subprocesses and streams their output |
+| `cv_merge.py` | Entry-level three-way merge of CV source text (`split_units`, `compare`, `merge`) for promote/pull between master and role CVs. Pure functions; not yet wired in ([plan](plans/multi-role.md)) |
+| `cv_web/store.py` | SQLite data layer for the multi-role workspace (`cv_web/resumator.db`, gitignored): migrations, roles, master/role CV versions, prompt versions, CV and research runs, settings, `backup`. Not yet wired in ([plan](plans/multi-role.md)) |
 | `VSCodeExtension/` | VS Code extension that exposes Copilot over local HTTP (`vscodebridge` backend) |
 
 ## CV pipeline data flow
@@ -70,7 +72,7 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 
 ## Tests
 
-- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_convert` (render tests skip
+- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_merge`, `store` (temp DBs), `cv_convert` (render tests skip
   without pandoc/typst) and the `claudecode` backend (with a fake `claude` on PATH). Nothing covers `generate_cv` or
   the other backends.
 - `cv_web/static/js/__tests__/`: `node --test` coverage of the frontend feature modules.

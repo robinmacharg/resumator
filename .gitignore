@@ -4,3 +4,5 @@ __pycache__
 /gemini_debug_logs
 /tailored.*
 /tailored_dev.*
+/cv_web/resumator.db*
+/cv_web/backups/

@@ -41,7 +41,7 @@ python3 cv_convert.py [--theme compact]             # re-render output/tailored.
 python3 research_role.py --company-name "X" [--url U ...] [--dry-run]
 python3 research_format.py
 python3 cv_source.py --lint [path]                  # lint a CV source file (default input/CV.md)
-python3 -m unittest discover -s tests -v            # Python tests (server helpers, env_utils, cv_source, contract, backends)
+python3 -m unittest discover -s tests -v            # Python tests (server helpers, env_utils, cv_source, cv_merge, store, contract, backends)
 (cd cv_web/static && npm test)                      # frontend tests (node --test)
 ```
 

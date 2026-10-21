@@ -5,7 +5,8 @@ research runs. A sidebar lists the roles, with a **+** to create one, and a new 
 canonical master CV. Storage moves to a small database. Only agent-returned text is stored; PDFs are rendered on
 demand.
 
-**Status:** TODO. Design agreed (R1–R20); nothing built. Next: stage S1, starting with the step 1 spike.
+**Status:** IN PROGRESS. Design agreed (R1–R20). S1 steps 1–3 done (spike, `cv_web/store.py`, `cv_merge.py`). Next: step 4,
+in-memory render in `cv_convert`.
 Work happens on branch `feature/20261021-multi-role` (from `develop`).
 
 ## Decisions
@@ -32,6 +33,7 @@ Work happens on branch `feature/20261021-multi-role` (from `develop`).
 | R18 | **Backup is a `backup` command** that uses SQLite's online backup API to write a timestamped copy of the DB. Per-role JSON export only if needed later | Proposed default, not objected to |
 | R19 | **Directives travel with each role's CV**, so they are already per role. Nothing extra | Proposed default, not objected to |
 | R20 | **Role list: name, company, status (`draft`, `applied`, `closed`) and last-updated date.** No tracker features | Proposed default, not objected to |
+| R21 | **Archiving a role is `status = closed`**; no `archived_at` column. Reopening sets the status back to `draft` or `applied`. An audit log of changes is not planned; if one is wanted later, it's a separate table | Your call. Status already covers archive and unarchive |
 
 ## Today (what this replaces)
 
@@ -102,26 +104,35 @@ Master and role CVs are the same kind of thing (CV source text with history), so
   (Candidate, Skills, Directives) count as single units. `difflib` is used only to show what changed inside an
   entry. A renamed heading looks like a removal plus an addition; that's acceptable for now.
 
-### Sketch schema (to refine)
+### Schema (as built in step 2, `cv_web/store.py` migration 1)
 
 ```sql
-role(id, slug, name, company, status, jobspec TEXT,
-     steering_text TEXT, steering_enabled INT, theme TEXT, created_at, updated_at)
-cv_version(id, role_id NULL,          -- NULL = master (R8)
-           parent_id NULL,            -- previous version of the same CV
+schema_version(version PK, applied_at)  -- one row per applied migration (store.MIGRATIONS, append-only)
+role(id, slug UNIQUE, name, company '', status CHECK draft|applied|closed DEFAULT draft, jobspec '',
+     steering_text '', steering_enabled INT DEFAULT 1, theme NULL, created_at, updated_at)
+cv_version(id, role_id NULL → role ON DELETE CASCADE,   -- NULL = master (R8)
+           parent_id NULL,            -- previous version of the same CV (set by store)
            base_master_id NULL,       -- role versions: master version last synced with (merge ancestor)
-           source,                    -- seed | edit | promote | pull | import | example
-           note NULL, content TEXT, created_at)
-prompt_version(hash PRIMARY KEY, kind, content TEXT, created_at)  -- kind: cv | research (R15)
+           source CHECK seed|edit|promote|pull|import|example,
+           note NULL, content TEXT, created_at,
+           CHECK (role_id IS NOT NULL OR base_master_id IS NULL))
+prompt_version(hash PRIMARY KEY, kind CHECK cv|research, content TEXT, created_at)  -- hash = sha256(content) (R15)
 -- every *_json column: CHECK (col IS NULL OR json_valid(col))  (step 1)
-cv_run(id, role_id, cv_version_id,    -- the exact CV text the agent saw
-       started_at, finished_at, provider, model, theme, steering_text NULL,
-       prompt_hash, raw_output TEXT, model_json TEXT, warnings_json TEXT, page_count INT,
-       log TEXT, success INT, is_current INT)
-research_run(id, role_id, started_at, finished_at, provider, model, prompt_hash, company, urls_json, dry_run INT,
-             output_json TEXT, output_md TEXT, log TEXT, success INT, is_current INT)
-setting(key, value)  -- e.g. last_role_id, first_run_done
+cv_run(id, role_id → role ON DELETE CASCADE, cv_version_id,   -- the exact CV text the agent saw
+       started_at, finished_at NULL, provider, model, theme, steering_text NULL,   -- NULL/'' = not steered
+       prompt_hash NULL, raw_output TEXT, model_json TEXT, warnings_json TEXT, page_count INT,
+       log TEXT, success INT, is_current INT DEFAULT 0, CHECK (is_current = 0 OR success = 1))
+research_run(id, role_id → role ON DELETE CASCADE, started_at, finished_at, provider, model, prompt_hash, company,
+             urls_json, dry_run INT, output_json TEXT, output_md TEXT, log TEXT, success INT, is_current INT,
+             CHECK (is_current = 0 OR success = 1))
+-- UNIQUE INDEX on each run table (role_id) WHERE is_current = 1: at most one current run per role
+setting(key PRIMARY KEY, value)  -- e.g. last_role_id, first_run_done
 ```
+
+Rules the store enforces in code (SQL can't): a role's `base_master_id` points at a master row; a role's first
+version needs one (later versions inherit it from the parent); a CV run's `cv_version_id` belongs to the same role.
+Role CV changes and new runs bump `role.updated_at`. Connections: autocommit, `foreign_keys = ON`, WAL,
+`busy_timeout` 5 s, one connection per thread.
 
 ```mermaid
 erDiagram
@@ -133,6 +144,10 @@ erDiagram
     cv_version ||--o{ cv_run : "input to"
     prompt_version ||--o{ cv_run : "prompt_hash"
     prompt_version ||--o{ research_run : "prompt_hash"
+    schema_version {
+        int version PK
+        text applied_at
+    }
 
     role {
         int id PK
@@ -245,7 +260,7 @@ Both scripts gain one flag, `--io json`. Without it they behave exactly as today
   company, paste job spec); its CV starts as a copy of the master (R1). Selecting a role loads its CV, job spec,
   steering, theme, runs and research into the existing tabs.
 - **Per-role controls:** steering (moves from localStorage to the role), theme, run history dropdown (pick which
-  run's PDF to view), archive and delete role.
+  run's PDF to view), archive (status `closed`, R21) and delete role.
 - The CV tab edits the role's CV, with **Promote to master** and **Pull from master** actions. Both open a merge view
   (one checkbox per changed entry, conflicts highlighted, with an inline diff) before anything is saved (R7, R11). The master can also be opened
   and edited directly, with its version history. The UI must make clear which CV is open.
@@ -297,8 +312,8 @@ Each stage ends with the app working and tests passing. One-shot CLI behaviour i
 | # | Step | Output | Status |
 |---|---|---|---|
 | 1 | Spike: `pandoc` → `typst` over stdin/stdout with a theme (`--root`), PDF bytes and page count, and timing; SQLite JSON functions over the current `tailored.model.json`. Confirm or adjust R14/R16 | Spike notes in the log | done |
-| 2 | `store.py`: connect, migrations (`schema_version`), CRUD for role, cv_version, prompt_version, cv_run, research_run, setting; `backup` (R18). Tests on a temp DB | Data layer | todo |
-| 3 | `cv_merge.py`: entry-level three-way merge on `cv_source` parses (R11), rebuilding the CV text. Tests | Merge engine (not wired yet) | todo |
+| 2 | `store.py`: connect, migrations (`schema_version`), CRUD for role, cv_version, prompt_version, cv_run, research_run, setting; `backup` (R18). Tests on a temp DB | Data layer | done |
+| 3 | `cv_merge.py`: entry-level three-way merge on `cv_source` parses (R11), rebuilding the CV text. Tests | Merge engine (not wired yet) | done |
 | 4 | In-memory render function in `cv_convert` (markdown + theme → PDF/DOCX bytes) | Render without files | todo |
 | 5 | `--io json` mode for `generate_cv` and `research_role` (R14). Contract tests: request in, result out, nothing written to `input/` or `output/` | Pipe mode | todo |
 
@@ -308,7 +323,7 @@ Each stage ends with the app working and tests passing. One-shot CLI behaviour i
 |---|---|---|---|
 | 6 | `role_runner.py`: request from DB → script → result → run row, prompt saved (R15), log saved | Runs persisted | todo |
 | 7 | Migration command (R4); run it on this install: master v1 from `input/CV.md`, Quantum Base role, current and archived CV runs, current research | Migrated | todo |
-| 8 | Server API: `/api/roles` (list, create, update, archive, delete), `/api/roles/<id>/cv` (read, save as a new version), runs (list, select current, start), PDF/DOCX of a run and theme through the memory cache (R16); existing endpoints scoped to a role | API | todo |
+| 8 | Server API: `/api/roles` (list, create, update, archive = status `closed` (R21), delete), `/api/roles/<id>/cv` (read, save as a new version), runs (list, select current, start), PDF/DOCX of a run and theme through the memory cache (R16); existing endpoints scoped to a role | API | todo |
 | 9 | UI: sidebar with **+**, role switching, CV tab edits the role CV, master opened and edited directly (no merge yet), steering and theme per role (one-time copy from localStorage), run-history picker | Roles usable | todo |
 
 **S3 — Master versions and merge**
@@ -356,9 +371,20 @@ in-memory rendering is too slow; the fallback is a private temp directory per re
 
 ## Handoff
 
-For the next session: the design is agreed (R1–R20). Work on branch `feature/20261021-multi-role`. Step 1 (spike)
-is done and confirmed R14/R16; see its Log entry and "Run I/O". Next is step 2, `store.py`: show the ER diagram
-inline when proposing the schema, and keep the diagram and SQL sketch in step. Each stage should leave the app working. The related work is in
+For the next session: the design is agreed (R1–R21). Work on branch `feature/20261021-multi-role`. Steps 1 (spike),
+2 (`cv_web/store.py`, `tests/test_store.py`) and 3 (`cv_merge.py`, `tests/test_cv_merge.py`) are done; the Schema
+section above is what's built. Nothing is committed yet. Next is step 4: a function in `cv_convert` that takes tagged
+markdown and a theme and returns PDF or DOCX bytes over pipes (see "Run I/O" and the step 1 spike Log line for the
+exact pandoc command, `-t pdf -o -`, and the `--reference-doc` temp-folder exception), plus `count_pdf_pages` on
+bytes. It needs `cv_convert.py`, `tests/test_cv_convert.py` and docs/cv-format.md, not the store or merge code.
+Baseline test material (user's suggestion): `input/CV.md` and the current outputs `output/tailored.md`,
+`tailored.model.json`, `tailored_dev.pdf` and `tailored_dev.docx` (21 Oct; `tailored.pdf`/`.docx` from July are stale).
+Use them read-only for local checks, and in tests only with a skip when they're absent (`output/` is gitignored and the
+CV is real), without copying their content into committed fixtures. For step 4, compare in-memory renders against them.
+For step 10: `cv_merge.merge(base, ours, theirs, accept, resolutions)`; promote is ours = master, theirs = role,
+pull is ours = role, theirs = master, base = the role's `base_master_id` version. Archiving is `status = closed` (R21),
+so step 8 needs no schema change for it.
+Schema changes go in a new `store.MIGRATIONS` entry; never edit migration 1. Keep the diagram and SQL in step. Each stage should leave the app working. The related work is in
 [cv-format-revamp.md](cv-format-revamp.md) (steering D11/D23, theme picker, run metadata).
 
 ## Log
@@ -393,3 +419,27 @@ inline when proposing the schema, and keep the diagram and SQL sketch in step. E
   against `tailored.md`. SQLite 3.54.1: `json_extract`/`json_each` read the run JSON's `metadata`, and a
   `CHECK (json_valid(...))` rejects bad JSON, so JSON columns get that check. Scripts were in the session scratchpad;
   nothing in the repo changed.
+- 2026-10-21 · Step 2 store · Done. `cv_web/store.py` (stdlib `sqlite3`): `connect` (FKs, WAL, busy timeout),
+  `migrate` over an append-only `MIGRATIONS` tuple, each migration in one transaction (statements split with
+  `sqlite3.complete_statement`, since `executescript` commits mid-way), plus `schema_version`. CRUD for role,
+  cv_version (`seed_role_cv`, base inherited from the parent), prompt_version (sha256), cv_run/research_run (JSON
+  in and out, current-run switching), setting, and `backup` to `cv_web/backups/`. It differed from the sketch: CHECKs on
+  status/source/kind, master rows can't have a base, failed runs can't be current, a partial unique index allows one
+  current run per role, and role deletes cascade (masters are kept). Migrations are Python strings, not `.sql`
+  files. 31 tests in `tests/test_store.py`; the full suite (165) passes. `.gitignore` now covers the DB and
+  backups; architecture.md and AGENTS.md are updated. Open: how "archive" is stored (step 8).
+- 2026-10-21 · Decision · R21: archiving a role means `status = closed`, and reopening sets the status back, so there's
+  no `archived_at` column. No audit log is planned (it would be a separate table if wanted later). This closes the
+  step 2 open point.
+- 2026-10-21 · Step 3 merge · Done. `cv_merge.py` at the repo root (beside `cv_source.py`, not in `cv_web/`): it splits
+  the raw text into units (preamble, each `#` section head, each `##` entry) using `cv_source`'s comment stripping
+  and heading regexes, rather than rebuilding text from the parse dict, which would lose comments and layout.
+  Untouched units round-trip byte for byte (the real `input/CV.md`, 45 units, is exact). Keys are section plus
+  heading, case-insensitive, with `~~` unwrapped, so eliding an entry is a change; duplicates get `#2`. `merge` applies
+  theirs onto ours: ours-only edits always survive, additions and changes are ticked by default, removals and conflicts
+  need a decision (`default_accept`), and conflicts take `ours`, `theirs`, replacement text or `None`. Output order
+  follows ours, so theirs' reorders are ignored. 21 tests in `tests/test_cv_merge.py`; the full suite (186) passes.
+  architecture.md and AGENTS.md are updated.
+
+- 2026-10-21 · Note · The user suggested their real CV and current PDF/DOCX outputs as baseline test material. Recorded
+  in the Handoff with the current files and how to use them (read-only, skip when absent, no copied fixtures).
