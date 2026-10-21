@@ -42,7 +42,7 @@ python3 research_role.py --company-name "X" [--url U ...] [--dry-run]
 python3 generate_cv.py --io json < request.json     # also research_role.py: JSON request in, JSON result out, no files
 python3 research_format.py
 python3 cv_source.py --lint [path]                  # lint a CV source file (default input/CV.md)
-python3 -m unittest discover -s tests -v            # Python tests (server helpers, env_utils, cv_source, cv_merge, store, contract, backends, --io json)
+python3 -m unittest discover -s tests -v            # Python tests (server helpers, env_utils, cv_source, cv_merge, store, role_runner, contract, backends, --io json)
 (cd cv_web/static && npm test)                      # frontend tests (node --test)
 ```
 

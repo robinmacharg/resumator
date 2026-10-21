@@ -6,7 +6,8 @@ canonical master CV. Storage moves to a small database. Only agent-returned text
 demand.
 
 **Status:** IN PROGRESS. Design agreed (R1–R21). Stage S1 (steps 1–5) done: spike, `cv_web/store.py`, `cv_merge.py`,
-`cv_convert.render_cv`, `--io json` pipe mode. Next: step 6, `role_runner.py` (S2).
+`cv_convert.render_cv`, `--io json` pipe mode. S2 step 6 (`cv_web/role_runner.py`) done. Next: step 7, the
+one-time migration command (R4).
 Work happens on branch `feature/20261021-multi-role` (from `develop`).
 
 ## Decisions
@@ -321,7 +322,7 @@ Each stage ends with the app working and tests passing. One-shot CLI behaviour i
 
 | # | Step | Output | Status |
 |---|---|---|---|
-| 6 | `role_runner.py`: request from DB → script → result → run row, prompt saved (R15), log saved | Runs persisted | todo |
+| 6 | `role_runner.py`: request from DB → script → result → run row, prompt saved (R15), log saved | Runs persisted | done |
 | 7 | Migration command (R4); run it on this install: master v1 from `input/CV.md`, Quantum Base role, current and archived CV runs, current research | Migrated | todo |
 | 8 | Server API: `/api/roles` (list, create, update, archive = status `closed` (R21), delete), `/api/roles/<id>/cv` (read, save as a new version), runs (list, select current, start), PDF/DOCX of a run and theme through the memory cache (R16); existing endpoints scoped to a role | API | todo |
 | 9 | UI: sidebar with **+**, role switching, CV tab edits the role CV, master opened and edited directly (no merge yet), steering and theme per role (one-time copy from localStorage), run-history picker | Roles usable | todo |
@@ -387,21 +388,30 @@ in-memory rendering is too slow; the fallback is a private temp directory per re
 ## Handoff
 
 For the next session: the design is agreed (R1–R21) and stage S1 is done. Work on branch `feature/20261021-multi-role`.
-Steps 1–5 are committed (4 in 1678104, 5 in the "multi-role step 5" commit). The Schema section above is what's built.
+Steps 1–6 are committed (4 in 1678104; 5 and 6 in the "multi-role step 5" and "step 6" commits). The Schema section above is what's built.
 `input/jobspec.txt` has an unrelated uncommitted change of the user's: leave it out of commits.
 Step 5 gave `python3 generate_cv.py --io json` and `python3 research_role.py --io json` ("Run I/O" has the exact
 shapes, and `generate_cv.new_cv_result` is the CV result). Both share `pipe_io.run_json_io` (fd 1 → stderr during the
 run). The pipelines are now `generate_cv.run_cv(request, files=…)` and `research_role.run_research(request, files=…)`,
 and one-shot mode builds the same request from `input/`. `debug_log_dir=None` sends provider attempt logs to stderr.
 Contract tests are in `tests/test_io_json.py`: real subprocesses from an empty temp cwd, with a fake `claude` on PATH.
-Next is step 6: `role_runner.py` beside the server (`cv_web/`). It builds the request from the store (the role's
-current CV version, job spec, steering, theme, and the prompt text from `input/prompt.md` or
-`input/research_prompt.md`, saved via `store` prompt_version, R15). It then runs the script with `--io json` from the
-repo root, streams stderr into the run's `log`, parses the one stdout line, and saves a `cv_run`/`research_run` row.
-Mapping: `raw_output`, `model_json`, `warnings` → `warnings_json`, `page_count`, `error`; failed runs can't be
-current. `pdf_base64` isn't stored (R6): hand it to the caller for the step 8 cache. It needs `cv_web/store.py`,
-`tests/test_store.py` (temp DB helpers) and the Run I/O section, not the scripts' internals. Leave room for a
-`usage` field (S5 step 15).
+Step 6 gave `cv_web/role_runner.py`: `run_cv(conn, role_id, …)` and `run_research(conn, role_id, …)` build the
+request from the store (`build_cv_request` / `build_research_request`; `theme`/`steering`/`company` None = the role's,
+"" = none; `prompt` None = the template file), save the prompt (R15), run the script via `run_script` (stderr lines
+to `on_log`, the process to `on_start` for cancelling, `env` for tests) and save the run row. They return a
+`RunOutcome` (`run_id`, `success`, `error`, `log`, `result`, `pdf_base64`). Errors are appended to the run's `log`
+as `[runner] error: …` (no `error` column). `RunnerError` means nothing ran or was saved. Tests:
+`tests/test_role_runner.py`. Nothing calls it yet (server: step 8; CLI: step 13).
+Next is step 7: the one-time migration (R4, "One-time migration of this install"). It writes through `store`
+directly, not `role_runner` (nothing is generated): master v1 from `input/CV.md` (`source = import`), the Quantum
+Base role from `input/jobspec.txt` with `seed_role_cv`, the current CV run from `output/tailored.model-output.txt` +
+`tailored.model.json` (steering, theme, warnings and page count from its `metadata`), the optional archived runs in
+`output/step9-opus/` and `step8-opus-fastmode/`, and the research run from `output/research_output.json`/`.md` with
+`input/research_company.txt` and `research_urls.txt`. Idempotent: refuse or skip when the role exists. To decide
+at the start: where the command lives before the step 13 entry point exists (the plan sketches
+`python3 -m resumator migrate-single-role`; no `resumator` package exists yet), and whether imported runs get a
+`prompt_hash` (the prompt they used isn't known; NULL is honest). Test it on a temp DB with fixture files, then run
+it on this install (`cv_web/resumator.db`, gitignored) only with the user's go-ahead, since it reads the real CV.
 Baseline test material (user's suggestion): `input/CV.md` and the current outputs `output/tailored.md`,
 `tailored.model.json`, `tailored_dev.pdf` and `tailored_dev.docx` (21 Oct; `tailored.pdf`/`.docx` from July are stale).
 Use them read-only for local checks, and in tests only with a skip when they're absent (`output/` is gitignored and the
@@ -498,3 +508,12 @@ stage should leave the app working. S5 (steps 15–18, token efficiency) is a fo
   real Claude run (the contract tests went from 47 s to under 5 s). 7 contract tests in `tests/test_io_json.py`; the
   full suite (203) and the frontend tests (50) pass. architecture.md, backends.md and AGENTS.md are updated.
   Committed at the user's request.
+- 2026-10-21 · Step 6 role runner · Done. `cv_web/role_runner.py`: `build_cv_request` / `build_research_request` from
+  the store, `run_script` (Popen from the repo root, request on stdin, stderr streamed line by line to `on_log` and
+  kept as the log, stdout read whole; no or bad JSON becomes a failed result), and `run_cv` / `run_research`, which
+  save the prompt (R15) and the run row. Differed from the plan: `cv_run` has no `error` column, so the error is
+  appended to the saved `log` (no schema change); prompts are stripped before hashing so the hash matches what was
+  sent; research URLs are de-duplicated before sending so the stored list matches. `pdf_base64` comes back in
+  `RunOutcome`, never stored. A comment marks where step 15's `usage` goes. 12 tests in `tests/test_role_runner.py`
+  (real scripts, temp DB, fake `claude`); the full suite (215) and the frontend tests (50) pass. architecture.md and
+  AGENTS.md are updated. Committed at the user's request.
