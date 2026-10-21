@@ -1,52 +1,22 @@
-Mobile Engineer | iOS or Android (Remote - UK)
+Job Description
+Responsibilities
 
-Mobile Engineer | iOS or Android
-AI Product | Early Stage Incubator
-Remote First - London Office
-Competitive, flexible salary dependent on experience
-We're partnering with an ambitious AI startup, a new spin off from a larger, successful global brand building a next-generation consumer product that combines intelligent automation, conversational AI and modern mobile experiences.
-
-Following continued global growth, they're looking to hire multiple Mobile Engineers, specialising in either iOS or Android to help shape the next generation of their mobile platform.
-
-This is a genuine opportunity to join a small, high-calibre engineering team where mobile isn't an afterthought, it's at the heart of the product. You'll work alongside backend and machine learning engineers to build AI-powered experiences used by real customers, helping define how intelligent software feels on modern mobile devices.
-
-If you enjoy solving challenging engineering problems, shipping polished products and working in an environment where you can influence technical direction, this is the sort of opportunity that's difficult to find.
-
-
-The Role
-
-You'll take ownership of native mobile features from design through to production, helping build applications that are fast, reliable and intuitive to use.
-
-You'll be involved in initiatives such as:
-
-Building and maintaining native mobile applications using either Swift or Kotlin
-Delivering AI-powered features including conversational experiences, intelligent workflows and real-time interactions
-Collaborating with backend and ML engineers to build scalable product features
-Improving application performance, responsiveness and reliability
-Designing resilient user experiences that handle latency, streaming responses and partial failures gracefully
-Contributing to product decisions within a collaborative engineering team
-
-What You'll Bring
-
-Commercial experience developing native iOS or Android applications
-Strong experience with Swift/SwiftUI or Kotlin
-Experience shipping production mobile applications
-Experience integrating backend APIs
-A strong appreciation for performance, usability and product quality
-Interest in AI-powered products and emerging technologies
-Confidence working autonomously whilst collaborating closely with engineers across multiple disciplines
-Experience with mobile machine learning, AI integrations or modern mobile architectures also beneficial
-If you're a Mobile Engineer looking to build AI-first products alongside an exceptional engineering team, we'd love to hear from you.
-
-Mobile Engineer | iOS or Android (Remote - UK)
-
+Strong programming skills in IOS, with 2+ years of experience;
+Knowledge of CI/CD tools (Jenkins);
+Knowledge of Swift (nice to have);
+Care about code quality and performance;
+Self-driven with the ability to work independently;
+Degree in computer engineer or similar;
+Fluent in English.
 Company Benefits
-Company benefits are highly specific, full details available during the process.
-Interview Process
-3 Stages, more details available in process.
-Skills of candidates in conversation
-Swift
-iOS
-MVVM
-UIKit
-Java
+Competitive salary package - Kodly understands that the best talent deserves the best compensation, and that's why we offer a salary package that recognizes your expertise.
+State-of-the-art equipment - We will provide you with a MacBook Pro (or similar equipment) that will empower you to create and innovate without any limitations.
+Flexible remote working - We like to promote autonomy and trust among our team members. Although we have a very welcoming office, we don't have a strict policy on how much time we should spend in it. So, whenever possible, you are free to work from home, with flexible timetables.
+Training and career development - Kodly invests in its team by providing comprehensive training packages to help every member reach their career goals.
+Global experiences - Join a diverse team and work on international projects with our worldwide partners. Our reach has no boundaries!
+Team-building events - From simple team-building activities to Kodly Tech Days, our events are a perfect mix of fun and professional development. By working at Kodly, you have a chance to become a speaker at these events. You can also write articles for our blog and be rewarded for it.
+Health insurance - Health is our top priority. Our team members have access to personal health insurance for extra protection. This insurance is available to their families too.
+Wellness, leisure, and other perks - From gym discounts to leisure activities, Kodly has got you covered. Our partnerships will help you to get the most out of your free time for less money.
+Transports and parking - Our office has a convenient location in the heart of Porto, with easy access by public transportation. If you prefer to use your car, half of your parking monthly allowance can be covered by our company. Bikes are very welcome too!
+Lunch facilities, fruits, and snacks - Fuel up with us: take advantage of our fully equipped kitchen and enjoy fresh fruit, coffee, and snacks all day long.
+Parental support - At Kodly, we understand the joys and challenges of parenthood, and we are here to support our team members every step of the way. Every team member who has a new baby receives a €500 bonus, to help with all the expenses related to the newborn.

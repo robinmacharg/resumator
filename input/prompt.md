@@ -8,6 +8,27 @@ Core constraints:
 3. Keep older experience concise.
 4. Return JSON ONLY. No markdown. No code fences. No prose.
 
+Input Contract (semantic, loose):
+
+The input CV is structured in sections as follows. It is sectioned by three hyphens: ‘—‘. Sections have one or more subsections denoted by a semantic label: ‘subsection:’, e.g. ‘Previous roles:’ Within each subsection there may be a number of further semantic sub-subsections denoted similarly.
+
+Broadly, the top level sections are:
+
+Candidate: Information about the candidate; contact info, career title, social links etc.
+Professional Summary: An overview of the candidate’s career and experience.
+Past Experience: Current and previous roles. These have the following semantic form:
+
+  - ## Job title
+  - **Dates:**
+  - **Link** - one or more links to company, software, or App Store locations.
+  - **Keywords** - Skills related to the role
+ - * Bullet points outlining the main achievements, responsibilities etc of a role
+
+Open Source and Other - A bulleted list of other non-commercial projects
+Education, Certification and Governance - A bulleted list.
+
+
+
 Output contract (strict):
 - Return exactly one top-level JSON object.
 - Top-level keys (required):
