@@ -1,11 +1,12 @@
-# Plan: multi-role workspace (TODO — draft for refinement)
+# Plan: multi-role workspace (TODO — design agreed, not started)
 
 **Goal:** keep several job applications ("roles") side by side. Each role has its own job spec, steering, CV runs and
 research runs. A sidebar lists the roles, with a **+** to create one, and a new role can start from a copy of the
 canonical master CV. Storage moves to a small database. Only agent-returned text is stored; PDFs are rendered on
 demand.
 
-**Status:** TODO. Draft only: nothing built. R1–R12 decided; the remaining open questions come before step 1.
+**Status:** TODO. Design agreed (R1–R20); nothing built. Next: stage S1, starting with the step 1 spike.
+Work happens on branch `feature/20261021-multi-role` (from `develop`).
 
 ## Decisions
 
@@ -23,6 +24,14 @@ demand.
 | R10 | **The DB is the master's record; `input/CV.md` is not kept in sync.** It stays as the migration source and the one-shot CLI's default input. No export on save | Your call. Git already holds the file's history |
 | R11 | **Merges work on whole entries** (`##` roles, projects, qualifications) and whole sections, not line hunks | Your call, "for now". Matches how CVs are edited and keeps the promote view readable |
 | R12 | **Manual "Import `input/CV.md` as master"** action: runs the file through the same merge view (base = the master version it was last imported from) and saves a new master version with `source = import` | Your call. Covers hand edits to the file after migration; cheap given the merge engine |
+| R13 | **SQLite now** (stdlib `sqlite3`, JSON in TEXT columns), not files-per-role first | R7/R8 need versions and merge ancestors, which are DB-shaped; files first would mean building twice |
+| R14 | **Role runs wrap the existing scripts, talking over pipes, not files.** A JSON request goes in on stdin and a JSON result comes out on stdout; progress goes to stderr. No `input/` or `output/` data files are read or written in this mode (see "Run I/O") | Your call. Scripts stay DB-free, one-shot file mode is unchanged (R5), and the server and role CLI share one runner |
+| R15 | **Each run stores the full prompt text, deduplicated by hash** in a `prompt_version` table | Your call. Runs stay reproducible even when `prompt.md` was edited but not committed |
+| R16 | **PDFs: warm + on demand.** The run returns its PDF for the run's own theme, which goes straight into the cache; other themes render on first view. The cache is in server memory, keyed by run, theme and format, and lost on restart | Your call. No PDFs stored (R6), no files written, and the common view is instant |
+| R17 | **Staged build: roles first, merge later** (S1–S4 below). Side-by-side roles are usable after S2; promote/pull arrive in S3 | Your call. Value early; the merge engine is still built and tested in S1 |
+| R18 | **Backup is a `backup` command** that uses SQLite's online backup API to write a timestamped copy of the DB. Per-role JSON export only if needed later | Proposed default, not objected to |
+| R19 | **Directives travel with each role's CV**, so they are already per role. Nothing extra | Proposed default, not objected to |
+| R20 | **Role list: name, company, status (`draft`, `applied`, `closed`) and last-updated date.** No tracker features | Proposed default, not objected to |
 
 ## Today (what this replaces)
 
@@ -59,8 +68,8 @@ Constraints to keep (AGENTS.md): Python stdlib only, vanilla-JS UI, external too
   validated JSON with `metadata` (warnings, page count). Each role keeps a history of runs; one is "current".
 - **Research run:** one research generation for a role. Inputs are the company, URLs and dry-run flag; the output is
   the research JSON/markdown.
-- **Rendered output:** the PDF/DOCX made from a run's JSON (`render_tagged_markdown` → `cv_convert`) at view time
-  with the chosen theme, cached on disk and treated as disposable.
+- **Rendered output:** the PDF/DOCX made from a run's JSON (`render_tagged_markdown` → `cv_convert`) with the
+  chosen theme, held in the server's memory cache and treated as disposable (R16).
 
 ## Storage options
 
@@ -71,8 +80,9 @@ Constraints to keep (AGENTS.md): Python stdlib only, vanilla-JS UI, external too
 | Document DB (TinyDB, MongoDB…) | Poor | Third-party dependency or server; breaks the stdlib invariant for little gain |
 | Postgres | Overkill | Server to run; only worth it for multi-user hosting |
 
-**Leaning:** SQLite for roles, CV versions (master and role), runs and settings; prompts stay files in git. Schema
-migrations: a `schema_version` table plus ordered SQL scripts applied on startup.
+**Decided (R13):** SQLite for roles, CV versions (master and role), runs, prompt versions and settings. Prompt
+*templates* stay files in git; each run stores the text it actually used (R15). Schema migrations: a `schema_version`
+table plus ordered SQL scripts applied on startup.
 
 ### CV versions: one table, not a separate master table or `isMaster` flag
 
@@ -102,16 +112,127 @@ cv_version(id, role_id NULL,          -- NULL = master (R8)
            base_master_id NULL,       -- role versions: master version last synced with (merge ancestor)
            source,                    -- seed | edit | promote | pull | import | example
            note NULL, content TEXT, created_at)
+prompt_version(hash PRIMARY KEY, kind, content TEXT, created_at)  -- kind: cv | research (R15)
 cv_run(id, role_id, cv_version_id,    -- the exact CV text the agent saw
        started_at, finished_at, provider, model, theme, steering_text NULL,
        prompt_hash, raw_output TEXT, model_json TEXT, warnings_json TEXT, page_count INT,
-       success INT, is_current INT)
-research_run(id, role_id, started_at, finished_at, provider, model, company, urls_json, dry_run INT,
-             output_json TEXT, output_md TEXT, success INT, is_current INT)
+       log TEXT, success INT, is_current INT)
+research_run(id, role_id, started_at, finished_at, provider, model, prompt_hash, company, urls_json, dry_run INT,
+             output_json TEXT, output_md TEXT, log TEXT, success INT, is_current INT)
 setting(key, value)  -- e.g. last_role_id, first_run_done
 ```
 
-Run logs stay files under `output/` (they're large and only for debugging); a run row can point at its log path.
+```mermaid
+erDiagram
+    role ||--o{ cv_version : "owns (role_id)"
+    cv_version |o--o{ cv_version : "parent_id"
+    cv_version |o--o{ cv_version : "base_master_id (master row)"
+    role ||--o{ cv_run : has
+    role ||--o{ research_run : has
+    cv_version ||--o{ cv_run : "input to"
+    prompt_version ||--o{ cv_run : "prompt_hash"
+    prompt_version ||--o{ research_run : "prompt_hash"
+
+    role {
+        int id PK
+        text slug UK
+        text name
+        text company
+        text status "draft | applied | closed"
+        text jobspec
+        text steering_text
+        int steering_enabled
+        text theme
+        text created_at
+        text updated_at
+    }
+    cv_version {
+        int id PK
+        int role_id FK "NULL = master"
+        int parent_id FK
+        int base_master_id FK
+        text source "seed | edit | promote | pull | import | example"
+        text note
+        text content
+        text created_at
+    }
+    prompt_version {
+        text hash PK
+        text kind "cv | research"
+        text content
+        text created_at
+    }
+    cv_run {
+        int id PK
+        int role_id FK
+        int cv_version_id FK
+        text prompt_hash FK
+        text provider
+        text model
+        text theme
+        text steering_text
+        text raw_output
+        text model_json
+        text warnings_json
+        int page_count
+        text log
+        int success
+        int is_current
+        text started_at
+        text finished_at
+    }
+    research_run {
+        int id PK
+        int role_id FK
+        text prompt_hash FK
+        text provider
+        text model
+        text company
+        text urls_json
+        int dry_run
+        text output_json
+        text output_md
+        text log
+        int success
+        int is_current
+        text started_at
+        text finished_at
+    }
+    setting {
+        text key PK
+        text value
+    }
+```
+
+Keep this diagram in step with the SQL as the schema is refined. DB steps show the current diagram inline when
+proposing or reporting schema changes.
+
+The streamed run log (what the UI shows live) is saved in the run's `log` column. Failed runs are kept too
+(`success = 0`), so a failure can be inspected later; they are never "current".
+
+## Run I/O: pipes, not files (R14)
+
+Both scripts gain one flag, `--io json`. Without it they behave exactly as today (R5). With it:
+
+| Channel | Content |
+|---|---|
+| stdin | One JSON request. CV: `{cv, jobspec, steering, prompt, theme, provider, model}`. Research: `{cv, prompt, company, urls, provider, model, dry_run}` |
+| stderr | Progress lines, streamed live to the UI as today |
+| stdout | One JSON result, written at the end. CV: `{success, provider, model, raw_output, model_json, warnings, page_count, pdf_base64, error}`. Research: `{success, provider, model, output_json, output_md, error}` |
+| exit code | 0 on success; non-zero still writes a result with `error` when it can |
+
+- **`role_runner.py`** (new, beside the server) is the one place that builds a request from the DB, runs the
+  script, streams its stderr, parses the result and saves the run row. The server and the role CLI both call it.
+  It stores the prompt text from the request in `prompt_version` (R15).
+- **Rendering in memory:** `cv_convert` gains a function that takes tagged markdown and a theme and returns PDF
+  or DOCX bytes, piping through `pandoc` and `typst` (stdin/stdout, `--root` at the repo for theme files). Page
+  counting (step 9's page-fit check) uses those bytes, and the same PDF comes back as `pdf_base64` to warm the
+  server's cache (R16). The one-shot mode keeps writing `output/` files as now.
+- **What still touches disk:** read-only repo files (prompt templates, `themes/`), and the DB itself. Provider
+  attempt logs (`output/gemini_debug_logs/`) are not written in `--io json` mode; their content goes to stderr,
+  so it ends up in the run's `log`. `research_role` stops writing its inputs back to `input/` in this mode.
+- **Server change:** the server already reads stdout and stderr on threads. In `--io json` mode stderr is the live
+  log and stdout is collected whole as the result, not streamed.
 
 ## UI (draft)
 
@@ -159,41 +280,79 @@ A CLI command, for example `python3 -m resumator migrate-single-role --name "Qua
   `research`, `render`, `list`, `create`…). It reads the role's CV, job spec, steering and theme from the DB and
   saves the run back. The existing flags (`--provider`, `--model`, `--theme`, `--no-steering`) override the role's
   settings for that run.
-- Open: whether role mode wraps the existing scripts or they gain `--role` directly.
+- Role mode wraps the scripts through `role_runner.py` over pipes (R14); the scripts never see the DB.
+- `backup` (R18) and `migrate-single-role` (R4) are actions of the same entry point.
 
-## Steps (draft)
+## Stages and steps
+
+Each stage ends with the app working and tests passing. One-shot CLI behaviour is unchanged throughout.
+
+**S1 — Foundations** (no visible change to the UI)
 
 | # | Step | Output | Status |
 |---|---|---|---|
-| 1 | Decide storage and schema (open questions below); spike SQLite plus JSON functions on the current run files | Decisions recorded | todo |
-| 2 | `store.py`: stdlib sqlite3 layer (connect, migrate, role/CV-version/run CRUD) plus tests against a temp DB | Data layer | todo |
-| 2a | `cv_merge.py`: entry-level three-way merge on `cv_source` parses (R11), rebuilding the CV text, with tests | Merge engine | todo |
-| 3 | Pipeline: `generate_cv` and `research_role` accept a role id (or stay file-based for the CLI) and save each run to the DB; outputs stop overwriting each other | Runs persisted | todo |
-| 4 | On-demand rendering: render a stored run's JSON to PDF/DOCX with a theme, with a disposable cache keyed by run id and theme | No stored PDFs | todo |
-| 5 | Server API: `/api/roles` (list, create, update, delete, copy master CV), `/api/roles/<id>/runs`, run selection; scope existing endpoints to a role | API | todo |
-| 6 | UI: sidebar, **+** dialog, role switching; move steering and theme from localStorage to the role; run-history picker | UI | todo |
-| 6a | UI: promote and pull diff/merge view; master editor with version history; "Import `input/CV.md` as master" (R12) | Merge UI | todo |
-| 7 | First-run flow (example data or blank) | First run | todo |
-| 7a | Role-mode CLI (`--role`, `--action`) beside the unchanged one-shot scripts | CLI | todo |
-| 7b | One-time migration command; run it on this install (Quantum Base role, current and archived CV runs, current research) | Migrated | todo |
-| 8 | Docs: architecture, cv-format, AGENTS.md, gaps; retire the single-file assumptions | Docs in sync | todo |
+| 1 | Spike: `pandoc` → `typst` over stdin/stdout with a theme (`--root`), PDF bytes and page count, and timing; SQLite JSON functions over the current `tailored.model.json`. Confirm or adjust R14/R16 | Spike notes in the log | todo |
+| 2 | `store.py`: connect, migrations (`schema_version`), CRUD for role, cv_version, prompt_version, cv_run, research_run, setting; `backup` (R18). Tests on a temp DB | Data layer | todo |
+| 3 | `cv_merge.py`: entry-level three-way merge on `cv_source` parses (R11), rebuilding the CV text. Tests | Merge engine (not wired yet) | todo |
+| 4 | In-memory render function in `cv_convert` (markdown + theme → PDF/DOCX bytes) | Render without files | todo |
+| 5 | `--io json` mode for `generate_cv` and `research_role` (R14). Contract tests: request in, result out, nothing written to `input/` or `output/` | Pipe mode | todo |
+
+**S2 — Usable roles** (side-by-side applications)
+
+| # | Step | Output | Status |
+|---|---|---|---|
+| 6 | `role_runner.py`: request from DB → script → result → run row, prompt saved (R15), log saved | Runs persisted | todo |
+| 7 | Migration command (R4); run it on this install: master v1 from `input/CV.md`, Quantum Base role, current and archived CV runs, current research | Migrated | todo |
+| 8 | Server API: `/api/roles` (list, create, update, archive, delete), `/api/roles/<id>/cv` (read, save as a new version), runs (list, select current, start), PDF/DOCX of a run and theme through the memory cache (R16); existing endpoints scoped to a role | API | todo |
+| 9 | UI: sidebar with **+**, role switching, CV tab edits the role CV, master opened and edited directly (no merge yet), steering and theme per role (one-time copy from localStorage), run-history picker | Roles usable | todo |
+
+**S3 — Master versions and merge**
+
+| # | Step | Output | Status |
+|---|---|---|---|
+| 10 | Promote and pull: merge view (one checkbox per entry, removals unticked by default, conflicts highlighted, inline `difflib` diff) over the S1 engine (R7, R11) | Two-way sync | todo |
+| 11 | Master version history (view and restore as a new version) and "Import `input/CV.md` as master" (R12) | History and import | todo |
+
+**S4 — Finish**
+
+| # | Step | Output | Status |
+|---|---|---|---|
+| 12 | First-run flow: example data or blank (R3) | First run | todo |
+| 13 | Role-mode CLI: `python3 -m resumator --role … --action cv|research|render|list|create|backup` | CLI | todo |
+| 14 | Docs: architecture, cv-format, AGENTS.md, gaps; retire the single-file assumptions | Docs in sync | todo |
+
+## Between steps: stay or start a new session
+
+At the end of every step, the agent updates the step's status, the Log and the Handoff, then tells the user one of
+the following, with a one-line reason:
+
+- **Start a new session** when any of these is true: the context is past about half full; the step loaded a lot
+  that the next step won't need (spike output, long test runs, large files); the next step works on different
+  files; or a stage has just finished. A fresh session reloading the plan costs less than carrying a full context.
+- **Stay in this session** when the context is still small and the next step mainly uses files this step read or
+  wrote, so reloading them would cost more than keeping them.
+
+Expected pairs where staying usually pays: 4 → 5 (the render function feeds pipe mode) and 10 → 11 (same merge
+view). Start fresh at every stage boundary (after steps 5, 9, 11) and after the step 1 spike.
+
+Paste this to start or continue either way:
+
+```text
+Continue the multi-role plan in docs/plans/multi-role.md on branch feature/20261021-multi-role (check it's
+checked out first). Read its Handoff and the latest Log entries, then do the
+next todo step only, following AGENTS.md. At the end: mark the step's status, add a Log line and update the
+Handoff, then tell me whether to stay in this session or start a new one for the next step, and why.
+```
 
 ## Open questions
 
-- SQLite as recommended, or files-per-role first and SQLite later?
-- Backup and export: a JSON dump per role, or just copy `cv_web/resumator.db`?
-- Directives (`Emphasise`/`Downplay`) per role: they come with the role's CV copy, so they're already editable per
-  role. Confirm that's enough.
-- Should prompts be versioned per run (store a hash only, or the full prompt text)?
-- Role-mode CLI: wrap the existing scripts, or give them `--role` directly?
-- Does the role list need statuses and dates (an application tracker), or just names for now?
-- On-demand PDFs: is the Typst render (~1–2 s) fast enough to run on every view, or should it be pre-rendered after
-  each run?
+None blocking. Step 1 (the spike) may reopen R14/R16 if Typst can't render from stdin with theme imports, or if
+in-memory rendering is too slow; the fallback is a private temp directory per render, deleted afterwards.
 
 ## Handoff
 
-For the next session: this is an unrefined TODO captured at the user's request. Start by going through the open
-questions with the user (R1–R12 are settled); don't build anything before step 1 is agreed. The related work is in
+For the next session: the design is agreed (R1–R20). Work on branch `feature/20261021-multi-role`. Start S1 with the step 1 spike and record its findings in the
+log before writing `store.py`. Each stage should leave the app working. The related work is in
 [cv-format-revamp.md](cv-format-revamp.md) (steering D11/D23, theme picker, run metadata).
 
 ## Log
@@ -211,3 +370,12 @@ questions with the user (R1–R12 are settled); don't build anything before step
 - 2026-10-21 · Refinement · R10: the DB is the master's record and `input/CV.md` isn't re-exported (git already holds
   it). R11: merges work on whole entries and sections, built on the `cv_source` parse.
 - 2026-10-21 · Refinement · R12: manual "Import `input/CV.md` as master" through the merge view, added to step 6a.
+- 2026-10-21 · Design closed · R13 SQLite now; R14 role runs wrap the scripts over pipes (JSON on stdin and stdout,
+  progress on stderr, no data files): user asked for pipes over files; R15 full prompt text deduplicated by hash;
+  R16 PDFs warm + on demand, in a server memory cache rather than on disk (follows from R14); R17 staged
+  S1–S4, roles first, merge later; R18–R20 backup command, directives per role CV, minimal role list (proposed
+  defaults, not objected to). Run logs move into the DB. Steps renumbered 1–14 into stages.
+- 2026-10-21 · Process · Added "Between steps": at the end of each step the agent says whether to stay or start a
+  new session (based on token efficiency), plus a standard prompt to paste in.
+- 2026-10-21 · Process · Created branch `feature/20261021-multi-role` from `develop` for this work.
+- 2026-10-21 · Process · Added a Mermaid ER diagram beside the sketch schema; DB steps keep it current and show it inline.
