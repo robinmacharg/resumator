@@ -43,7 +43,7 @@ python3 generate_cv.py --io json < request.json     # also research_role.py: JSO
 python3 research_format.py
 python3 -m cv_web.migrate_single_role --name "Role" [--archive DIR]  # one-time: this install's files → first role in the DB
 python3 cv_source.py --lint [path]                  # lint a CV source file (default input/CV.md)
-python3 -m unittest discover -s tests -v            # Python tests (server helpers, env_utils, cv_source, cv_merge, store, role_runner, server_roles, migrate_single_role, contract, backends, --io json)
+python3 -m unittest discover -s tests -v            # Python tests (server helpers, env_utils, cv_source, cv_merge, store, role_merge, role_runner, server_roles, migrate_single_role, contract, backends, --io json)
 (cd cv_web/static && npm test)                      # frontend tests (node --test)
 ```
 

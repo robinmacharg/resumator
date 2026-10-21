@@ -7,8 +7,8 @@ demand.
 
 **Status:** IN PROGRESS. Design agreed (R1–R21). Stage S1 (steps 1–5) done: spike, `cv_web/store.py`, `cv_merge.py`,
 `cv_convert.render_cv`, `--io json` pipe mode. S2 steps 6–8 done: `cv_web/role_runner.py`, the migration (run on this
-install), and the role API (`cv_web/server_roles.py`). Step 9 (the UI) is done, so S2 is complete. Next is
-S3, step 10 (promote and pull).
+install), and the role API (`cv_web/server_roles.py`). Step 9 (the UI) is done, so S2 is complete. S3 step 10
+(promote and pull) is done; next is step 11 (master version history and import).
 Work happens on branch `feature/20261021-multi-role` (from `develop`).
 
 **Files:** this one holds the status, steps and Handoff (read it every session). The design (decisions R1–R21,
@@ -43,7 +43,7 @@ Each stage ends with the app working and tests passing. One-shot CLI behaviour i
 
 | # | Step | Output | Status |
 |---|---|---|---|
-| 10 | Promote and pull: merge view (one checkbox per entry, removals unticked by default, conflicts highlighted, inline `difflib` diff) over the S1 engine (R7, R11) | Two-way sync | todo |
+| 10 | Promote and pull: merge view (one checkbox per entry, removals unticked by default, conflicts highlighted, inline `difflib` diff) over the S1 engine (R7, R11) | Two-way sync | done |
 | 11 | Master version history (view and restore as a new version) and "Import `input/CV.md` as master" (R12) | History and import | todo |
 
 **S4 — Finish**
@@ -99,8 +99,9 @@ in-memory rendering is too slow; the fallback is a private temp directory per re
 
 ## Handoff
 
-For the next session: the design is agreed (R1–R21). S1 and S2 (steps 1–9) are done; next is S3, step 10 (promote and
-pull). Work on branch `feature/20261021-multi-role`. Steps 1–9 are committed (step 9 in "multi-role step 9"). `input/jobspec.txt` has an unrelated uncommitted
+For the next session: the design is agreed (R1–R21). Steps 1–10 are done; next is S3, step 11 (master version
+history and "Import `input/CV.md` as master"). Work on branch `feature/20261021-multi-role`. Steps 1–10 are committed
+(step 10 in "multi-role step 10"). `input/jobspec.txt` has an unrelated uncommitted
 change of the user's: leave it out of commits. The Schema section in multi-role-design.md is what's built.
 
 **This install's DB** (`cv_web/resumator.db`, gitignored) was migrated by the user: master v1 (`import`), role 1
@@ -132,8 +133,20 @@ Headless Chrome (`/Applications/Google Chrome.app`) with `--remote-debugging-por
 - Known backend limit (from step 8): `role_runner.run_script` doesn't start a new process session, so research stop
   falls back to `terminate()` of the script; a provider child may outlive it. Mind Ctrl-C for the step 13 CLI.
 
-For step 10: `cv_merge.merge(base, ours, theirs, accept, resolutions)`; promote is ours = master, theirs = role,
-pull is ours = role, theirs = master, base = the role's `base_master_id` version.
+**Step 10 gave promote and pull** (docs/architecture.md "Role API", static/ARCHITECTURE.md). Key points for step 11:
+- `cv_web/role_merge.py`: `view(conn, role_id, direction)` / `parse_decisions` / `apply(…)` over `cv_merge`. Routes
+  `GET/POST /api/roles/<id>/merge`. The base rule (pull moves it, promote only when nothing is left to pull) is in
+  the design doc's "CV versions" section.
+- `role-merge-feature.js` owns the dialog (`#mergeDialog`, reusing `.role-dialog`); `openMerge(direction)`,
+  `applyMerge`, `closeMerge`. Its rendering (checkbox or conflict radios + diff per change) takes a view shaped
+  like the merge GET. R12's import can reuse it: build the same view with base = the master version last imported
+  (`source = import`), ours = master, theirs = `input/CV.md`, saved as an `import` master version. A small
+  generalisation (a view loader and save path per mode) is enough; keep the role-only refusals.
+- Version history needs a content route (none yet: `…/cv` lists versions without content); restoring = a new
+  version (`edit`, or add a note) per R8.
+- Known merge limits are in docs/gaps.md ("Merge limits").
+- Local checks used a scratch DB copy with synthetic edits (role 1 on this install is still the unedited seed, so
+  real views are empty).
 Baseline test material (user's suggestion): `input/CV.md` and the current outputs `output/tailored.md`,
 `tailored.model.json`, `tailored_dev.pdf` and `tailored_dev.docx` (21 Oct; `tailored.pdf`/`.docx` from July are stale).
 Use them read-only for local checks, and in tests only with a skip when they're absent (`output/` is gitignored and the

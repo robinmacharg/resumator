@@ -23,6 +23,7 @@
  * @property {any} [steeringFeature] Steering feature API.
  * @property {any} [roleWorkspaceFeature] Role sidebar, CV source and role controls.
  * @property {any} [roleRunsFeature] Role run-history picker.
+ * @property {any} [roleMergeFeature] Promote/pull merge view.
  */
 
 /**
@@ -44,6 +45,7 @@ export function createAppEventBindingsFeature(ctx) {
         steeringFeature,
         roleWorkspaceFeature,
         roleRunsFeature,
+        roleMergeFeature,
     } = ctx;
 
     /**
@@ -177,6 +179,15 @@ export function createAppEventBindingsFeature(ctx) {
             }
             if (els.cvSourceSelect) {
                 els.cvSourceSelect.addEventListener("change", roleWorkspaceFeature.handleCvSourceChanged);
+            }
+        }
+        if (roleMergeFeature) {
+            bindOptionalClick(els.promoteCvBtn, () => roleMergeFeature.openMerge("promote"));
+            bindOptionalClick(els.pullCvBtn, () => roleMergeFeature.openMerge("pull"));
+            bindOptionalClick(els.mergeApplyBtn, roleMergeFeature.applyMerge);
+            bindOptionalClick(els.mergeCancelBtn, roleMergeFeature.closeMerge);
+            if (els.mergeDialog) {
+                els.mergeDialog.addEventListener("close", roleMergeFeature.closeMerge);
             }
         }
         if (roleRunsFeature && els.runSelect) {

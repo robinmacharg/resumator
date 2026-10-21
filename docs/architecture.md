@@ -15,9 +15,10 @@
 | `provider_clients.py` | Transport per provider (`run_<provider>_attempt`) → `AttemptResult`; writes per-attempt logs |
 | `env_utils.py` | `.env` parser |
 | `cv_web/` | stdlib `http.server` UI wrapper. Runs the CLIs as subprocesses and streams their output |
-| `cv_merge.py` | Entry-level three-way merge of CV source text (`split_units`, `compare`, `merge`) for promote/pull between master and role CVs. Pure functions; not yet wired in ([plan](plans/multi-role.md)) |
+| `cv_merge.py` | Entry-level three-way merge of CV source text (`split_units`, `compare`, `merge`) for promote/pull between master and role CVs. Pure functions, used by `cv_web/role_merge.py` |
 | `cv_web/store.py` | SQLite data layer for the multi-role workspace (`cv_web/resumator.db`, gitignored): migrations, roles, master/role CV versions, prompt versions, CV and research runs, settings, `backup`. Used by `server_roles`, `role_runner` and `migrate_single_role` ([plan](plans/multi-role.md)) |
 | `cv_web/role_runner.py` | Role runs (`run_cv`, `run_research`): builds the `--io json` request from the store (role CV, job spec, steering, theme, prompt template text saved as a `prompt_version`), runs the script from the repo root, streams stderr to an `on_log` callback, and saves the `cv_run`/`research_run` row with the log (errors appended). Returns `pdf_base64` without storing it. Called by `server_roles` (the role CLI follows in [plan](plans/multi-role.md) step 13) |
+| `cv_web/role_merge.py` | Promote and pull (`view`, `parse_decisions`, `apply`): three-way merge of the role CV and the master against the role's `base_master_id` version, saved as a `promote` master version or a `pull` role version. A pull moves the role's base to the current master; a promote moves it (with an unchanged-content `promote` role version) only when nothing is left to pull. Called by `server_roles` |
 | `cv_web/server_roles.py` | Role API (`dispatch`, tried by `server_http_handlers` for every GET/POST): roles, role and master CVs, run history, role runs in the background (sharing the run locks and live state), and run PDF/DOCX rendered from `raw_output` through the in-memory `RENDER_CACHE`. See "Role API" below |
 | `cv_web/migrate_single_role.py` | One-time CLI (`python3 -m cv_web.migrate_single_role --name … [--archive DIR] [--no-research]`): imports `input/CV.md` as a master `import` version and a first role (job spec, seeded CV, current and archived CV runs, research run) from today's `input/`/`output/` files. Provider, model, theme and prompt hash stay NULL (not recorded in those files). Skips when the role exists; one transaction |
 | `VSCodeExtension/` | VS Code extension that exposes Copilot over local HTTP (`vscodebridge` backend) |
@@ -94,6 +95,8 @@ them yet (see [gaps.md](gaps.md)).
 | `GET`/`POST /api/roles/<id>` | Read / update the same fields. Archive = `{status: "closed"}` (R21); `theme: ""` = default |
 | `POST /api/roles/<id>/delete` | Delete the role, its CV versions and runs (409 while its run is live) |
 | `GET`/`POST /api/roles/<id>/cv`, `/api/master/cv` | Current CV and version list (no content) / save `{content, note}` as an `edit` version (`unchanged: true` when identical) |
+| `GET /api/roles/<id>/merge?direction=promote\|pull` | Merge view: `{direction, baseId, targetId, sourceId, baseBehind, changes}`. Each change has `key` (`[section, entry]`), `kind`, `heading`, `status` (`added`/`removed`/`changed`/`conflict`), `base`/`current`/`incoming` text, `diff` and the default `accept` (removals and conflicts unticked). Promote: target = master, source = role; pull: the reverse |
+| `POST /api/roles/<id>/merge` | Save `{direction, targetId, sourceId, accept: [key…], resolutions: [{key, choice: current\|incoming\|edit, text}], note}`; blank edited text drops the entry. Every conflict needs a resolution (400); 409 when either CV changed since the view. Returns `{unchanged, versionId, baseMoved, roleCv, masterCv}` |
 | `GET /api/roles/<id>/runs` | `{cvRuns, researchRuns}`, newest first, without large text |
 | `GET /api/roles/<id>/runs/<cv\|research>/<run>` | One run in full (raw output, model JSON, log) |
 | `POST /api/roles/<id>/runs/<cv\|research>/<run>/current` | Make a successful run current |
@@ -103,7 +106,7 @@ them yet (see [gaps.md](gaps.md)).
 
 ## Tests
 
-- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_merge`, `store` (temp DBs), `role_runner` (real scripts on a temp DB with a fake `claude`), `server_roles` (temp DB; rendering and runs patched), `migrate_single_role` (fixture files), `cv_convert` (render tests skip
+- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_merge`, `store` (temp DBs), `role_merge` (temp DB), `role_runner` (real scripts on a temp DB with a fake `claude`), `server_roles` (temp DB; rendering and runs patched), `migrate_single_role` (fixture files), `cv_convert` (render tests skip
   without pandoc/typst; the in-memory vs file-route parity test also skips without a local `output/tailored.md`) and the `claudecode` backend (with a fake `claude` on PATH). Nothing covers `generate_cv` or
   the other backends.
 - `cv_web/static/js/__tests__/`: `node --test` coverage of the frontend feature modules.

@@ -580,6 +580,7 @@ export function createRoleWorkspaceFeature(ctx) {
         refreshRoles,
         renderSidebar,
         selectRole,
+        loadOpenCv,
         handleCvSourceChanged,
         saveFile,
         reloadFile,

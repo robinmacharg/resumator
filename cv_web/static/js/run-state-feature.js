@@ -71,6 +71,8 @@ export function createRunStateFeature(ctx) {
             els.roleSidebarControls,
             els.runSelect,
             els.cvSourceSelect,
+            els.promoteCvBtn,
+            els.pullCvBtn,
         ].forEach((el) => {
             if (!el) {
                 return;

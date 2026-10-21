@@ -154,6 +154,33 @@ class CvTests(ServerRolesTestCase):
         self.assertEqual(store.current_cv_version(self.conn, self.role_id)["id"], self.cv_id)
 
 
+class MergeTests(ServerRolesTestCase):
+    def test_promote_round_trip(self) -> None:
+        role_cv = MINIMAL + "\n## Tutor | Home\nDates: 2018\n\n- Taught maths.\n"
+        store.add_cv_version(self.conn, role_cv, source="edit", role_id=self.role_id)
+        path = f"/api/roles/{self.role_id}/merge"
+        view = self.json("GET", path, query="direction=promote")
+        self.assertEqual([(c["key"], c["status"], c["accept"]) for c in view["changes"]],
+                         [(["roles", "tutor | home"], "added", True)])
+        body = self.json("POST", path, {
+            "direction": "promote", "targetId": view["targetId"], "sourceId": view["sourceId"],
+            "accept": [c["key"] for c in view["changes"]], "resolutions": [], "note": "from role",
+        })
+        self.assertEqual((body["unchanged"], body["baseMoved"]), (False, True))
+        self.assertEqual(body["masterCv"]["cv"]["content"], role_cv)
+        self.assertEqual((body["masterCv"]["cv"]["source"], body["masterCv"]["cv"]["note"]), ("promote", "from role"))
+        self.assertEqual(body["roleCv"]["cv"]["baseMasterId"], body["versionId"])
+
+    def test_refusals(self) -> None:
+        path = f"/api/roles/{self.role_id}/merge"
+        self.json("GET", path, query="direction=up", status=400)
+        view = self.json("GET", path, query="direction=pull")
+        self.json("POST", path, {"direction": "pull", "targetId": "1", "sourceId": 1}, status=400)
+        stale = {"direction": "pull", "targetId": view["targetId"] + 99, "sourceId": view["sourceId"]}
+        self.json("POST", path, stale, status=409)
+        self.json("POST", path, {**stale, "targetId": view["targetId"], "accept": "all"}, status=400)
+
+
 class RunTests(ServerRolesTestCase):
     def test_list_get_and_select(self) -> None:
         first = self.add_run()

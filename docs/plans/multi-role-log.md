@@ -141,3 +141,16 @@ are history, not instructions.
   real role CV or research run from the UI (model call). Docs: static/ARCHITECTURE.md, architecture.md, gaps.md,
   cv-format.md.
 - 2026-10-21 · Process · Committed step 9 at the user's request ("multi-role step 9"); `input/jobspec.txt` left out.
+- 2026-10-21 · Step 10 · Done. `cv_web/role_merge.py` (`view`, `parse_decisions`, `apply`) and
+  `GET/POST /api/roles/<id>/merge` in `server_roles`; `role-merge-feature.js` with Promote/Pull buttons beside the CV
+  picker and a merge dialog (checkbox per change, removals unticked, inline diff, conflicts highlighted with keep /
+  take / edit, all required; refused while the CV editor is dirty; 409 if either CV changed since the view).
+  Decided: a pull sets the role's base to the current master (also when nothing merges but the master moved on);
+  a promote moves the base (via an unchanged-content `promote` role version) only when nothing is left to pull,
+  else unpulled master changes would look like role reverts. Edited conflict text left blank drops the entry. Fixed
+  during the check: the global dark `pre` style made the diff highlights unreadable (own light style now). 13 new
+  Python tests (256) and 5 frontend (83) pass. A headless-Chrome CDP smoke test on a scratch DB copy (port 8799)
+  with synthetic edits covered pull (conflict refused until resolved, applied), promote (removal unticked, master
+  kept it, base moved) and the dirty-editor refusal; `input/CV.md` unchanged. Docs: architecture.md, static
+  ARCHITECTURE.md, gaps.md (merge limits), design doc (base rule), AGENTS.md.
+- 2026-10-21 · Process · Committed step 10 at the user's request ("multi-role step 10"); `input/jobspec.txt` left out.

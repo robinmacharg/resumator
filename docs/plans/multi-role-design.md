@@ -89,7 +89,9 @@ Master and role CVs are the same kind of thing (CV source text with history), so
 - Rows are append-only: an edit, promotion or merge adds a row rather than updating one. The current CV of a role
   (or of the master) is its newest row.
 - `parent_id` links each version to the one it came from. `base_master_id` (on role versions) records the master
-  version it was last synced with. That's the common ancestor a three-way merge needs (R7).
+  version it was last synced with. That's the common ancestor a three-way merge needs (R7). As built (step 10): a
+  pull sets it to the current master; a promote moves it to the new master version only when the role already has
+  every master change since its base (otherwise those changes would look like role reverts on the next promote).
 - `source` records how the version was made: `seed`, `edit`, `promote`, `pull`, `import` or `example`.
 - Merging is entry-level (R11). `cv_source.py` already parses the CV into sections and `##` entries, so each side
   becomes a map keyed by section and entry heading. A three-way comparison (base vs role vs master) classifies each

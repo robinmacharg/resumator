@@ -2,7 +2,8 @@
 
 Architecture role:
 - Layer: backend HTTP handlers over `cv_web/store.py` and `cv_web/role_runner.py`.
-- Responsibility: the `/api/roles…` and `/api/master/cv` routes. `server_http_handlers.dispatch_get/post` hand
+- Responsibility: the `/api/roles…` and `/api/master/cv` routes, including promote and pull (`…/merge`, step 10,
+  over `cv_web/role_merge.py`). `server_http_handlers.dispatch_get/post` hand
   every request to `dispatch` first; it returns False for routes it doesn't own.
 
 Design notes (docs/plans/multi-role-design.md R6, R16, R21):
@@ -28,7 +29,7 @@ from typing import Any
 from urllib.parse import parse_qs
 
 from cv_convert import available_themes, render_cv
-from cv_web import role_runner, store
+from cv_web import role_merge, role_runner, store
 from cv_web import server_runtime_state as runtime
 from cv_web.server_request_parsing import parse_selected_model, parse_selected_provider, parse_url_list
 from cv_web.server_run_helpers import _build_research_run_state, _build_run_state
@@ -336,6 +337,7 @@ _GET_ROUTES = [
     (re.compile(r"/api/roles"), "list_roles"),
     (re.compile(_ROLE), "get_role"),
     (re.compile(_ROLE + r"/cv"), "get_role_cv"),
+    (re.compile(_ROLE + r"/merge"), "get_merge"),
     (re.compile(_ROLE + r"/runs"), "list_runs"),
     (re.compile(_ROLE + r"/runs/(?P<kind>cv|research)/(?P<run>\d+)"), "get_run"),
     (re.compile(_ROLE + r"/runs/cv/(?P<run>\d+)/cv\.(?P<format>pdf|docx)"), "get_run_document"),
@@ -346,6 +348,7 @@ _POST_ROUTES = [
     (re.compile(_ROLE), "update_role"),
     (re.compile(_ROLE + r"/delete"), "delete_role"),
     (re.compile(_ROLE + r"/cv"), "save_role_cv"),
+    (re.compile(_ROLE + r"/merge"), "save_merge"),
     (re.compile(_ROLE + r"/runs/(?P<kind>cv|research)"), "start_run"),
     (re.compile(_ROLE + r"/runs/(?P<kind>cv|research)/(?P<run>\d+)/current"), "select_run"),
     (re.compile(r"/api/master/cv"), "save_master_cv"),
@@ -373,6 +376,9 @@ def dispatch(handler, method: str, parsed: Any, payload: dict[str, Any] | None, 
             role = _require_role(conn, role_id) if role_id is not None else None
             response = _HANDLERS[name](conn, role, params, query, payload or {}, deps)
     except ApiError as exc:
+        handler._json_response({"error": str(exc)}, status=exc.status)
+        return True
+    except role_merge.MergeError as exc:
         handler._json_response({"error": str(exc)}, status=exc.status)
         return True
     except store.StoreError as exc:
@@ -438,6 +444,23 @@ def _save_master_cv(conn, role, params, query, payload, deps):
     return _save_cv(conn, None, payload)
 
 
+def _get_merge(conn, role, params, query, payload, deps):
+    return role_merge.view(conn, role["id"], query.get("direction", ""))
+
+
+def _save_merge(conn, role, params, query, payload, deps):
+    direction = payload.get("direction", "")
+    target_id, source_id = payload.get("targetId"), payload.get("sourceId")
+    if not all(isinstance(value, int) and not isinstance(value, bool) for value in (target_id, source_id)):
+        raise ApiError("targetId and sourceId must be the version ids from the merge view")
+    accept, resolutions = role_merge.parse_decisions(payload.get("accept", []), payload.get("resolutions", []))
+    result = role_merge.apply(
+        conn, role["id"], direction, target_id=target_id, source_id=source_id, accept=accept,
+        resolutions=resolutions, note=_optional_text(payload, "note"),
+    )
+    return {"success": True, **result, "roleCv": _cv_payload(conn, role["id"]), "masterCv": _cv_payload(conn, None)}
+
+
 def _list_runs(conn, role, params, query, payload, deps):
     return {
         "cvRuns": [camel(row) for row in store.list_cv_runs(conn, role["id"])],
@@ -480,6 +503,8 @@ _HANDLERS = {
     "save_role_cv": _save_role_cv,
     "get_master_cv": _get_master_cv,
     "save_master_cv": _save_master_cv,
+    "get_merge": _get_merge,
+    "save_merge": _save_merge,
     "list_runs": _list_runs,
     "get_run": _get_run,
     "select_run": _select_run,

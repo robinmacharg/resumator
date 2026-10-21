@@ -19,6 +19,7 @@ import { createOutputDisplayFeature } from "./js/output-display-feature.js";
 import { createPdfPreviewFeature } from "./js/pdf-preview-feature.js";
 import { createProviderModelFeature } from "./js/provider-model-feature.js";
 import { createResearchFeature } from "./js/research-feature.js";
+import { createRoleMergeFeature } from "./js/role-merge-feature.js";
 import { createRoleRunsFeature } from "./js/role-runs-feature.js";
 import { createRoleWorkspaceFeature } from "./js/role-workspace-feature.js";
 import { createRunStateFeature } from "./js/run-state-feature.js";
@@ -79,6 +80,15 @@ const els = {
     newRoleJobspecInput: document.getElementById("newRoleJobspecInput"),
     newRoleCancelBtn: document.getElementById("newRoleCancelBtn"),
     cvSourceSelect: document.getElementById("cvSourceSelect"),
+    promoteCvBtn: document.getElementById("promoteCvBtn"),
+    pullCvBtn: document.getElementById("pullCvBtn"),
+    mergeDialog: document.getElementById("mergeDialog"),
+    mergeTitle: document.getElementById("mergeTitle"),
+    mergeHint: document.getElementById("mergeHint"),
+    mergeList: document.getElementById("mergeList"),
+    mergeError: document.getElementById("mergeError"),
+    mergeApplyBtn: document.getElementById("mergeApplyBtn"),
+    mergeCancelBtn: document.getElementById("mergeCancelBtn"),
     runSelect: document.getElementById("runSelect"),
     providerSelect: document.getElementById("providerSelect"),
     modelSelect: document.getElementById("modelSelect"),
@@ -313,6 +323,16 @@ const roleWorkspaceFeature = createRoleWorkspaceFeature({
     roleRunsFeature,
 });
 
+// Promote to / pull from master: the merge view over the role API, then the open CV is reloaded.
+const roleMergeFeature = createRoleMergeFeature({
+    state,
+    els,
+    api,
+    setStatus,
+    currentFileValues,
+    loadOpenCv: roleWorkspaceFeature.loadOpenCv,
+});
+
 // Role-mode hooks shared by the CV and research run features.
 const roleRunDeps = {
     getActiveRoleId: () => state.activeRoleId,
@@ -477,6 +497,7 @@ const appEventBindingsFeature = createAppEventBindingsFeature({
     steeringFeature,
     roleWorkspaceFeature,
     roleRunsFeature,
+    roleMergeFeature,
 });
 
 // Final startup launcher for one-time app boot order.
