@@ -27,14 +27,15 @@ A per-application free-text instruction, for example "emphasise React Native lea
 mention the fintech background".
 
 Suggested shape:
-1. New editable file `input/steering.md`: add it to `EDITOR_FILES` in `cv_web/server.py` and `EDITABLE_FILES` in
-   `static/app.js`, plus a UI editor (small textarea on the CV tab, or its own tab).
-2. Done: `generate_cv` reads `input/steering.md` and appends `=== CANDIDATE STEERING ===` when it's non-empty
-   ([cv-format.md §2](cv-format.md)). The file is CLI-only until step 1.
+1. Done, differently: the web UI has a Steering tab on the CV tab, kept in browser localStorage rather than a file,
+   plus a "Steer CV generation" checkbox. Full runs send the text; the server writes it to `output/steering.run.md`
+   and passes `--steering-file`, or `--no-steering` when unticked or empty. A 🧭 before the PDF title marks a CV
+   generated with steering (from `metadata.steering`).
+2. Done: `generate_cv` reads `input/steering.md` (or `--steering-file`) and appends `=== CANDIDATE STEERING ===`
+   when it's non-empty ([cv-format.md §2](cv-format.md)).
 3. Done: `prompt.md` v2 says steering adjusts emphasis, selection and ordering only and never overrides the
    truthfulness constraints.
-4. Optional: a `--steering-file` CLI flag; pass the steering to `research_role.build_prompt` as well; persist it per
-   job alongside the job spec.
+4. Optional: pass the steering to `research_role.build_prompt` as well; persist it per job alongside the job spec.
 5. Done: the steering text is recorded as `metadata.steering` in `tailored.model.json`.
 
 ## P2 — Correctness and hygiene

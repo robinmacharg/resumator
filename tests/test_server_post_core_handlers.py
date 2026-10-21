@@ -138,7 +138,34 @@ class ServerPostCoreHandlersTests(unittest.TestCase):
                         with mock.patch.object(server, "build_state", return_value={}):
                             server.CVWebHandler._handle_cv_run(handler, "/api/run/format", {})
 
-        self.assertEqual(threads[0].kwargs["args"], ("format", "gemini", "", "compact"))
+        self.assertEqual(threads[0].kwargs["args"], ("format", "gemini", "", "compact", None))
+
+
+    def test_handle_cv_run_prepares_steering_for_full_runs(self) -> None:
+        handler = _DummyHandler()
+        handler._save_editor_payload = mock.Mock()
+        threads = []
+
+        class _CapturingThread(_FakeThread):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                threads.append(self)
+
+        req = server.CvRunRequest(
+            kind="full", selected_provider="gemini", selected_model="", theme="", steering="AI focus"
+        )
+        prepare = mock.Mock(return_value="/tmp/steering.run.md")
+
+        with mock.patch.object(server, "parse_cv_run_request", return_value=req):
+            with mock.patch.object(server, "prepare_steering_file", prepare):
+                with mock.patch.object(server, "RUN_LOCK", _FakeLock(acquire_result=True)):
+                    with mock.patch.object(server.threading, "Thread", _CapturingThread):
+                        with mock.patch.object(server, "get_current_run_snapshot", return_value={}):
+                            with mock.patch.object(server, "build_state", return_value={}):
+                                server.CVWebHandler._handle_cv_run(handler, "/api/run/full", {})
+
+        prepare.assert_called_once_with("AI focus")
+        self.assertEqual(threads[0].kwargs["args"], ("full", "gemini", "", "", "/tmp/steering.run.md"))
 
 
 if __name__ == "__main__":

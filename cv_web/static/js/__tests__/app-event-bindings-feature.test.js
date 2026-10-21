@@ -192,6 +192,27 @@ test("app-event-bindings wires the theme selector when present", () => {
     assert.equal(themeChanges, 1);
 });
 
+test("app-event-bindings wires the steering editor and checkbox", () => {
+    const { ctx, els } = createHarness();
+    const calls = { input: 0, toggle: 0 };
+    els.steeringEditor = createElement();
+    els.steerCheckbox = createElement();
+    ctx.steeringFeature = {
+        handleSteeringInput: () => {
+            calls.input += 1;
+        },
+        handleSteerCheckboxChanged: () => {
+            calls.toggle += 1;
+        },
+    };
+
+    createAppEventBindingsFeature(ctx).bindEventHandlers();
+    els.steeringEditor.trigger("input");
+    els.steerCheckbox.trigger("change");
+
+    assert.deepEqual(calls, { input: 1, toggle: 1 });
+});
+
 test("app-event-bindings maps tab and file button datasets", () => {
     const { ctx, els, calls } = createHarness();
 

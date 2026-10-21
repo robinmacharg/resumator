@@ -66,6 +66,7 @@ export function createRunStateFeature(ctx) {
             els.providerSelect,
             els.modelSelect,
             els.themeSelect,
+            els.steerCheckbox,
             els.restartServerBtn,
         ].forEach((el) => {
             if (!el) {

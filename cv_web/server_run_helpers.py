@@ -19,6 +19,7 @@ APP_DIR = Path(__file__).resolve().parent
 ROOT_DIR = APP_DIR.parent
 OUTPUT_DIR = ROOT_DIR / "output"
 RESEARCH_FORMATTED_PDF = OUTPUT_DIR / "research_output.formatted.pdf"
+STEERING_RUN_FILE = OUTPUT_DIR / "steering.run.md"
 
 
 def _file_mtime(path: Path) -> float | None:
@@ -28,8 +29,30 @@ def _file_mtime(path: Path) -> float | None:
     return path.stat().st_mtime
 
 
-def make_command(kind: str, selected_provider: str = "", selected_model: str = "", theme: str = "") -> list[str]:
+def prepare_steering_file(steering: str | None) -> str | None:
+    """Turn a run's steering text into make_command's `steering_file` argument.
+
+    None stays None (generate_cv's default applies); "" stays "" (no steering); other text is written
+    to output/steering.run.md, whose path is returned.
+    """
+    if not steering:
+        return steering
+    STEERING_RUN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STEERING_RUN_FILE.write_text(steering + "\n", encoding="utf-8")
+    return str(STEERING_RUN_FILE)
+
+
+def make_command(
+    kind: str,
+    selected_provider: str = "",
+    selected_model: str = "",
+    theme: str = "",
+    steering_file: str | None = None,
+) -> list[str]:
     """Build command list for CV full/format runs. `theme` picks a PDF preset in themes/ for both kinds.
+
+    `steering_file` applies to full runs only: None passes no flag, "" passes --no-steering, and a path
+    passes --steering-file.
 
     Raises:
     - ValueError when `kind` is unsupported.
@@ -42,6 +65,10 @@ def make_command(kind: str, selected_provider: str = "", selected_model: str = "
             command.extend(["--model", selected_model])
         if theme:
             command.extend(["--theme", theme])
+        if steering_file == "":
+            command.append("--no-steering")
+        elif steering_file:
+            command.extend(["--steering-file", steering_file])
         return command
     if kind == "format":
         command = [

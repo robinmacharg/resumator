@@ -36,6 +36,7 @@ from cv_web.server_run_helpers import (
     _build_research_run_state,
     _build_run_state,
     make_command,
+    prepare_steering_file,
 )
 from cv_web.server_request_parsing import (
     CvRunRequest,
@@ -287,7 +288,11 @@ def stream_pipe_research(pipe, prefix: str = "") -> None:
 
 
 def run_subprocess_streaming(
-    kind: str, selected_provider: str = "", selected_model: str = "", theme: str = ""
+    kind: str,
+    selected_provider: str = "",
+    selected_model: str = "",
+    theme: str = "",
+    steering_file: str | None = None,
 ) -> dict[str, Any]:
     """Purpose: Run subprocess streaming and return its outcome.
     
@@ -296,6 +301,7 @@ def run_subprocess_streaming(
     - selected_provider: Optional provider override; empty string keeps default ordering.
     - selected_model: Optional model override for the selected provider.
     - theme: Optional PDF theme preset; empty string uses the default theme.
+    - steering_file: Full runs only; None keeps generate_cv's default, "" disables steering.
     
     Returns:
     - `dict[str, Any]` value representing the operation result.
@@ -305,11 +311,18 @@ def run_subprocess_streaming(
         selected_provider=selected_provider,
         selected_model=selected_model,
         theme=theme,
+        steering_file=steering_file,
         deps=_process_runner_deps(),
     )
 
 
-def run_subprocess_async(kind: str, selected_provider: str = "", selected_model: str = "", theme: str = "") -> None:
+def run_subprocess_async(
+    kind: str,
+    selected_provider: str = "",
+    selected_model: str = "",
+    theme: str = "",
+    steering_file: str | None = None,
+) -> None:
     """Purpose: Run subprocess async and return its outcome.
     
     Inputs:
@@ -317,6 +330,7 @@ def run_subprocess_async(kind: str, selected_provider: str = "", selected_model:
     - selected_provider: Optional provider override; empty string keeps default ordering.
     - selected_model: Optional model override for the selected provider.
     - theme: Optional PDF theme preset; empty string uses the default theme.
+    - steering_file: Full runs only; None keeps generate_cv's default, "" disables steering.
     
     Returns:
     - None. This function performs side effects only.
@@ -326,6 +340,7 @@ def run_subprocess_async(kind: str, selected_provider: str = "", selected_model:
         selected_provider=selected_provider,
         selected_model=selected_model,
         theme=theme,
+        steering_file=steering_file,
         deps=_process_runner_deps(),
     )
 
@@ -441,6 +456,7 @@ def _http_handler_deps() -> dict[str, Any]:
         "get_current_research_run_snapshot": get_current_research_run_snapshot,
         "get_current_run_snapshot": get_current_run_snapshot,
         "parse_cv_run_request": parse_cv_run_request,
+        "prepare_steering_file": prepare_steering_file,
         "parse_research_run_request": parse_research_run_request,
         "read_log_file": read_log_file,
         "read_text": read_text,

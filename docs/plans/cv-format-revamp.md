@@ -41,6 +41,7 @@ than in code.
 | D20 | Earlier career is capped at 8 items (merge related older roles before dropping any; drop the oldest and least relevant first) and technical skills at 4–5 groups. Going over warns (D17) | Your call (step 9). 15 earlier lines and 8 skill groups pushed the CV to 3 pages |
 | D21 | **Standing weightings are data, not prompt text.** Repeatable `Emphasise:` / `Downplay:` directives in the CV's `# Directives` (currently AI-assisted development, AI tooling, LLM applications / Android), passed in RUN FACTS. `prompt.md` has one generic "Weightings" rule. Precedence: truthfulness, then the job spec's requirements, then steering (per job), then weightings (standing) | Your call to weight them; the mechanism was my call. Swapping topics is a one-line CV edit with no prompt change |
 | D22 | Sector lists in the earlier-career intro use a serial comma | Your call. Sectors that contain "and" ran together |
+| D23 | Steering UI: a Steering tab (localStorage only) and a "Steer CV generation" checkbox, both persisted. Full runs send `{enabled, text}`; the server passes `--steering-file output/steering.run.md` or `--no-steering`. The 🧭 before the PDF title comes from the shown CV's `metadata.steering`, so it reflects how that PDF was made, not the current checkbox | Your request; indicator source was my call. Ticking or unticking doesn't change an existing PDF |
 
 ### Backend order (D10)
 
@@ -262,3 +263,7 @@ For the next session. Read this section, the Decisions table and the step you're
   format-only path picks it up too. CV tab Theme picker: listed from `themes/*.typ` (`available_themes`, served in
   `/api/state`), saved in localStorage, re-runs formatting on change; full runs pass `--theme` to `generate_cv`.
   Checked via the API (compact 2 pages, default 3). Tests: 126 Python, 41 JS pass.
+- 2026-10-21 · Steering UI (user request) · D23. Steering tab and checkbox (`steering-feature.js`), `steering` in
+  full-run requests, `generate_cv --steering-file/--no-steering`, `outputs.steering` in `/api/state` for the 🧭
+  title marker. Checked the command flags and state field without a model call; no steered run made yet. User
+  checked the UI. Tests: 134 Python, 50 JS pass.

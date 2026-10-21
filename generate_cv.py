@@ -111,6 +111,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="", help="Explicit model override")
     parser.add_argument("--cv", default=str(CV_FILE), help=f"Master CV source file (default: {CV_FILE})")
     parser.add_argument("--theme", default=None, help="PDF theme preset in themes/ (default: $CV_THEME)")
+    parser.add_argument(
+        "--steering-file",
+        default=str(STEERING_FILE),
+        help=f"Candidate steering note (D11; default: {STEERING_FILE}, skipped when missing or empty)",
+    )
+    parser.add_argument("--no-steering", action="store_true", help="Generate without any steering note")
     return parser.parse_args()
 
 
@@ -307,6 +313,11 @@ def build_run_facts(today: date, cutoff: tuple[int, int], directives: dict) -> s
         f"Selected-roles cutoff: {format_month(*cutoff)}",
         "Directives: " + "; ".join(directive_parts),
     ])
+
+
+def read_steering_text(path: Path) -> str:
+    """The trimmed steering note at path, or "" when the file is missing."""
+    return path.read_text(encoding="utf-8").strip() if path.is_file() else ""
 
 
 def build_steering_section(steering_text: str) -> str:
@@ -1047,7 +1058,7 @@ def main() -> None:
     if not prompt_text:
         print(f"Error: {PROMPT_FILE} is empty.", file=sys.stderr)
         sys.exit(1)
-    steering_text = STEERING_FILE.read_text(encoding="utf-8").strip() if STEERING_FILE.exists() else ""
+    steering_text = "" if args.no_steering else read_steering_text(Path(args.steering_file))
     today = date.today()
     role_cutoff = selected_roles_cutoff(today)
 
@@ -1080,7 +1091,7 @@ def main() -> None:
     run_facts = build_run_facts(today, role_cutoff, directives)
     print(run_facts)
     if steering_text:
-        print(f"Steering from {STEERING_FILE}: {steering_text!r}")
+        print(f"Steering from {args.steering_file}: {steering_text!r}")
     full_prompt = build_prompt(
         prompt_text,
         mode_cv_content,

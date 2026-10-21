@@ -99,6 +99,7 @@ def run_subprocess_streaming(
     selected_model: str,
     deps: dict[str, Any],
     theme: str = "",
+    steering_file: str | None = None,
 ) -> dict[str, Any]:
     """Run CV generation/format subprocess while streaming output.
 
@@ -108,12 +109,17 @@ def run_subprocess_streaming(
     - selected_model: Optional model override.
     - deps: Dependency map supplied by cv_web.server.
     - theme: Optional PDF theme preset; empty string uses the default theme.
+    - steering_file: Full runs only; None keeps generate_cv's default, "" disables steering.
 
     Returns:
     - Finalized run-state payload.
     """
     command = deps["make_command"](
-        kind, selected_provider=selected_provider, selected_model=selected_model, theme=theme
+        kind,
+        selected_provider=selected_provider,
+        selected_model=selected_model,
+        theme=theme,
+        steering_file=steering_file,
     )
 
     started_at = deps["utc_now_iso"]()
@@ -171,7 +177,12 @@ def run_subprocess_streaming(
 
 
 def run_subprocess_async(
-    kind: str, selected_provider: str, selected_model: str, deps: dict[str, Any], theme: str = ""
+    kind: str,
+    selected_provider: str,
+    selected_model: str,
+    deps: dict[str, Any],
+    theme: str = "",
+    steering_file: str | None = None,
 ) -> None:
     """Run CV generation/format subprocess asynchronously.
 
@@ -181,6 +192,7 @@ def run_subprocess_async(
     - selected_model: Optional model override.
     - deps: Dependency map supplied by cv_web.server.
     - theme: Optional PDF theme preset; empty string uses the default theme.
+    - steering_file: Full runs only; None keeps generate_cv's default, "" disables steering.
 
     Returns:
     - None. This function performs side effects only.
@@ -191,6 +203,7 @@ def run_subprocess_async(
             selected_provider=selected_provider,
             selected_model=selected_model,
             theme=theme,
+            steering_file=steering_file,
         )
     except Exception as exc:
         deps["_finalize_run_error_state"](
@@ -201,6 +214,7 @@ def run_subprocess_async(
                     selected_provider=selected_provider,
                     selected_model=selected_model,
                     theme=theme,
+                    steering_file=steering_file,
                 ),
                 selected_provider=selected_provider,
                 selected_model=selected_model,

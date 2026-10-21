@@ -304,6 +304,23 @@ class RunFactsTests(unittest.TestCase):
 
 
 class ParseArgsTests(unittest.TestCase):
+    def test_steering_flags(self) -> None:
+        with mock.patch("sys.argv", ["generate_cv.py"]):
+            args = generate_cv.parse_args()
+        self.assertEqual(args.steering_file, str(generate_cv.STEERING_FILE))
+        self.assertFalse(args.no_steering)
+        with mock.patch("sys.argv", ["generate_cv.py", "--steering-file", "x.md", "--no-steering"]):
+            args = generate_cv.parse_args()
+        self.assertEqual(args.steering_file, "x.md")
+        self.assertTrue(args.no_steering)
+
+    def test_read_steering_text_trims_and_tolerates_missing_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "steering.md"
+            self.assertEqual(generate_cv.read_steering_text(path), "")
+            path.write_text("  AI focus \n", encoding="utf-8")
+            self.assertEqual(generate_cv.read_steering_text(path), "AI focus")
+
     def test_theme_defaults_to_none_and_is_passed_through(self) -> None:
         with mock.patch("sys.argv", ["generate_cv.py"]):
             self.assertIsNone(generate_cv.parse_args().theme)

@@ -195,6 +195,20 @@ test("app initialization passes the server theme list to the theme feature", asy
     assert.deepEqual(populated, [["default", "compact"]]);
 });
 
+test("app initialization restores steering", async () => {
+    const { ctx } = createHarness({ hasLocalDraft: false });
+    let restored = 0;
+    ctx.steeringFeature = {
+        restoreSteering: () => {
+            restored += 1;
+        },
+    };
+
+    await createAppInitializationFeature(ctx).initialize();
+
+    assert.equal(restored, 1);
+});
+
 test("app initialization prefers local draft and falls back to default tabs when missing", async () => {
     const { ctx, calls } = createHarness({ hasLocalDraft: true });
 

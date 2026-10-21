@@ -254,9 +254,10 @@ def handle_cv_run(handler, route: str, payload: dict[str, Any], deps: dict[str, 
         return
 
     try:
+        steering_file = deps["prepare_steering_file"](req.steering) if req.kind == "full" else None
         thread = threading.Thread(
             target=deps["run_subprocess_async"],
-            args=(req.kind, req.selected_provider, req.selected_model, req.theme),
+            args=(req.kind, req.selected_provider, req.selected_model, req.theme, steering_file),
             daemon=True,
         )
         thread.start()

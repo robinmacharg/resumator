@@ -36,7 +36,7 @@ Second pipeline: company/role research notes. Python stdlib only; vanilla-JS web
 
 ```bash
 python3 -m cv_web                                   # UI at http://127.0.0.1:8765
-python3 generate_cv.py [--provider ID] [--model M] [--cv PATH] [--theme T]  # CV pipeline (optional input/steering.md)
+python3 generate_cv.py [--provider ID] [--model M] [--cv PATH] [--theme T] [--steering-file F | --no-steering]  # CV pipeline (steering default: input/steering.md)
 python3 cv_convert.py [--theme compact]             # re-render output/tailored.md only (looks: themes/)
 python3 research_role.py --company-name "X" [--url U ...] [--dry-run]
 python3 research_format.py

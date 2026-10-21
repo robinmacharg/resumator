@@ -20,6 +20,7 @@
  * @property {any} uiLayoutFeature UI layout feature API.
  * @property {any} providerModelFeature Provider/model feature API.
  * @property {any} [themeFeature] PDF theme feature API.
+ * @property {any} [steeringFeature] Steering feature API.
  */
 
 /**
@@ -38,6 +39,7 @@ export function createAppEventBindingsFeature(ctx) {
         uiLayoutFeature,
         providerModelFeature,
         themeFeature,
+        steeringFeature,
     } = ctx;
 
     /**
@@ -147,6 +149,14 @@ export function createAppEventBindingsFeature(ctx) {
         }
         if (els.themeSelect && themeFeature) {
             els.themeSelect.addEventListener("change", themeFeature.handleThemeSelectChanged);
+        }
+        if (steeringFeature) {
+            if (els.steeringEditor) {
+                els.steeringEditor.addEventListener("input", steeringFeature.handleSteeringInput);
+            }
+            if (els.steerCheckbox) {
+                els.steerCheckbox.addEventListener("change", steeringFeature.handleSteerCheckboxChanged);
+            }
         }
     }
 

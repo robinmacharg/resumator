@@ -19,7 +19,9 @@ is kept as `input/CV.v1.md` and is not used by the pipeline.
   `prompt_text` (comments stripped, elided text kept as context). `--cv PATH` overrides `input/CV.md`.
 - After the job spec, `build_prompt` appends `=== RUN FACTS ===` (`build_run_facts`: `Today`, `Selected-roles
   cutoff` = today minus 10 years to the month, `Directives` including the `Emphasise`/`Downplay` weightings), then `=== CANDIDATE STEERING ===`
-  (`build_steering_section`) when `input/steering.md` is non-empty.
+  (`build_steering_section`) when the steering note is non-empty: `input/steering.md` by default, `--steering-file
+  PATH` instead, none with `--no-steering`. The web UI's Steering tab sends its text with full runs (the server
+  writes it to `output/steering.run.md`); unticking "Steer CV generation" passes `--no-steering`.
 
 ## 3. Model JSON contract (v2)
 

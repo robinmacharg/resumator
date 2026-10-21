@@ -20,6 +20,7 @@ import { createPdfPreviewFeature } from "./js/pdf-preview-feature.js";
 import { createProviderModelFeature } from "./js/provider-model-feature.js";
 import { createResearchFeature } from "./js/research-feature.js";
 import { createRunStateFeature } from "./js/run-state-feature.js";
+import { createSteeringFeature } from "./js/steering-feature.js";
 import { createThemeFeature } from "./js/theme-feature.js";
 import { createUiLayoutFeature } from "./js/ui-layout-feature.js";
 import { formatCommandForDisplay, formatTimestampToSecond, sleep } from "./js/app-utils.js";
@@ -54,6 +55,8 @@ const els = {
     providerSelect: document.getElementById("providerSelect"),
     modelSelect: document.getElementById("modelSelect"),
     themeSelect: document.getElementById("themeSelect"),
+    steeringEditor: document.getElementById("steeringEditor"),
+    steerCheckbox: document.getElementById("steerCheckbox"),
     cvEditor: document.getElementById("cvEditor"),
     promptEditor: document.getElementById("promptEditor"),
     researchPromptEditor: document.getElementById("researchPromptEditor"),
@@ -104,6 +107,7 @@ const els = {
         cv: document.getElementById("tab-cv"),
         prompt: document.getElementById("tab-prompt"),
         jobspec: document.getElementById("tab-jobspec"),
+        steering: document.getElementById("tab-steering"),
         env: document.getElementById("tab-env"),
         tailored: document.getElementById("tab-tailored"),
     },
@@ -173,6 +177,8 @@ const LS_KEYS = {
     selected_provider: "cvweb.selected_provider",
     selected_model: "cvweb.selected_model",
     selected_theme: "cvweb.selected_theme",
+    steering_text: "cvweb.steering_text",
+    steering_enabled: "cvweb.steering_enabled",
 };
 
 // Shared preview wiring used across composed features.
@@ -313,10 +319,17 @@ const providerModelFeature = createProviderModelFeature({
     localStorageKeys: LS_KEYS,
 });
 
+// Steering note and "Steer CV generation" toggle, kept in localStorage.
+const steeringFeature = createSteeringFeature({
+    els,
+    localStorageKeys: LS_KEYS,
+});
+
 // CV pipeline run orchestrator and polling coordinator.
 const cvPipelineFeature = createCvPipelineFeature({
     ...workflowDeps,
     state,
+    getSteeringRequest: steeringFeature.getSteeringRequest,
     setRunning,
     startRunStatusTimer,
     stopRunStatusTimer,
@@ -342,6 +355,7 @@ const appInitializationFeature = createAppInitializationFeature({
     localStorageKeys: LS_KEYS,
     providerModelFeature,
     themeFeature,
+    steeringFeature,
     uiLayoutFeature,
     researchFeature,
     applyFilesToEditors,
@@ -374,6 +388,7 @@ const appEventBindingsFeature = createAppEventBindingsFeature({
     uiLayoutFeature,
     providerModelFeature,
     themeFeature,
+    steeringFeature,
 });
 
 // Final startup launcher for one-time app boot order.
