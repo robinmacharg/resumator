@@ -256,7 +256,7 @@ def handle_cv_run(handler, route: str, payload: dict[str, Any], deps: dict[str, 
     try:
         thread = threading.Thread(
             target=deps["run_subprocess_async"],
-            args=(req.kind, req.selected_provider, req.selected_model),
+            args=(req.kind, req.selected_provider, req.selected_model, req.theme),
             daemon=True,
         )
         thread.start()

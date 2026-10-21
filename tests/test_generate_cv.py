@@ -303,6 +303,14 @@ class RunFactsTests(unittest.TestCase):
         self.assertIn("Directives: Contact links: no", facts)
 
 
+class ParseArgsTests(unittest.TestCase):
+    def test_theme_defaults_to_none_and_is_passed_through(self) -> None:
+        with mock.patch("sys.argv", ["generate_cv.py"]):
+            self.assertIsNone(generate_cv.parse_args().theme)
+        with mock.patch("sys.argv", ["generate_cv.py", "--theme", "compact"]):
+            self.assertEqual(generate_cv.parse_args().theme, "compact")
+
+
 class BuildPromptTests(unittest.TestCase):
     def test_sections_follow_inputs_in_order(self) -> None:
         prompt = build_prompt(

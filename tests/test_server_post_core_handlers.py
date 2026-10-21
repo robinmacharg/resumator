@@ -119,5 +119,27 @@ class ServerPostCoreHandlersTests(unittest.TestCase):
         self.assertEqual(payload["state"], {"state": "ok"})
 
 
+    def test_handle_cv_run_passes_theme_to_the_run_thread(self) -> None:
+        handler = _DummyHandler()
+        handler._save_editor_payload = mock.Mock()
+        threads = []
+
+        class _CapturingThread(_FakeThread):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                threads.append(self)
+
+        req = server.CvRunRequest(kind="format", selected_provider="gemini", selected_model="", theme="compact")
+
+        with mock.patch.object(server, "parse_cv_run_request", return_value=req):
+            with mock.patch.object(server, "RUN_LOCK", _FakeLock(acquire_result=True)):
+                with mock.patch.object(server.threading, "Thread", _CapturingThread):
+                    with mock.patch.object(server, "get_current_run_snapshot", return_value={}):
+                        with mock.patch.object(server, "build_state", return_value={}):
+                            server.CVWebHandler._handle_cv_run(handler, "/api/run/format", {})
+
+        self.assertEqual(threads[0].kwargs["args"], ("format", "gemini", "", "compact"))
+
+
 if __name__ == "__main__":
     unittest.main()

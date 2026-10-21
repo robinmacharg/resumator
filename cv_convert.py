@@ -54,6 +54,7 @@ def apply_semantic_tag_formatting(markdown_text: str) -> str:
     """
     transformed_lines: list[str] = []
     requirements_items: list[str] = []
+    summary_items: list[str] = []
 
     def normalize_summary_markdown(text: str) -> str:
         """Keep bold markers while removing single-asterisk emphasis.
@@ -171,6 +172,12 @@ def apply_semantic_tag_formatting(markdown_text: str) -> str:
             transformed_lines.extend(styled_block("requirements-list", body))
             requirements_items.clear()
 
+    def flush_summary() -> None:
+        """Emit consecutive summary points as one paragraph, keeping their bold lead-ins."""
+        if summary_items:
+            transformed_lines.extend(styled_block("summary-item", " ".join(summary_items)))
+            summary_items.clear()
+
     # (tag aliases, style name, payload clean-up)
     styled_tags: list[tuple[list[str], str, object]] = [
         (["candidate_name", "name"], "candidate-name", None),
@@ -181,7 +188,6 @@ def apply_semantic_tag_formatting(markdown_text: str) -> str:
         (["section_heading", "section"], "section-heading", strip_heading_markers),
         (["role_heading", "role"], "role-heading", strip_heading_markers),
         (["date_range", "date"], "date-range", normalize_date_text),
-        (["summary_paragraph", "summary"], "summary-item", normalize_summary_markdown),
         (
             ["role_requirements_heading", "requirements_heading"],
             "requirements-heading",
@@ -202,6 +208,14 @@ def apply_semantic_tag_formatting(markdown_text: str) -> str:
                 requirements_items.append(item_text)
             continue
         flush_requirements()
+
+        summary_text = extract_first_tag_payload(stripped, ["summary_paragraph", "summary"])
+        if summary_text is not None:
+            summary_text = normalize_summary_markdown(summary_text)
+            if summary_text:
+                summary_items.append(summary_text)
+            continue
+        flush_summary()
 
         handled = False
         for aliases, style, clean in styled_tags:
@@ -239,6 +253,7 @@ def apply_semantic_tag_formatting(markdown_text: str) -> str:
         transformed_lines.append(line)
 
     flush_requirements()
+    flush_summary()
     return "\n".join(transformed_lines)
 
 
@@ -285,6 +300,12 @@ def choose_font(preferred_fonts: list[str]) -> str:
         if font.lower() in available:
             return font
     return preferred_fonts[0]
+
+
+def available_themes() -> list[str]:
+    """Theme names a run can choose: "default", then each preset in themes/ (*.typ), sorted."""
+    presets = sorted(path.stem for path in THEMES_DIR.glob("*.typ") if path != DEFAULT_TYPST_THEME)
+    return ["default", *presets]
 
 
 def typst_theme_files(theme: str | None) -> list[Path]:

@@ -18,6 +18,8 @@
   role-size: 10pt,
   summary-size: 10pt,
   requirements-heading-size: 9pt,
+  // Pandoc's template justifies all text; the summary and requirements read better ragged-right.
+  summary-justify: false,
   link-color: rgb("#0563C1"),
   bullet-gap: 0.45em,
 )
@@ -45,10 +47,11 @@
   candidate-contact: body => { show link: cv-link(t); cv-centered(t.contact-size)(body) },
   candidate-subheader: body => { show link: cv-link(t); cv-centered(t.contact-size)(body) },
   section-heading: body => text(t.section-size, weight: "bold", body),
-  summary-item: body => text(t.summary-size, emph(body)),
+  summary-item: body => { set par(justify: t.summary-justify); text(t.summary-size, emph(body)) },
   requirements-heading: body => text(t.requirements-heading-size, weight: "bold", body),
   // A markdown list, drawn as bullet/text rows so wrapped lines hang under the text.
   requirements-list: body => {
+    set par(justify: t.summary-justify)
     show list: it => it.children.map(item => table(
       columns: (auto, 1fr),
       inset: 0pt,

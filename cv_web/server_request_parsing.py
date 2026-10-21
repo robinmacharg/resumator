@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from cv_convert import available_themes
 from provider_catalog import load_provider_catalog, provider_map
 
 APP_DIR = Path(__file__).resolve().parent
@@ -40,6 +41,7 @@ class CvRunRequest:
     kind: str
     selected_provider: str
     selected_model: str
+    theme: str = ""
 
 
 def dedupe_keep_order(items: list[str]) -> list[str]:
@@ -191,6 +193,12 @@ def parse_research_run_request(payload: dict[str, Any]) -> ResearchRunRequest:
     )
 
 
+def parse_selected_theme(payload: dict[str, Any]) -> str:
+    """Return the requested theme name, or "" (default theme) when it is missing or unknown."""
+    theme = str(payload.get("selectedTheme") or "").strip()
+    return theme if theme in available_themes() else ""
+
+
 def parse_cv_run_request(route: str, payload: dict[str, Any]) -> CvRunRequest:
     """Parse and normalize CV run request payload from route and JSON body."""
     kind = "full" if route.endswith("/full") else "format"
@@ -201,4 +209,5 @@ def parse_cv_run_request(route: str, payload: dict[str, Any]) -> CvRunRequest:
         kind=kind,
         selected_provider=selected_provider,
         selected_model=model_override,
+        theme=parse_selected_theme(payload),
     )

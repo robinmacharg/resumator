@@ -110,6 +110,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--model", default="", help="Explicit model override")
     parser.add_argument("--cv", default=str(CV_FILE), help=f"Master CV source file (default: {CV_FILE})")
+    parser.add_argument("--theme", default=None, help="PDF theme preset in themes/ (default: $CV_THEME)")
     return parser.parse_args()
 
 
@@ -1202,6 +1203,7 @@ def main() -> None:
         output_pdf=OUTPUT_PDF,
         output_docx=OUTPUT_DOCX,
         sanitized_markdown_path=OUTPUT_DIR / "tailored.export.md",
+        theme=args.theme,
     )
 
     if conversion_result.used_sanitized_markdown:

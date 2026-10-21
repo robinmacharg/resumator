@@ -98,6 +98,7 @@ def run_subprocess_streaming(
     selected_provider: str,
     selected_model: str,
     deps: dict[str, Any],
+    theme: str = "",
 ) -> dict[str, Any]:
     """Run CV generation/format subprocess while streaming output.
 
@@ -106,11 +107,14 @@ def run_subprocess_streaming(
     - selected_provider: Optional provider override.
     - selected_model: Optional model override.
     - deps: Dependency map supplied by cv_web.server.
+    - theme: Optional PDF theme preset; empty string uses the default theme.
 
     Returns:
     - Finalized run-state payload.
     """
-    command = deps["make_command"](kind, selected_provider=selected_provider, selected_model=selected_model)
+    command = deps["make_command"](
+        kind, selected_provider=selected_provider, selected_model=selected_model, theme=theme
+    )
 
     started_at = deps["utc_now_iso"]()
     started_monotonic = time.monotonic()
@@ -166,7 +170,9 @@ def run_subprocess_streaming(
     return run_result
 
 
-def run_subprocess_async(kind: str, selected_provider: str, selected_model: str, deps: dict[str, Any]) -> None:
+def run_subprocess_async(
+    kind: str, selected_provider: str, selected_model: str, deps: dict[str, Any], theme: str = ""
+) -> None:
     """Run CV generation/format subprocess asynchronously.
 
     Inputs:
@@ -174,6 +180,7 @@ def run_subprocess_async(kind: str, selected_provider: str, selected_model: str,
     - selected_provider: Optional provider override.
     - selected_model: Optional model override.
     - deps: Dependency map supplied by cv_web.server.
+    - theme: Optional PDF theme preset; empty string uses the default theme.
 
     Returns:
     - None. This function performs side effects only.
@@ -183,6 +190,7 @@ def run_subprocess_async(kind: str, selected_provider: str, selected_model: str,
             kind,
             selected_provider=selected_provider,
             selected_model=selected_model,
+            theme=theme,
         )
     except Exception as exc:
         deps["_finalize_run_error_state"](
@@ -192,6 +200,7 @@ def run_subprocess_async(kind: str, selected_provider: str, selected_model: str,
                     kind,
                     selected_provider=selected_provider,
                     selected_model=selected_model,
+                    theme=theme,
                 ),
                 selected_provider=selected_provider,
                 selected_model=selected_model,

@@ -89,6 +89,27 @@ test("cv pipeline runPipeline success path updates state and refreshes outputs",
     assert.equal(calls.setStatus.at(-1).isError, false);
 });
 
+test("cv pipeline runPipeline sends the selected theme", async () => {
+    const bodies = [];
+    const { ctx } = createContext({
+        state: { selectedProvider: "gemini", selectedModel: "", selectedTheme: "compact" },
+        api: async (path, options) => {
+            if (path === "/api/run/format") {
+                bodies.push(JSON.parse(options.body));
+                return {};
+            }
+            if (path === "/api/run/status") {
+                return { running: false, run: null };
+            }
+            return {};
+        },
+    });
+
+    await createCvPipelineFeature(ctx).runPipeline("format");
+
+    assert.equal(bodies[0].selectedTheme, "compact");
+});
+
 test("cv pipeline runPipeline failure path emits error status", async () => {
     const kickoffRun = { kind: "full", success: false, elapsedSeconds: 5, running: false };
     const finalRun = { kind: "full", success: false, elapsedSeconds: 5, running: false };

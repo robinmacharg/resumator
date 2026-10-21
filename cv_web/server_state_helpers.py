@@ -109,6 +109,7 @@ def build_state(deps: dict[str, Any]) -> dict[str, Any]:
             "defaultOptionLabel": "Default order",
             "byProvider": models_by_provider,
         },
+        "themes": deps["available_themes"](),
         "outputs": {
             "pdfExists": output_pdf.exists(),
             "docxExists": output_docx.exists(),

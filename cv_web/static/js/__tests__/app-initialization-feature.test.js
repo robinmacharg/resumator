@@ -184,6 +184,17 @@ test("app initialization uses disk state when no local draft and restores saved 
     assert.equal(calls.setStatus.at(1).message, "Loaded from disk.");
 });
 
+test("app initialization passes the server theme list to the theme feature", async () => {
+    const { ctx, statePayload } = createHarness({ hasLocalDraft: false });
+    statePayload.themes = ["default", "compact"];
+    const populated = [];
+    ctx.themeFeature = { populateThemeSelect: (themes) => populated.push(themes) };
+
+    await createAppInitializationFeature(ctx).initialize();
+
+    assert.deepEqual(populated, [["default", "compact"]]);
+});
+
 test("app initialization prefers local draft and falls back to default tabs when missing", async () => {
     const { ctx, calls } = createHarness({ hasLocalDraft: true });
 

@@ -19,6 +19,7 @@
  * @property {any} logsFeature Logs feature API.
  * @property {any} uiLayoutFeature UI layout feature API.
  * @property {any} providerModelFeature Provider/model feature API.
+ * @property {any} [themeFeature] PDF theme feature API.
  */
 
 /**
@@ -36,6 +37,7 @@ export function createAppEventBindingsFeature(ctx) {
         logsFeature,
         uiLayoutFeature,
         providerModelFeature,
+        themeFeature,
     } = ctx;
 
     /**
@@ -142,6 +144,9 @@ export function createAppEventBindingsFeature(ctx) {
                 "change",
                 providerModelFeature.handleProviderSelectChanged,
             );
+        }
+        if (els.themeSelect && themeFeature) {
+            els.themeSelect.addEventListener("change", themeFeature.handleThemeSelectChanged);
         }
     }
 

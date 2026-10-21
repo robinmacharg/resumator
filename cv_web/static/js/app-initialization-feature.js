@@ -18,6 +18,7 @@ import { getStorageString } from "./storage-utils.js";
  * @property {any} els DOM element registry.
  * @property {any} localStorageKeys Local storage key map.
  * @property {any} providerModelFeature Provider/model feature API.
+ * @property {any} [themeFeature] PDF theme feature API.
  * @property {any} uiLayoutFeature UI layout feature API.
  * @property {any} researchFeature Research feature API.
  * @property {(message: string, isError?: boolean) => void} setStatus Status renderer.
@@ -52,6 +53,7 @@ export function createAppInitializationFeature(ctx) {
         els,
         localStorageKeys,
         providerModelFeature,
+        themeFeature,
         uiLayoutFeature,
         researchFeature,
         setStatus,
@@ -166,6 +168,9 @@ export function createAppInitializationFeature(ctx) {
                 payload.providers || null,
                 payload.models || null,
             );
+            if (themeFeature) {
+                themeFeature.populateThemeSelect(payload.themes);
+            }
             applyFilesToEditors(payload.files || {});
             updateDiskSnapshot(payload.files || {});
             applyCvOutputState(payload);

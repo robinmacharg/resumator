@@ -1,6 +1,7 @@
 import unittest
 
 from cv_web import server
+from cv_web.server_request_parsing import parse_selected_theme
 
 
 class ServerValidationHelpersTests(unittest.TestCase):
@@ -57,6 +58,18 @@ class ServerValidationHelpersTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "autoFormatPdf must be a boolean"):
             server.parse_research_run_request(payload)
+
+    def test_parse_selected_theme_keeps_known_and_drops_unknown(self) -> None:
+        self.assertEqual(parse_selected_theme({"selectedTheme": " compact "}), "compact")
+        self.assertEqual(parse_selected_theme({"selectedTheme": "default"}), "default")
+        self.assertEqual(parse_selected_theme({"selectedTheme": "../evil"}), "")
+        self.assertEqual(parse_selected_theme({}), "")
+
+    def test_make_command_passes_theme_to_both_kinds(self) -> None:
+        self.assertEqual(server.make_command("format", theme="compact")[-2:], ["--theme", "compact"])
+        self.assertEqual(server.make_command("full", "gemini", "", theme="compact")[-2:], ["--theme", "compact"])
+        self.assertNotIn("--theme", server.make_command("format"))
+        self.assertNotIn("--theme", server.make_command("full", "gemini"))
 
 
 if __name__ == "__main__":

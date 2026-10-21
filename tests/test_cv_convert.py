@@ -12,6 +12,7 @@ from cv_convert import (
     DEFAULT_TYPST_THEME,
     THEMES_DIR,
     apply_semantic_tag_formatting,
+    available_themes,
     build_docx_reference,
     convert_markdown_outputs,
     typst_theme_files,
@@ -98,6 +99,20 @@ class ApplySemanticTagFormattingTests(unittest.TestCase):
             "**Pioneer** of programming on the Analytical Engine.",
         )
 
+    def test_consecutive_summary_points_become_one_paragraph(self) -> None:
+        text = apply_semantic_tag_formatting(
+            "[summary_paragraph] **Pioneer** of programming.\n"
+            "[summary_paragraph] **Translator** of *Menabrea*.\n"
+            "[section_heading] # Education\n"
+            "[summary_paragraph] **Later** point.\n"
+        )
+        lines = text.splitlines()
+        blocks = [lines[i + 1] for i, line in enumerate(lines) if line == styled("summary-item")]
+        self.assertEqual(
+            blocks,
+            ["**Pioneer** of programming. **Translator** of Menabrea.", "**Later** point."],
+        )
+
     def test_requirements_items_become_one_styled_list(self) -> None:
         start = self.lines.index(styled("requirements-list"))
         self.assertEqual(
@@ -158,6 +173,16 @@ class ThemeFilesTests(unittest.TestCase):
             files = typst_theme_files("missing")
         self.assertEqual(files, [DEFAULT_TYPST_THEME])
         self.assertIn("Unknown theme preset 'missing'", stderr.getvalue())
+
+    def test_available_themes_lists_default_then_presets(self) -> None:
+        presets = sorted(path.stem for path in THEMES_DIR.glob("*.typ") if path != DEFAULT_TYPST_THEME)
+        self.assertEqual(available_themes(), ["default", *presets])
+        self.assertIn("compact", available_themes())
+
+    def test_summary_and_requirements_are_not_justified(self) -> None:
+        theme = DEFAULT_TYPST_THEME.read_text(encoding="utf-8")
+        self.assertIn("summary-justify: false", theme)
+        self.assertEqual(theme.count("set par(justify: t.summary-justify)"), 2)
 
     def test_every_emitted_style_has_a_typst_look(self) -> None:
         theme = DEFAULT_TYPST_THEME.read_text(encoding="utf-8")

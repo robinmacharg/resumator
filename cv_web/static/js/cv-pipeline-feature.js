@@ -18,7 +18,7 @@ import { pollUntilDone } from "./async-workflow-utils.js";
  * @property {(path: string, options?: RequestInit) => Promise<any>} api JSON API request helper.
  * @property {() => {cv: string, prompt: string, research_prompt: string, jobspec: string, env: string}} currentFiles Current editor payload.
  * @property {() => void} writeDraftToLocalStorage Persist current draft before runs.
- * @property {{selectedProvider: string, selectedModel: string}} state Shared app state subset.
+ * @property {{selectedProvider: string, selectedModel: string, selectedTheme?: string}} state Shared app state subset.
  * @property {(running: boolean) => void} setRunning Toggle global running state.
  * @property {(message: string) => void} startRunStatusTimer Start status timer message.
  * @property {() => void} stopRunStatusTimer Stop run status timer.
@@ -109,6 +109,7 @@ export function createCvPipelineFeature(ctx) {
                     files: currentFiles(),
                     selectedProvider: state.selectedProvider || "gemini",
                     selectedModel: state.selectedModel || "",
+                    selectedTheme: state.selectedTheme || "",
                 }),
             });
             if (kickoff.run) {

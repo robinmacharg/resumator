@@ -98,8 +98,9 @@ Section order and headings are hard-coded here. Reordering or renaming sections 
 | `themes/compact.typ` | Preset layered after `default.typ`: overrides some `cv-theme` entries, then rebuilds `cv-style` and re-applies `cv-base` (Typst closures capture bindings when defined, so overriding the dict alone does nothing) |
 | `themes/docx-styles.xml` | Word `<w:style>` entries merged into pandoc's default `reference.docx` at render time (`build_docx_reference` → `output/reference.docx`). DOCX is second-class: it keeps the pre-theme plain look. Lists can't take a custom style in DOCX, so bullets stay `Compact` |
 
-- Choose a preset with `cv_convert.py --theme compact` or the `CV_THEME` env var. An unknown name warns and falls back
-  to the default.
+- Choose a preset with `--theme compact` (`cv_convert.py` or `generate_cv.py`), the `CV_THEME` env var, or the web UI's
+  Theme picker on the CV tab (listed by `cv_convert.available_themes`, so a new `themes/<name>.typ` appears there with
+  no other change; changing it re-runs formatting only). An unknown name warns and falls back to the default.
 - PDF: `pandoc --pdf-engine=typst --lua-filter themes/styles.lua --include-before-body themes/<theme>.typ` (plain
   `pandoc` fallback, unstyled). DOCX: `pandoc --reference-doc`. The font is the first installed font from
   `CV_FONT_PRIORITY` (default `Calibri,Arial,Helvetica`).

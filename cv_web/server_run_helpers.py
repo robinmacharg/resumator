@@ -28,8 +28,8 @@ def _file_mtime(path: Path) -> float | None:
     return path.stat().st_mtime
 
 
-def make_command(kind: str, selected_provider: str = "", selected_model: str = "") -> list[str]:
-    """Build command list for CV full/format runs.
+def make_command(kind: str, selected_provider: str = "", selected_model: str = "", theme: str = "") -> list[str]:
+    """Build command list for CV full/format runs. `theme` picks a PDF preset in themes/ for both kinds.
 
     Raises:
     - ValueError when `kind` is unsupported.
@@ -40,9 +40,11 @@ def make_command(kind: str, selected_provider: str = "", selected_model: str = "
             command.extend(["--provider", selected_provider])
         if selected_model:
             command.extend(["--model", selected_model])
+        if theme:
+            command.extend(["--theme", theme])
         return command
     if kind == "format":
-        return [
+        command = [
             sys.executable,
             str(ROOT_DIR / "cv_convert.py"),
             "output/tailored.md",
@@ -51,6 +53,9 @@ def make_command(kind: str, selected_provider: str = "", selected_model: str = "
             "--docx",
             "output/tailored_dev.docx",
         ]
+        if theme:
+            command.extend(["--theme", theme])
+        return command
 
     raise ValueError(f"Unsupported run kind: {kind}")
 

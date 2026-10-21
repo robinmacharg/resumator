@@ -256,3 +256,9 @@ For the next session. Read this section, the Decisions table and the step you're
   directives in `input/CV.md` plus one generic prompt rule, not topic-specific prompt text. Caps warn (D17). 3 new
   tests; 119/119 pass. Live Opus run: within the caps, but still 3 pages (13 lines over; compact fits 2). Android 6→0
   mentions, AI 16→21. Docs: cv-source-format.md, cv-format.md §2–3.
+- 2026-10-21 · Formatting and UI (user requests, outside the step list) · Professional Summary and Targeted
+  Requirements are ragged-right (`summary-justify` in `themes/default.typ`; pandoc's template justifies everything).
+  `cv_convert` merges consecutive summary points into one paragraph, keeping the bold lead-ins, so the UI's
+  format-only path picks it up too. CV tab Theme picker: listed from `themes/*.typ` (`available_themes`, served in
+  `/api/state`), saved in localStorage, re-runs formatting on change; full runs pass `--theme` to `generate_cv`.
+  Checked via the API (compact 2 pages, default 3). Tests: 126 Python, 41 JS pass.

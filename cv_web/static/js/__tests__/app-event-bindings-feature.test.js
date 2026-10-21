@@ -176,6 +176,22 @@ test("app-event-bindings wires core click/change actions", () => {
     assert.equal(calls.handleProviderSelectChanged, 1);
 });
 
+test("app-event-bindings wires the theme selector when present", () => {
+    const { ctx, els } = createHarness();
+    let themeChanges = 0;
+    els.themeSelect = createElement();
+    ctx.themeFeature = {
+        handleThemeSelectChanged: () => {
+            themeChanges += 1;
+        },
+    };
+
+    createAppEventBindingsFeature(ctx).bindEventHandlers();
+    els.themeSelect.trigger("change");
+
+    assert.equal(themeChanges, 1);
+});
+
 test("app-event-bindings maps tab and file button datasets", () => {
     const { ctx, els, calls } = createHarness();
 

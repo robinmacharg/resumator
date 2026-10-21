@@ -65,6 +65,7 @@ export function createRunStateFeature(ctx) {
             els.researchDryRunCheckbox,
             els.providerSelect,
             els.modelSelect,
+            els.themeSelect,
             els.restartServerBtn,
         ].forEach((el) => {
             if (!el) {
