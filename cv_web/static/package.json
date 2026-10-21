@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start:server": "cd ../.. && (([ -x .venv/bin/python ] && .venv/bin/python -c \"import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)\" >/dev/null 2>&1 && .venv/bin/python cv_web/server.py) || python3 cv_web/server.py)",
+    "stop:server": "pkill -f '/Users/rmacharg/dev/projects/Resumator/cv_web/server.py' || true",
     "test": "node --test \"js/**/*.test.js\"",
-    "test:python": "cd ../.. && .venv/bin/python -m unittest discover -s tests -v"
+    "test:python": "cd ../.. && (([ -x .venv/bin/python ] && .venv/bin/python -c \"import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)\" >/dev/null 2>&1 && .venv/bin/python -m unittest discover -s tests -v) || python3 -m unittest discover -s tests -v)"
   }
 }
