@@ -87,6 +87,6 @@ Suggested shape:
 - `backend_registry` re-imports and re-interrogates every backend on each call (including the bridge health check).
   Consider a short TTL cache.
 - Tests: nothing covers the backends except `claudecode`.
-- `gemini-code-*.py` and `curl.sh` at the root are scratch files.
+- `gemini-code-*.py` at the root are scratch files.
 - DOCX keeps its plain pre-theme look and doesn't mirror the PDF (`themes/docx-styles.xml`). Low priority: PDF is the
   primary output.
