@@ -11,6 +11,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -187,6 +188,44 @@ class RunJsonIoTests(IoJsonTestCase):
         self.assertEqual(json.loads(completed.stdout), {"success": True, "echo": 1, "error": None})
         self.assertIn("python noise", completed.stderr)
         self.assertIn("child noise", completed.stderr)
+
+
+    def test_sigterm_still_writes_a_result_and_kills_tracked_providers(self) -> None:
+        script = (
+            "import subprocess, sys, time\n"
+            "from pipe_io import run_json_io\n"
+            "from provider_clients import track_provider_process\n"
+            "def handler(request):\n"
+            "    child = subprocess.Popen(['sleep', '53'], start_new_session=True)\n"
+            "    track_provider_process(child)\n"
+            "    print(f'child {child.pid}', flush=True)\n"
+            "    time.sleep(30)\n"
+            "    return {'success': True, 'error': None}\n"
+            "sys.exit(run_json_io(handler))\n"
+        )
+        proc = subprocess.Popen([sys.executable, "-c", script], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, text=True, cwd=ROOT_DIR)
+        proc.stdin.write("{}")
+        proc.stdin.close()
+        line = proc.stderr.readline()
+        self.assertTrue(line.startswith("child "), line)
+        child_pid = int(line.split()[1])
+        proc.terminate()
+        stdout = proc.stdout.read()
+        proc.stderr.read()
+        self.assertEqual(proc.wait(timeout=30), 143)
+        proc.stdout.close()
+        proc.stderr.close()
+        self.assertEqual(json.loads(stdout), {"success": False, "error": "the run was aborted"})
+        for _ in range(50):
+            try:
+                os.kill(child_pid, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.1)
+        else:
+            os.kill(child_pid, 9)
+            self.fail("the tracked provider process outlived the stopped script")
 
 
 if __name__ == "__main__":

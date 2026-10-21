@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import atexit
 import json
 import os
 import re
@@ -17,6 +18,32 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib import error, request
+
+
+# Provider CLIs run in their own session (start_new_session) so a timeout can kill the whole group. That also keeps
+# them out of the terminal's Ctrl-C, so groups still running when the interpreter exits (Ctrl-C, or SIGTERM in pipe
+# mode, see pipe_io) are killed then.
+_LIVE_PROVIDER_GROUPS: set[int] = set()
+
+
+def track_provider_process(process: subprocess.Popen) -> None:
+    """Remember a provider process group until untrack_provider_process (call it once the process has exited)."""
+    _LIVE_PROVIDER_GROUPS.add(process.pid)
+
+
+def untrack_provider_process(process: subprocess.Popen) -> None:
+    _LIVE_PROVIDER_GROUPS.discard(process.pid)
+
+
+@atexit.register
+def kill_live_provider_groups() -> None:
+    """Kill provider process groups that are still tracked (an interrupted run)."""
+    for pid in list(_LIVE_PROVIDER_GROUPS):
+        try:
+            os.killpg(pid, signal.SIGKILL)
+        except OSError:
+            pass
+    _LIVE_PROVIDER_GROUPS.clear()
 
 
 @dataclass
@@ -178,6 +205,7 @@ def run_gemini_attempt(
         env=env,
         start_new_session=True,
     )
+    track_provider_process(process)
 
     if process.stdout is None or process.stderr is None:
         raise RuntimeError("Failed to capture Gemini subprocess output pipes.")
@@ -347,6 +375,7 @@ def run_gemini_attempt(
             break
 
     return_code = process.wait()
+    untrack_provider_process(process)
     stdout_thread.join(timeout=2)
     stderr_thread.join(timeout=2)
 
@@ -1772,6 +1801,7 @@ def run_claudecode_attempt(
             cwd=neutral_cwd,
             start_new_session=True,
         )
+        track_provider_process(process)
         if process.stdin is None or process.stdout is None or process.stderr is None:
             raise RuntimeError("Failed to open claude subprocess pipes.")
 
@@ -1841,6 +1871,7 @@ def run_claudecode_attempt(
                 )
 
         return_code = process.wait()
+        untrack_provider_process(process)
         for thread in threads:
             thread.join(timeout=2)
 

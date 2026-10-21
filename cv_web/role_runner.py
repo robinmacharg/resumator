@@ -21,6 +21,7 @@ import subprocess
 import sys
 import threading
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
@@ -263,6 +264,26 @@ def run_cv(
         finished_at=store.now_iso(),
     )
     return RunOutcome(run_id, success, error, log, result, result.get("pdf_base64"))
+
+
+def run_markdown(conn: sqlite3.Connection, run: dict[str, Any]) -> str:
+    """Tagged markdown for a CV run: its raw output validated as on the run's day, with its CV's directives.
+    Used to render a run's PDF/DOCX on demand (R6) by the server and the role CLI."""
+    import cv_source
+    import generate_cv
+
+    if not run.get("success") or not run.get("raw_output"):
+        raise RunnerError(f"CV run {run['id']} has no output to render")
+    cv = store.get_cv_version(conn, run["cv_version_id"])
+    directives = cv_source.parse_cv_source(cv["content"])["directives"] if cv else {}
+    run_day = date.fromisoformat(run["started_at"][:10])
+    try:
+        payload = generate_cv.parse_and_validate_json_output(
+            run["raw_output"], role_cutoff=generate_cv.selected_roles_cutoff(run_day)
+        )
+    except ValueError as exc:
+        raise RunnerError(f"CV run {run['id']} output doesn't validate: {exc}") from exc
+    return generate_cv.render_tagged_markdown(payload, directives=directives)
 
 
 def run_research(

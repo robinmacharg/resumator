@@ -179,3 +179,13 @@ are history, not instructions.
   (role, canned run, its PDF 200, no dialog after reload) and blank (Escape, master-only controls, run refused,
   creating a role leaves no-role mode); `input/CV.md` unchanged. Docs: architecture.md, static ARCHITECTURE.md,
   gaps.md, design doc, AGENTS.md. Committed as "multi-role step 12"; `input/jobspec.txt` left out.
+- 2026-10-21 · Step 13 · Done. `resumator.py` (`python3 -m resumator --action list|create|cv|research|render|
+  backup|setup|migrate-single-role`, `--role` name or slug, `--db`); `run_markdown` moved from `server_roles` to
+  `role_runner` for the server and CLI. Added beyond the plan: a `setup` action (first-run choice, so a CLI-only
+  user can get a master). Fixed for Ctrl-C (Handoff note): a live test showed the provider CLI (own session, by
+  design for timeouts) outlived an interrupted run, so `provider_clients` now tracks provider groups and kills them
+  at interpreter exit, and `pipe_io` turns SIGTERM into a normal exit; group and CLI-only SIGINT both exit 130, no
+  run saved, no leftover provider. 14 new Python tests (288); frontend 94 unchanged. Checked on a scratch DB:
+  every action, a real `cv` run through `generate_cv --io json` with the fake `claude` (run saved current, PDF and
+  DOCX written), Ctrl-C both ways; `input/CV.md` and `output/` unchanged. Not re-tested: the server's research stop.
+  Docs: architecture.md, AGENTS.md, design doc. Committed as "multi-role step 13"; `input/jobspec.txt` left out.

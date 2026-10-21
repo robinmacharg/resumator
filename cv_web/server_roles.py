@@ -25,7 +25,6 @@ import threading
 import time
 from collections import OrderedDict
 from contextlib import closing
-from datetime import date
 from typing import Any
 from urllib.parse import parse_qs
 
@@ -106,22 +105,11 @@ def cache_key(run_id: int, theme: str, output_format: str) -> tuple[int, str, st
 
 
 def run_markdown(conn: sqlite3.Connection, run: dict[str, Any]) -> str:
-    """Tagged markdown for a CV run: its raw output validated as on the run's day, with its CV's directives."""
-    import cv_source
-    import generate_cv
-
-    if not run.get("success") or not run.get("raw_output"):
-        raise ApiError(f"CV run {run['id']} has no output to render", 409)
-    cv = store.get_cv_version(conn, run["cv_version_id"])
-    directives = cv_source.parse_cv_source(cv["content"])["directives"] if cv else {}
-    run_day = date.fromisoformat(run["started_at"][:10])
+    """`role_runner.run_markdown`, with its refusals as 409s."""
     try:
-        payload = generate_cv.parse_and_validate_json_output(
-            run["raw_output"], role_cutoff=generate_cv.selected_roles_cutoff(run_day)
-        )
-    except ValueError as exc:
-        raise ApiError(f"CV run {run['id']} output doesn't validate: {exc}", 409) from exc
-    return generate_cv.render_tagged_markdown(payload, directives=directives)
+        return role_runner.run_markdown(conn, run)
+    except role_runner.RunnerError as exc:
+        raise ApiError(str(exc), 409) from exc
 
 
 def render_run(conn: sqlite3.Connection, run: dict[str, Any], theme: str, output_format: str) -> bytes:

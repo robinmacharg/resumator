@@ -15,7 +15,7 @@ from pathlib import Path
 from backend_registry import get_backend_or_raise
 from provider_catalog import load_provider_catalog, provider_map
 from pipe_io import RequestError, optional_text, require_text, run_json_io
-from provider_clients import AttemptResult
+from provider_clients import AttemptResult, track_provider_process, untrack_provider_process
 
 INPUT_DIR = Path("input")
 OUTPUT_DIR = Path("output")
@@ -267,6 +267,7 @@ def run_gemini_with_diagnostics(
         env=env,
         start_new_session=True,
     )
+    track_provider_process(process)
 
     if process.stdout is None or process.stderr is None:
         raise RuntimeError("Failed to capture Gemini subprocess output pipes.")
@@ -435,6 +436,7 @@ def run_gemini_with_diagnostics(
             break
 
     return_code = process.wait()
+    untrack_provider_process(process)
     stdout_thread.join(timeout=2)
     stderr_thread.join(timeout=2)
 

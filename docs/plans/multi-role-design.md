@@ -310,3 +310,10 @@ A CLI command, `python3 -m cv_web.migrate_single_role --name "Quantum Base" [--a
   settings for that run.
 - Role mode wraps the scripts through `role_runner.py` over pipes (R14); the scripts never see the DB.
 - `backup` (R18) and `migrate-single-role` (R4) are actions of the same entry point.
+
+As built (step 13): `resumator.py` at the repo root (`python3 -m resumator --action …`), actions `list`, `create`,
+`cv`, `research`, `render`, `backup`, `setup` (the first-run choice, so a CLI-only user can get a master) and
+`migrate-single-role`. `--role` takes a name or slug; `--db` another DB. `render` writes a file only when asked
+(default `output/<slug>-run<id>.<format>`); `cv --out` writes the run's own PDF. Ctrl-C: provider CLIs run in their
+own session, so they're tracked in `provider_clients` and killed at interpreter exit, and pipe mode turns SIGTERM
+into a normal exit; an interrupted run isn't saved (exit 130).

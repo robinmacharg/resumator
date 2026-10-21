@@ -8,8 +8,8 @@ demand.
 **Status:** IN PROGRESS. Design agreed (R1–R21). Stage S1 (steps 1–5) done: spike, `cv_web/store.py`, `cv_merge.py`,
 `cv_convert.render_cv`, `--io json` pipe mode. S2 steps 6–8 done: `cv_web/role_runner.py`, the migration (run on this
 install), and the role API (`cv_web/server_roles.py`). Step 9 (the UI) is done, so S2 is complete. S3 (steps 10–11:
-promote and pull, version history and import) is done. S4 step 12 (first-run flow) is done; next is step 13
-(role-mode CLI).
+promote and pull, version history and import) is done. S4 steps 12–13 (first-run flow, role-mode CLI) are done; next is
+step 14 (docs).
 Work happens on branch `feature/20261021-multi-role` (from `develop`).
 
 **Files:** this one holds the status, steps and Handoff (read it every session). The design (decisions R1–R21,
@@ -52,7 +52,7 @@ Each stage ends with the app working and tests passing. One-shot CLI behaviour i
 | # | Step | Output | Status |
 |---|---|---|---|
 | 12 | First-run flow: example data or blank (R3) | First run | done |
-| 13 | Role-mode CLI: `python3 -m resumator --role … --action cv|research|render|list|create|backup` | CLI | todo |
+| 13 | Role-mode CLI: `python3 -m resumator --role … --action cv|research|render|list|create|backup` | CLI | done |
 | 14 | Docs: architecture, cv-format, AGENTS.md, gaps; retire the single-file assumptions | Docs in sync | todo |
 
 **S5 — Token efficiency** (follow-up; measure first, then act on what the numbers show)
@@ -100,9 +100,9 @@ in-memory rendering is too slow; the fallback is a private temp directory per re
 
 ## Handoff
 
-For the next session: the design is agreed (R1–R21). Steps 1–12 are done; next is S4, step 13 (role-mode CLI,
-design doc "CLI (R5)"). Work on branch `feature/20261021-multi-role`. Steps 1–12 are committed (step 12 in
-"multi-role step 12"). `input/jobspec.txt` has an unrelated uncommitted
+For the next session: the design is agreed (R1–R21). Steps 1–13 are done; next is S4, step 14 (docs: architecture,
+cv-format, AGENTS.md, gaps; retire the single-file assumptions). Work on branch `feature/20261021-multi-role`.
+Steps 1–13 are committed (step 13 in "multi-role step 13"). `input/jobspec.txt` has an unrelated uncommitted
 change of the user's: leave it out of commits. The Schema section in multi-role-design.md is what's built.
 
 **This install's DB** (`cv_web/resumator.db`, gitignored) was migrated by the user: master v1 (`import`), role 1
@@ -134,12 +134,17 @@ Headless Chrome (`/Applications/Google Chrome.app`) with `--remote-debugging-por
 - Known backend limit (from step 8): `role_runner.run_script` doesn't start a new process session, so research stop
   falls back to `terminate()` of the script; a provider child may outlive it. Mind Ctrl-C for the step 13 CLI.
 
+**Step 13 gave the role CLI** (`resumator.py`, design doc "CLI (R5)" as built; docs/architecture.md row). For
+step 14: AGENTS.md and architecture.md already list it; README/docs that still describe only the file-based flow
+are the work. `role_runner.run_markdown` now holds run rendering (server_roles wraps it as 409s). Ctrl-C: provider
+groups are tracked in `provider_clients` and killed at exit, and `pipe_io` turns SIGTERM into a normal exit, so the
+step 8 "research stop leaves the provider running" limit is probably fixed for role runs too, but the server stop
+path wasn't re-tested.
+
 **Step 12 gave the first run** (design doc "First-run behaviour", as built): `cv_web/first_run.py` (`status`,
 `set_up`) over `examples/`, routes `GET/POST /api/setup`. The UI has `state.workspace` (role mode, DB in use) apart
 from `activeRoleId`; with no roles only the master is open (`isMasterOnly`, `body.no-role`, `[data-needs-role]`).
-For step 13: `first_run.set_up` can back a CLI `init`/first-run action if wanted (not in the R5 list), and
-`role_runner.run_cv`/`run_research` are what the CLI should call (see the step 8 stop/Ctrl-C note below).
-Example data is handy for CLI tests: `first_run.set_up(conn, "example")` gives a role with a current run. For step
+Example data is handy for tests: `first_run.set_up(conn, "example")` gives a role with a current run. For step
 14: file mode in the UI is now only a fallback when the role API fails; the one-shot CLI is still file-based (R5).
 
 **Steps 10–11 gave promote, pull, import and history** (docs/architecture.md "Role API", static/ARCHITECTURE.md).
