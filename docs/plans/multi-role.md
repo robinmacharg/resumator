@@ -113,6 +113,7 @@ cv_version(id, role_id NULL,          -- NULL = master (R8)
            source,                    -- seed | edit | promote | pull | import | example
            note NULL, content TEXT, created_at)
 prompt_version(hash PRIMARY KEY, kind, content TEXT, created_at)  -- kind: cv | research (R15)
+-- every *_json column: CHECK (col IS NULL OR json_valid(col))  (step 1)
 cv_run(id, role_id, cv_version_id,    -- the exact CV text the agent saw
        started_at, finished_at, provider, model, theme, steering_text NULL,
        prompt_hash, raw_output TEXT, model_json TEXT, warnings_json TEXT, page_count INT,
@@ -225,12 +226,16 @@ Both scripts gain one flag, `--io json`. Without it they behave exactly as today
   script, streams its stderr, parses the result and saves the run row. The server and the role CLI both call it.
   It stores the prompt text from the request in `prompt_version` (R15).
 - **Rendering in memory:** `cv_convert` gains a function that takes tagged markdown and a theme and returns PDF
-  or DOCX bytes, piping through `pandoc` and `typst` (stdin/stdout, `--root` at the repo for theme files). Page
-  counting (step 9's page-fit check) uses those bytes, and the same PDF comes back as `pdf_base64` to warm the
-  server's cache (R16). The one-shot mode keeps writing `output/` files as now.
+  or DOCX bytes. PDF: today's exact `pandoc --pdf-engine=typst` command, with stdin in and `-t pdf -o -` out
+  (`-t pdf` is required, otherwise pandoc writes HTML to stdout). DOCX: `-t docx -o -`. `count_pdf_pages` takes
+  bytes, and the same PDF comes back as `pdf_base64` to warm the server's cache (R16). The one-shot mode keeps
+  writing `output/` files as now.
 - **What still touches disk:** read-only repo files (prompt templates, `themes/`), and the DB itself. Provider
   attempt logs (`output/gemini_debug_logs/`) are not written in `--io json` mode; their content goes to stderr,
   so it ends up in the run's `log`. `research_role` stops writing its inputs back to `input/` in this mode.
+  Two unavoidable exceptions (step 1): pandoc's own private temp folder for the Typst engine (it creates and deletes
+  it), and `--reference-doc` for DOCX, which must be a path, so the themed `reference.docx` is built once per process
+  into a private `tempfile` folder and removed on exit.
 - **Server change:** the server already reads stdout and stderr on threads. In `--io json` mode stderr is the live
   log and stdout is collected whole as the result, not streamed.
 
@@ -291,7 +296,7 @@ Each stage ends with the app working and tests passing. One-shot CLI behaviour i
 
 | # | Step | Output | Status |
 |---|---|---|---|
-| 1 | Spike: `pandoc` → `typst` over stdin/stdout with a theme (`--root`), PDF bytes and page count, and timing; SQLite JSON functions over the current `tailored.model.json`. Confirm or adjust R14/R16 | Spike notes in the log | todo |
+| 1 | Spike: `pandoc` → `typst` over stdin/stdout with a theme (`--root`), PDF bytes and page count, and timing; SQLite JSON functions over the current `tailored.model.json`. Confirm or adjust R14/R16 | Spike notes in the log | done |
 | 2 | `store.py`: connect, migrations (`schema_version`), CRUD for role, cv_version, prompt_version, cv_run, research_run, setting; `backup` (R18). Tests on a temp DB | Data layer | todo |
 | 3 | `cv_merge.py`: entry-level three-way merge on `cv_source` parses (R11), rebuilding the CV text. Tests | Merge engine (not wired yet) | todo |
 | 4 | In-memory render function in `cv_convert` (markdown + theme → PDF/DOCX bytes) | Render without files | todo |
@@ -351,8 +356,9 @@ in-memory rendering is too slow; the fallback is a private temp directory per re
 
 ## Handoff
 
-For the next session: the design is agreed (R1–R20). Work on branch `feature/20261021-multi-role`. Start S1 with the step 1 spike and record its findings in the
-log before writing `store.py`. Each stage should leave the app working. The related work is in
+For the next session: the design is agreed (R1–R20). Work on branch `feature/20261021-multi-role`. Step 1 (spike)
+is done and confirmed R14/R16; see its Log entry and "Run I/O". Next is step 2, `store.py`: show the ER diagram
+inline when proposing the schema, and keep the diagram and SQL sketch in step. Each stage should leave the app working. The related work is in
 [cv-format-revamp.md](cv-format-revamp.md) (steering D11/D23, theme picker, run metadata).
 
 ## Log
@@ -379,3 +385,11 @@ log before writing `store.py`. Each stage should leave the app working. The rela
   new session (based on token efficiency), plus a standard prompt to paste in.
 - 2026-10-21 · Process · Created branch `feature/20261021-multi-role` from `develop` for this work.
 - 2026-10-21 · Process · Added a Mermaid ER diagram beside the sketch schema; DB steps keep it current and show it inline.
+- 2026-10-21 · Step 1 spike · Done; R14/R16 hold. PDF over pipes: today's `pandoc --pdf-engine=typst` command with
+  stdin in and `-t pdf -o -` out gives the same page counts as the file route (default 3, compact 2) in 0.2–1 s, so
+  rendering on demand is cheap. Without `-t pdf`, pandoc writes HTML. The other route (pandoc `-t typst` → `typst
+  compile - -`) also works but is two processes for no gain. DOCX over stdout works, but `--reference-doc` needs a
+  path, so it's built once per process in a private temp folder. `output/tailored.pdf` (4 pages, July) is stale
+  against `tailored.md`. SQLite 3.54.1: `json_extract`/`json_each` read the run JSON's `metadata`, and a
+  `CHECK (json_valid(...))` rejects bad JSON, so JSON columns get that check. Scripts were in the session scratchpad;
+  nothing in the repo changed.
