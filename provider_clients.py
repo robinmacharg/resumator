@@ -8,6 +8,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -1607,3 +1608,247 @@ def run_vscodebridge_attempt(
             "exceptionType": final_exception_type,
         },
     )
+
+
+CLAUDECODE_DEFAULT_SYSTEM_PROMPT = (
+    "You are a precise document generation engine. Follow the user's instructions exactly and return only the "
+    "requested output."
+)
+# Variables a parent Claude Code session sets; a nested `claude` must not inherit them.
+CLAUDECODE_PARENT_ENV_VARS = ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT")
+
+
+def build_claudecode_command(model_name: str, env: dict[str, str]) -> list[str]:
+    """Purpose: Build the isolated, tool-free `claude -p` command line.
+
+    Inputs:
+    - model_name: Claude model alias or full id.
+    - env: Runtime environment values (optional CLAUDECODE_SYSTEM_PROMPT, CLAUDECODE_EFFORT).
+
+    Returns:
+    - `list[str]` argv. The prompt itself is sent on stdin.
+    """
+    system_prompt = (env.get("CLAUDECODE_SYSTEM_PROMPT") or "").strip() or CLAUDECODE_DEFAULT_SYSTEM_PROMPT
+    command = [
+        "claude",
+        "-p",
+        "--output-format",
+        "json",
+        "--model",
+        model_name,
+        "--tools",
+        "",
+        "--safe-mode",
+        "--no-session-persistence",
+        "--system-prompt",
+        system_prompt,
+    ]
+    effort = (env.get("CLAUDECODE_EFFORT") or "").strip()
+    if effort:
+        command.extend(["--effort", effort])
+    return command
+
+
+def parse_claudecode_output(raw_stdout: str) -> tuple[str, str]:
+    """Purpose: Extract model text or an error from `claude -p --output-format json` output.
+
+    Inputs:
+    - raw_stdout: The CLI's stdout (a single JSON result object).
+
+    Returns:
+    - `(text, error)`: exactly one is non-empty. Errors include the API status so
+      `generate_cv.is_high_load_error` can classify 404/429/503 for model fallback.
+    """
+    try:
+        payload = json.loads(raw_stdout)
+    except json.JSONDecodeError:
+        snippet = raw_stdout.strip()[:500]
+        return "", f"claude CLI returned non-JSON output: {snippet or '<empty>'}"
+    if not isinstance(payload, dict):
+        return "", "claude CLI returned an unexpected JSON value."
+
+    result_text = payload.get("result")
+    if payload.get("is_error") or not isinstance(result_text, str):
+        status = payload.get("api_error_status")
+        status_text = f" (status {status})" if status else ""
+        message = result_text if isinstance(result_text, str) else json.dumps(payload)[:500]
+        return "", f"claude CLI error{status_text}: {message}"
+    if not result_text.strip():
+        return "", "claude CLI returned an empty result."
+    return result_text, ""
+
+
+def run_claudecode_attempt(
+    *,
+    model_name: str,
+    prompt_text: str,
+    env: dict[str, str],
+    timeout_seconds: int,
+    heartbeat_seconds: int,
+    attempt_index: int,
+    debug_log_dir: Path,
+    log_prefix: str = "attempt",
+    emit_live_output: bool = True,
+) -> AttemptResult:
+    """Purpose: Run one prompt through the Claude Code CLI (`claude -p`) and return its outcome.
+
+    The CLI runs from an empty temporary directory with tools, customisations and session persistence off, so the
+    project's own CLAUDE.md/AGENTS.md and the user's plugins never reach the model. Auth is the CLI's own login.
+
+    Inputs:
+    - model_name: Claude model alias or full id.
+    - prompt_text: Fully rendered prompt, sent on stdin.
+    - env: Process environment for the subprocess.
+    - timeout_seconds: Maximum seconds before the process group is killed.
+    - heartbeat_seconds: Interval between progress lines.
+    - attempt_index: 1-based attempt index.
+    - debug_log_dir: Directory for the per-attempt log.
+    - log_prefix: Prefix for the log file name.
+    - emit_live_output: When true, prints progress lines to stderr.
+
+    Returns:
+    - `AttemptResult` with the model's text in `stdout`.
+    """
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{model_name}-{timestamp}.log"
+    command = build_claudecode_command(model_name, env)
+    start = time.monotonic()
+
+    def finish(return_code: int, stdout_text: str, stderr_text: str, raw_stdout: str, timed_out: bool,
+               metadata: dict[str, Any]) -> AttemptResult:
+        elapsed = time.monotonic() - start
+        _write_attempt_log(
+            log_path,
+            [
+                "provider=claudecode",
+                f"model={model_name}",
+                f"attempt={attempt_index}",
+                f"command={' '.join(command[:6])} ... <prompt on stdin>",
+                f"return_code={return_code}",
+                f"elapsed_seconds={elapsed:.2f}",
+                f"timed_out={timed_out}",
+                f"prompt_chars={len(prompt_text)}",
+                f"cost_usd={metadata.get('costUsd')}",
+                "--- RAW CLI STDOUT ---",
+                raw_stdout,
+                "--- STDERR ---",
+                stderr_text,
+            ],
+        )
+        return AttemptResult(
+            provider="claudecode",
+            model=model_name,
+            returncode=return_code,
+            stdout=stdout_text,
+            stderr=stderr_text,
+            elapsed_seconds=elapsed,
+            log_path=log_path,
+            timed_out=timed_out,
+            metadata=metadata,
+        )
+
+    if not shutil.which("claude"):
+        return finish(127, "", "'claude' CLI not found on PATH.", "", False, {})
+
+    child_env = {key: value for key, value in env.items() if key not in CLAUDECODE_PARENT_ENV_VARS}
+
+    with tempfile.TemporaryDirectory(prefix="resumator-claude-") as neutral_cwd:
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=child_env,
+            cwd=neutral_cwd,
+            start_new_session=True,
+        )
+        if process.stdin is None or process.stdout is None or process.stderr is None:
+            raise RuntimeError("Failed to open claude subprocess pipes.")
+
+        stdout_chunks: list[str] = []
+        stderr_chunks: list[str] = []
+
+        def write_prompt() -> None:
+            try:
+                process.stdin.write(prompt_text)
+            except (BrokenPipeError, OSError):
+                pass
+            finally:
+                try:
+                    process.stdin.close()
+                except OSError:
+                    pass
+
+        def drain(pipe, sink: list[str]) -> None:
+            try:
+                for chunk in iter(lambda: pipe.read(65536), ""):
+                    sink.append(chunk)
+            finally:
+                pipe.close()
+
+        threads = [
+            threading.Thread(target=write_prompt, daemon=True),
+            threading.Thread(target=drain, args=(process.stdout, stdout_chunks), daemon=True),
+            threading.Thread(target=drain, args=(process.stderr, stderr_chunks), daemon=True),
+        ]
+        for thread in threads:
+            thread.start()
+
+        if emit_live_output:
+            print(
+                f"Attempt {attempt_index}: launched claude PID {process.pid} for model {model_name}",
+                file=sys.stderr,
+                flush=True,
+            )
+
+        timed_out = False
+        while process.poll() is None:
+            elapsed = time.monotonic() - start
+            if elapsed >= timeout_seconds:
+                timed_out = True
+                if emit_live_output:
+                    print(
+                        f"Attempt {attempt_index}: timeout reached ({timeout_seconds}s). Killing claude PID {process.pid}.",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except OSError:
+                    process.kill()
+                break
+            time.sleep(min(heartbeat_seconds, max(timeout_seconds - elapsed, 0.1)))
+            if emit_live_output and process.poll() is None:
+                print(
+                    f"Attempt {attempt_index}: waiting on claude model {model_name} "
+                    f"({int(time.monotonic() - start)}s elapsed)...",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+        return_code = process.wait()
+        for thread in threads:
+            thread.join(timeout=2)
+
+    raw_stdout = "".join(stdout_chunks)
+    cli_stderr = "".join(stderr_chunks)
+    text, error_text = ("", "") if timed_out else parse_claudecode_output(raw_stdout)
+    metadata: dict[str, Any] = {}
+    try:
+        payload = json.loads(raw_stdout) if raw_stdout.strip() else {}
+        if isinstance(payload, dict):
+            metadata = {
+                "costUsd": payload.get("total_cost_usd"),
+                "durationApiMs": payload.get("duration_api_ms"),
+                "stopReason": payload.get("stop_reason"),
+            }
+    except json.JSONDecodeError:
+        pass
+
+    if timed_out:
+        return finish(124, "", f"claude CLI timed out after {timeout_seconds}s.\n{cli_stderr}", raw_stdout, True,
+                      metadata)
+    if error_text:
+        return finish(return_code or 1, "", f"{error_text}\n{cli_stderr}".strip(), raw_stdout, False, metadata)
+    return finish(0, text, cli_stderr, raw_stdout, False, metadata)

@@ -8,6 +8,7 @@ Architecture role:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +76,17 @@ def read_research_urls(path: Path) -> list[str]:
     return urls
 
 
+def read_output_steering(model_json_path: Path) -> str:
+    """Steering text recorded in tailored.model.json `metadata.steering`, or "" when absent or unreadable."""
+    try:
+        payload = json.loads(model_json_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    metadata = payload.get("metadata") if isinstance(payload, dict) else None
+    steering = metadata.get("steering") if isinstance(metadata, dict) else None
+    return steering.strip() if isinstance(steering, str) else ""
+
+
 def build_state(deps: dict[str, Any]) -> dict[str, Any]:
     """Build frontend state payload for CV editor/workflow.
 
@@ -109,12 +121,14 @@ def build_state(deps: dict[str, Any]) -> dict[str, Any]:
             "defaultOptionLabel": "Default order",
             "byProvider": models_by_provider,
         },
+        "themes": deps["available_themes"](),
         "outputs": {
             "pdfExists": output_pdf.exists(),
             "docxExists": output_docx.exists(),
             "pdfMtime": deps["file_mtime"](output_pdf),
             "docxMtime": deps["file_mtime"](output_docx),
             "modelOutputMtime": deps["file_mtime"](output_model),
+            "steering": read_output_steering(deps["OUTPUT_DIR"] / "tailored.model.json"),
         },
         "lastRun": deps["LAST_RUN"],
     }

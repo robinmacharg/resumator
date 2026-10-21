@@ -18,7 +18,7 @@ import { pollUntilDone } from "./async-workflow-utils.js";
  * @property {(path: string, options?: RequestInit) => Promise<any>} api JSON API request helper.
  * @property {() => {cv: string, prompt: string, research_prompt: string, jobspec: string, env: string}} currentFiles Current editor payload.
  * @property {() => void} writeDraftToLocalStorage Persist current draft before runs.
- * @property {{selectedProvider: string, selectedModel: string}} state Shared app state subset.
+ * @property {{selectedProvider: string, selectedModel: string, selectedTheme?: string}} state Shared app state subset.
  * @property {(running: boolean) => void} setRunning Toggle global running state.
  * @property {(message: string) => void} startRunStatusTimer Start status timer message.
  * @property {() => void} stopRunStatusTimer Stop run status timer.
@@ -30,6 +30,7 @@ import { pollUntilDone } from "./async-workflow-utils.js";
  * @property {() => Promise<void>} refreshTailoredOutput Refresh tailored markdown output.
  * @property {() => Promise<void>} refreshLogs Refresh logs UI.
  * @property {(run: any) => string} summarizeRun Convert run payload to display text.
+ * @property {() => {enabled: boolean, text: string}} [getSteeringRequest] Steering for full runs.
  */
 
 /**
@@ -57,6 +58,7 @@ export function createCvPipelineFeature(ctx) {
         refreshTailoredOutput,
         refreshLogs,
         summarizeRun,
+        getSteeringRequest,
     } = ctx;
 
     /**
@@ -103,13 +105,18 @@ export function createCvPipelineFeature(ctx) {
 
         try {
             writeDraftToLocalStorage();
+            const body = {
+                files: currentFiles(),
+                selectedProvider: state.selectedProvider || "gemini",
+                selectedModel: state.selectedModel || "",
+                selectedTheme: state.selectedTheme || "",
+            };
+            if (kind === "full" && getSteeringRequest) {
+                body.steering = getSteeringRequest();
+            }
             const kickoff = await api(kind === "full" ? "/api/run/full" : "/api/run/format", {
                 method: "POST",
-                body: JSON.stringify({
-                    files: currentFiles(),
-                    selectedProvider: state.selectedProvider || "gemini",
-                    selectedModel: state.selectedModel || "",
-                }),
+                body: JSON.stringify(body),
             });
             if (kickoff.run) {
                 setRunLogOutput(summarizeRun(kickoff.run));

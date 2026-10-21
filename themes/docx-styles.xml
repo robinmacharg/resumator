@@ -1,0 +1,74 @@
+<!--
+  Resumator DOCX theme: Word style definitions for the custom-style names cv_convert emits.
+  cv_convert inserts these <w:style> elements into pandoc's default reference.docx at render
+  time (the w: prefix is declared there). Paragraph styles come from divs, character styles
+  from spans. Names without an entry here fall back to plain body text.
+  PDF is the primary output (themes/default.typ); this file keeps the DOCX looking as it did
+  before themes, not like the PDF.
+-->
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="candidate-name">
+  <w:name w:val="candidate-name" />
+  <w:basedOn w:val="Heading1" />
+  <w:next w:val="BodyText" />
+</w:style>
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="candidate-title">
+  <w:name w:val="candidate-title" />
+  <w:basedOn w:val="BodyText" />
+  <w:rPr><w:b /><w:bCs /></w:rPr>
+</w:style>
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="candidate-contact">
+  <w:name w:val="candidate-contact" />
+  <w:basedOn w:val="BodyText" />
+</w:style>
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="candidate-subheader">
+  <w:name w:val="candidate-subheader" />
+  <w:basedOn w:val="BodyText" />
+</w:style>
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="section-heading">
+  <w:name w:val="section-heading" />
+  <w:basedOn w:val="BodyText" />
+  <w:rPr><w:b /><w:bCs /></w:rPr>
+</w:style>
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="summary-item">
+  <w:name w:val="summary-item" />
+  <w:basedOn w:val="BodyText" />
+  <w:rPr><w:i /><w:iCs /></w:rPr>
+</w:style>
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="requirements-heading">
+  <w:name w:val="requirements-heading" />
+  <w:basedOn w:val="BodyText" />
+  <w:rPr><w:b /><w:bCs /></w:rPr>
+</w:style>
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="role-heading">
+  <w:name w:val="role-heading" />
+  <w:basedOn w:val="BodyText" />
+  <w:rPr><w:b /><w:bCs /></w:rPr>
+</w:style>
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="date-range">
+  <w:name w:val="date-range" />
+  <w:basedOn w:val="BodyText" />
+</w:style>
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="keywords">
+  <w:name w:val="keywords" />
+  <w:basedOn w:val="BodyText" />
+</w:style>
+<w:style w:type="character" w:customStyle="1" w:styleId="education-title">
+  <w:name w:val="education-title" />
+  <w:rPr><w:b /><w:bCs /></w:rPr>
+</w:style>
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="earlier-intro">
+  <w:name w:val="earlier-intro" />
+  <w:basedOn w:val="BodyText" />
+</w:style>
+<w:style w:type="character" w:customStyle="1" w:styleId="earlier-title">
+  <w:name w:val="earlier-title" />
+  <w:rPr><w:b /><w:bCs /></w:rPr>
+</w:style>
+<w:style w:type="character" w:customStyle="1" w:styleId="earlier-company">
+  <w:name w:val="earlier-company" />
+  <w:rPr><w:i /><w:iCs /></w:rPr>
+</w:style>
+<w:style w:type="character" w:customStyle="1" w:styleId="skills-group">
+  <w:name w:val="skills-group" />
+  <w:rPr><w:b /><w:bCs /></w:rPr>
+</w:style>

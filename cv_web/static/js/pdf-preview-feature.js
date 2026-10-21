@@ -1,9 +1,16 @@
 import { formatPreviewDateTime } from "./app-utils.js";
 
+// Shown before the CV preview title when the CV was generated with a steering note.
+const STEERING_INDICATOR = "🧭";
+
 const PREVIEW_CONFIG = {
     cv: {
         label: "CV",
         fileName: "tailored_dev.pdf",
+        payloadToSteering: (payload) =>
+            payload && payload.outputs && typeof payload.outputs.steering === "string"
+                ? payload.outputs.steering.trim()
+                : "",
         payloadToExists: (payload) =>
             Boolean(payload && payload.outputs && payload.outputs.pdfExists),
         payloadToMtime: (payload) =>
@@ -92,8 +99,8 @@ export function createPdfPreviewFeature(ctx) {
     const { els, getActivePreviewKind } = ctx;
 
     const previewState = {
-        cv: { exists: false, mtime: null, sourceGeneratedAt: null },
-        research: { exists: false, mtime: null, sourceGeneratedAt: null },
+        cv: { exists: false, mtime: null, sourceGeneratedAt: null, steering: "" },
+        research: { exists: false, mtime: null, sourceGeneratedAt: null, steering: "" },
     };
 
     /**
@@ -137,6 +144,7 @@ export function createPdfPreviewFeature(ctx) {
         previewState[kind].exists = cfg.payloadToExists(payload);
         previewState[kind].mtime = cfg.payloadToMtime(payload);
         previewState[kind].sourceGeneratedAt = cfg.payloadToSourceGeneratedAt(payload);
+        previewState[kind].steering = cfg.payloadToSteering ? cfg.payloadToSteering(payload) : "";
     }
 
     /**
@@ -169,9 +177,11 @@ export function createPdfPreviewFeature(ctx) {
         if (els.pdfPreviewTitle) {
             const generatedText = formatMtimeForPreview(state.mtime);
             const sourceGeneratedText = formatSourceGeneratedForPreview(state.sourceGeneratedAt);
+            const steeringPrefix = state.steering ? `${STEERING_INDICATOR} ` : "";
             els.pdfPreviewTitle.textContent =
-                `PDF Preview (${cfg.label}, Generated: ${generatedText}, ` +
+                `${steeringPrefix}PDF Preview (${cfg.label}, Generated: ${generatedText}, ` +
                 `Source generated: ${sourceGeneratedText})`;
+            els.pdfPreviewTitle.title = state.steering ? `Steered: ${state.steering}` : "";
         }
 
         if (els.pdfPreviewOpenLink) {

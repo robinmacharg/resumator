@@ -5,7 +5,8 @@
 | File | Role |
 |---|---|
 | `generate_cv.py` | CV pipeline CLI: read inputs → build prompt → backend attempts with model fallback → extract and validate JSON → render tagged markdown → call `cv_convert` |
-| `cv_convert.py` | Tagged markdown → PDF (pandoc + typst) and DOCX (pandoc). Also a standalone CLI (the "format only" run) |
+| `cv_source.py` | Master CV source format: parse → dict, comment-stripped prompt text, elided phrases, linter CLI ([cv-source-format.md](cv-source-format.md)). Not yet wired into the pipeline |
+| `cv_convert.py` | Tagged markdown → semantic markdown → PDF (pandoc + typst) and DOCX (pandoc). Looks come from `themes/` ([cv-format.md §5](cv-format.md#5-conversion-cv_convertpy)). Also a standalone CLI (the "format only" run) |
 | `research_role.py` | Research pipeline CLI: research prompt + company + URLs + CV + job spec → backend → `research_output.md/.json` |
 | `research_format.py` | Normalises research markdown → `research_output.formatted.{md,pdf}` |
 | `backend_registry.py` | Discovers `backends/*/module.py`, interrogates each, exposes catalog and lookup ([backends.md](backends.md)) |
@@ -19,18 +20,21 @@
 
 ```
 input/prompt.md ─┐
-input/CV.md ─────┼─ build_prompt ─(CV_FAST_MODE: truncate CV to 18k chars + add fast rules)─┐
-input/jobspec.txt┘                                                                         │
+input/CV.md ─────┼─ cv_source parse + lint ─ build_prompt (+ RUN FACTS, + steering.md)
+input/jobspec.txt┘   ─(CV_FAST_MODE: truncate CV to 18k chars + add fast rules)───────────────┐
+                                                                                            │
                        backend.run_attempt(model_i)  ◄── model_sequence (primary + fallbacks)┘
                          │ non-zero rc + transient error (429/503/404/quota) → next model
                          │ other error → exit 1
                          ▼
           output/tailored.model-output.txt (raw) → extract_json_payload → tailored.model.json
-                         ▼ parse_and_validate_json_output (strict contract)
-                         ▼ render_tagged_markdown
+                         ▼ parse_and_validate_json_output (strict contract; rule breaches → warnings)
+                         ▼ render_tagged_markdown (directives) → find_elision_leaks
                   output/tailored.md  (YAML front matter + `[tag] line` markup)
                          ▼ cv_convert.convert_markdown_outputs
-    tailored.export.md → tailored_dev.pdf      tailored.docx.export.md → tailored_dev.docx
+    tailored.export.md (custom-style divs) ─┬─ styles.lua + themes/*.typ ──► tailored_dev.pdf
+                                            └─ reference.docx (+ docx-styles.xml) ──► tailored_dev.docx
+                         ▼ count_pdf_pages → record_run_metadata (warnings, page count, steering → tailored.model.json)
 ```
 
 Format details: [cv-format.md](cv-format.md).
@@ -66,6 +70,7 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 
 ## Tests
 
-- `tests/`: unittest coverage for the server helpers and `env_utils`. Nothing covers `generate_cv`, `cv_convert`,
-  or the backends.
+- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_convert` (render tests skip
+  without pandoc/typst) and the `claudecode` backend (with a fake `claude` on PATH). Nothing covers `generate_cv` or
+  the other backends.
 - `cv_web/static/js/__tests__/`: `node --test` coverage of the frontend feature modules.

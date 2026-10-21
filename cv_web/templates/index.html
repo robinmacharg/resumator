@@ -58,6 +58,16 @@
                             <button id="runFullBtn" class="btn btn-primary">
                                 Run Full Pipeline
                             </button>
+                            <label class="inline-toggle" for="steerCheckbox">
+                                <input id="steerCheckbox" type="checkbox" checked />
+                                Steer CV generation
+                            </label>
+                            <label class="model-picker cv-theme-picker" for="themeSelect">
+                                <span>Theme</span>
+                                <select id="themeSelect" aria-label="PDF theme selection">
+                                    <option value="default">Default</option>
+                                </select>
+                            </label>
                         </div>
 
                         <div class="cv-subtabbar" role="tablist" aria-label="CV tabs">
@@ -84,6 +94,14 @@
                                 aria-selected="false"
                             >
                                 <span class="tab-label" data-label-for="jobspec">Job Spec</span>
+                            </button>
+                            <button
+                                class="cv-subtab-btn"
+                                data-cv-tab="steering"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                Steering
                             </button>
                             <button
                                 class="cv-subtab-btn"
@@ -165,6 +183,20 @@
                                     </div>
                                 </div>
                                 <textarea id="jobspecEditor" spellcheck="false"></textarea>
+                            </section>
+
+                            <section id="tab-steering" class="cv-subpanel" role="tabpanel">
+                                <div class="editor-head">
+                                    <label for="steeringEditor">
+                                        Steering (kept in this browser; sent with full runs when
+                                        "Steer CV generation" is ticked)
+                                    </label>
+                                </div>
+                                <textarea
+                                    id="steeringEditor"
+                                    spellcheck="true"
+                                    placeholder="What should this CV emphasise? e.g. multi-domain skills, recent AI tooling work"
+                                ></textarea>
                             </section>
 
                             <section id="tab-env" class="cv-subpanel" role="tabpanel">

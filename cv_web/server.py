@@ -28,6 +28,7 @@ ROOT_DIR = APP_DIR.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from cv_convert import available_themes
 from cv_web.server_run_helpers import (
     _build_research_command,
     _build_research_format_command,
@@ -35,6 +36,7 @@ from cv_web.server_run_helpers import (
     _build_research_run_state,
     _build_run_state,
     make_command,
+    prepare_steering_file,
 )
 from cv_web.server_request_parsing import (
     CvRunRequest,
@@ -115,7 +117,6 @@ ALLOWED_OUTPUT_FILES = {
     "tailored_dev.docx",
     "tailored.md",
     "tailored.export.md",
-    "tailored.docx.export.md",
     "research_output.formatted.md",
     "research_output.formatted.pdf",
 }
@@ -159,6 +160,7 @@ def _state_helper_deps() -> dict[str, Any]:
         "RESEARCH_OUTPUT_MD": RESEARCH_OUTPUT_MD,
         "RESEARCH_PROMPT_BUILT_FILE": RESEARCH_PROMPT_BUILT_FILE,
         "RESEARCH_URLS_FILE": RESEARCH_URLS_FILE,
+        "available_themes": available_themes,
         "build_available_models": build_available_models,
         "build_provider_options": build_provider_options,
         "file_mtime": file_mtime,
@@ -285,13 +287,21 @@ def stream_pipe_research(pipe, prefix: str = "") -> None:
     process_runners.stream_pipe_research(pipe, _process_runner_deps(), prefix=prefix)
 
 
-def run_subprocess_streaming(kind: str, selected_provider: str = "", selected_model: str = "") -> dict[str, Any]:
+def run_subprocess_streaming(
+    kind: str,
+    selected_provider: str = "",
+    selected_model: str = "",
+    theme: str = "",
+    steering_file: str | None = None,
+) -> dict[str, Any]:
     """Purpose: Run subprocess streaming and return its outcome.
     
     Inputs:
     - kind: CV pipeline mode, expected to be "full" or "format".
     - selected_provider: Optional provider override; empty string keeps default ordering.
     - selected_model: Optional model override for the selected provider.
+    - theme: Optional PDF theme preset; empty string uses the default theme.
+    - steering_file: Full runs only; None keeps generate_cv's default, "" disables steering.
     
     Returns:
     - `dict[str, Any]` value representing the operation result.
@@ -300,17 +310,27 @@ def run_subprocess_streaming(kind: str, selected_provider: str = "", selected_mo
         kind,
         selected_provider=selected_provider,
         selected_model=selected_model,
+        theme=theme,
+        steering_file=steering_file,
         deps=_process_runner_deps(),
     )
 
 
-def run_subprocess_async(kind: str, selected_provider: str = "", selected_model: str = "") -> None:
+def run_subprocess_async(
+    kind: str,
+    selected_provider: str = "",
+    selected_model: str = "",
+    theme: str = "",
+    steering_file: str | None = None,
+) -> None:
     """Purpose: Run subprocess async and return its outcome.
     
     Inputs:
     - kind: CV pipeline mode, expected to be "full" or "format".
     - selected_provider: Optional provider override; empty string keeps default ordering.
     - selected_model: Optional model override for the selected provider.
+    - theme: Optional PDF theme preset; empty string uses the default theme.
+    - steering_file: Full runs only; None keeps generate_cv's default, "" disables steering.
     
     Returns:
     - None. This function performs side effects only.
@@ -319,6 +339,8 @@ def run_subprocess_async(kind: str, selected_provider: str = "", selected_model:
         kind,
         selected_provider=selected_provider,
         selected_model=selected_model,
+        theme=theme,
+        steering_file=steering_file,
         deps=_process_runner_deps(),
     )
 
@@ -434,6 +456,7 @@ def _http_handler_deps() -> dict[str, Any]:
         "get_current_research_run_snapshot": get_current_research_run_snapshot,
         "get_current_run_snapshot": get_current_run_snapshot,
         "parse_cv_run_request": parse_cv_run_request,
+        "prepare_steering_file": prepare_steering_file,
         "parse_research_run_request": parse_research_run_request,
         "read_log_file": read_log_file,
         "read_text": read_text,

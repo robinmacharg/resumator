@@ -12,12 +12,11 @@ Suggested shape:
    simpler option.
 2. **Extract text**: `.md`/`.txt` as-is. `.docx`: `pandoc -t gfm`. `.pdf`: `pdftotext -layout` (poppler) if it is on
    PATH; otherwise disable PDF import with a clear reason. All of this goes through subprocess, so no new Python deps.
-3. **Normalise with an LLM**: new `input/import_prompt.md` → the selected backend (reuse the attempt loop) → the
+3. **Normalise with an LLM**: `input/import_prompt.md` (exists) → the selected backend (reuse the attempt loop) → the
    canonical CV.md layout. Instruct the model to preserve every fact, invent nothing, and mark unknown fields as `TODO`.
 4. **Review before replacing**: write `output/CV.imported.md` and show a diff or preview. Only an explicit
    "Replace CV" overwrites `input/CV.md` (back up to `input/CV.md.bak`).
-5. **Validate structurally**: a light parser checks the front-matter keys and the `##`/`**Dates:**` role blocks.
-   This parser could also lint hand-written CVs (see P2 "No CV.md schema").
+5. **Validate structurally**: `cv_source.lint_cv_source` (exists) on the imported file.
 
 Touches: `cv_web/server_http_handlers.py` (route), `server_run_helpers.py` (command), a new `import_cv.py` CLI,
 a frontend feature module and tab ([static ARCHITECTURE.md checklist](../cv_web/static/ARCHITECTURE.md)), and docs.
@@ -28,32 +27,33 @@ A per-application free-text instruction, for example "emphasise React Native lea
 mention the fintech background".
 
 Suggested shape:
-1. New editable file `input/steering.md`: add it to `EDITOR_FILES` in `cv_web/server.py` and `EDITABLE_FILES` in
-   `static/app.js`, plus a UI editor (small textarea on the CV tab, or its own tab).
-2. In `generate_cv.build_prompt`, append `=== CANDIDATE STEERING ===\n<text>` when the file is non-empty. Append it
-   after the job spec and keep append mode, because `{}` placeholders break on the JSON braces in `prompt.md`
-   ([cv-format.md §2](cv-format.md)).
-3. In `prompt.md`, add a rule that steering adjusts emphasis, selection and ordering only and never overrides the
+1. Done, differently: the web UI has a Steering tab on the CV tab, kept in browser localStorage rather than a file,
+   plus a "Steer CV generation" checkbox. Full runs send the text; the server writes it to `output/steering.run.md`
+   and passes `--steering-file`, or `--no-steering` when unticked or empty. A 🧭 before the PDF title marks a CV
+   generated with steering (from `metadata.steering`).
+2. Done: `generate_cv` reads `input/steering.md` (or `--steering-file`) and appends `=== CANDIDATE STEERING ===`
+   when it's non-empty ([cv-format.md §2](cv-format.md)).
+3. Done: `prompt.md` v2 says steering adjusts emphasis, selection and ordering only and never overrides the
    truthfulness constraints.
-4. Optional: a `--steering-file` CLI flag; pass the steering to `research_role.build_prompt` as well; persist it per
-   job alongside the job spec.
-5. Record the steering text in the output (for example `metadata.steering` in `tailored.model.json`) so you can see
-   which steering produced a given output.
+4. Optional: pass the steering to `research_role.build_prompt` as well; persist it per job alongside the job spec.
+5. Done: the steering text is recorded as `metadata.steering` in `tailored.model.json`.
 
 ## P2 — Correctness and hygiene
 
 - **`.env` is tracked in git** and holds real API keys. Rotate the keys, `git rm --cached .env`, add a
   `.env.example`, and add `.env` to `.gitignore`. Keys remain in git history until it is rewritten.
-- **Prompt input contract doesn't match CV.md**: the uncommitted "Input Contract" block in `prompt.md` describes `—`
-  separators and `subsection:` labels. The real file uses YAML front matter plus `#`/`##` headings.
 - **CV.md content issues**: 54 `[cite: 1]` artefacts left over from a Gemini paste. The `skills_raw` lists are not
   valid YAML (`- "a", "b"`). In the Boostworks role, one bullet is split mid-sentence ("…to give" / "* Customer
   Relations…").
-- **No CV.md schema or linter**: a malformed CV is only caught (if at all) by the model's output. A light checker
-  would also support CV import.
+- **No CV.md schema or linter**: in progress. `cv_source.py --lint` checks the v1 source format
+  ([cv-source-format.md](cv-source-format.md)); it applies once `input/CV.md` moves to that format
+  ([plan](plans/cv-format-revamp.md) step 9).
 - **Provider-agnostic messages**: `generate_cv` says "via Gemini CLI" in its argparse help and, on any provider,
   suggests setting `GEMINI_MODEL*` after all attempts fail. It also prints "Gemini CLI returned empty output". The
   log directory is named `gemini_debug_logs` for all providers.
+- **Fast mode cuts the end of the CV**: `CV_FAST_MODE` keeps the first 18,000 chars of the prompt text. With the
+  v1 source format that drops whole trailing sections (on the v1-format `CV.md`: late projects, Education, Certifications,
+  Skills). Truncate per section (for example oldest roles first) or raise the limit.
 - **No output history**: each run overwrites `output/tailored*`. Consider `output/<company>-<date>/` snapshots that
   include the job spec and steering.
 - **Stale venv**: `.venv` is Python 3.9.6, and `generate_cv.py`, `research_role.py` and `cv_convert.py` fail to import
@@ -71,5 +71,7 @@ Suggested shape:
 - `model_providers.json` defaults have drifted from the module defaults (gemini: `3.5-flash-lite` vs `2.5-flash`).
 - `backend_registry` re-imports and re-interrogates every backend on each call (including the bridge health check).
   Consider a short TTL cache.
-- Tests: nothing covers `validate_and_normalize_payload`, `render_tagged_markdown`, `cv_convert`, or the backends.
+- Tests: nothing covers the backends except `claudecode`.
 - `gemini-code-*.py` and `curl.sh` at the root are scratch files.
+- DOCX keeps its plain pre-theme look and doesn't mirror the PDF (`themes/docx-styles.xml`). Low priority: PDF is the
+  primary output.

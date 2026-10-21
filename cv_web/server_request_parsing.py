@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from cv_convert import available_themes
 from provider_catalog import load_provider_catalog, provider_map
 
 APP_DIR = Path(__file__).resolve().parent
@@ -40,6 +41,8 @@ class CvRunRequest:
     kind: str
     selected_provider: str
     selected_model: str
+    theme: str = ""
+    steering: str | None = None
 
 
 def dedupe_keep_order(items: list[str]) -> list[str]:
@@ -191,6 +194,32 @@ def parse_research_run_request(payload: dict[str, Any]) -> ResearchRunRequest:
     )
 
 
+def parse_selected_theme(payload: dict[str, Any]) -> str:
+    """Return the requested theme name, or "" (default theme) when it is missing or unknown."""
+    theme = str(payload.get("selectedTheme") or "").strip()
+    return theme if theme in available_themes() else ""
+
+
+def parse_steering(payload: dict[str, Any]) -> str | None:
+    """Return the steering text to send with a full run.
+
+    None when the request has no `steering` object (legacy clients: generate_cv's own default applies);
+    "" when steering is disabled or empty; otherwise the trimmed text.
+    """
+    steering = payload.get("steering")
+    if steering is None:
+        return None
+    if not isinstance(steering, dict):
+        raise ValueError("steering must be an object")
+    enabled = steering.get("enabled", True)
+    text = steering.get("text", "")
+    if not isinstance(enabled, bool):
+        raise ValueError("steering.enabled must be a boolean")
+    if not isinstance(text, str):
+        raise ValueError("steering.text must be a string")
+    return text.strip() if enabled else ""
+
+
 def parse_cv_run_request(route: str, payload: dict[str, Any]) -> CvRunRequest:
     """Parse and normalize CV run request payload from route and JSON body."""
     kind = "full" if route.endswith("/full") else "format"
@@ -201,4 +230,6 @@ def parse_cv_run_request(route: str, payload: dict[str, Any]) -> CvRunRequest:
         kind=kind,
         selected_provider=selected_provider,
         selected_model=model_override,
+        theme=parse_selected_theme(payload),
+        steering=parse_steering(payload),
     )

@@ -22,6 +22,8 @@ flowchart TD
     App --> Draft[draft-files-feature.js]
     App --> Operations[app-operations-feature.js]
     App --> ProviderModel[provider-model-feature.js]
+    App --> Theme[theme-feature.js]
+    App --> Steering[steering-feature.js]
     App --> Research[research-feature.js]
     App --> CVPipeline[cv-pipeline-feature.js]
     App --> Logs[logs-feature.js]
@@ -98,6 +100,14 @@ flowchart TD
 - `provider-model-feature.js`
   - Manages provider/model selectors, option normalization, and selection persistence.
 
+- `theme-feature.js`
+  - Fills the CV-tab PDF theme selector from `/api/state` `themes` (the `themes/*.typ` presets), persists the choice,
+    and re-runs formatting only when it changes.
+
+- `steering-feature.js`
+  - Keeps the Steering tab text and the "Steer CV generation" checkbox in localStorage and builds the `steering`
+    object (`{enabled, text}`) that full runs send.
+
 - `app-operations-feature.js`
   - Handles file save/load/reload, tailored output refresh, and server restart flow.
 
@@ -163,6 +173,8 @@ These features expose callbacks needed by higher-level workflow modules.
 - `research-feature.js`
 - `logs-feature.js`
 - `provider-model-feature.js`
+- `theme-feature.js`
+- `steering-feature.js`
 - `cv-pipeline-feature.js`
 
 These modules orchestrate backend operations but do not query the DOM directly.

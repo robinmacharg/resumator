@@ -206,3 +206,25 @@ test("pdf preview tolerates malformed payloads and keeps safe defaults", () => {
         "PDF Preview (Research, Generated: -, Source generated: -)",
     );
 });
+
+test("pdf preview marks a steered CV and shows the steering on hover", () => {
+    const els = createEls();
+    const feature = createPdfPreviewFeature({ els, getActivePreviewKind: () => "cv" });
+
+    feature.applyCvOutputState({ outputs: { pdfExists: false, steering: " AI focus " } });
+    feature.updatePreview();
+
+    assert.ok(els.pdfPreviewTitle.textContent.startsWith("🧭 PDF Preview (CV"));
+    assert.equal(els.pdfPreviewTitle.title, "Steered: AI focus");
+});
+
+test("pdf preview shows no steering marker for an unsteered CV", () => {
+    const els = createEls();
+    const feature = createPdfPreviewFeature({ els, getActivePreviewKind: () => "cv" });
+
+    feature.applyCvOutputState({ outputs: { pdfExists: false, steering: "" } });
+    feature.updatePreview();
+
+    assert.ok(els.pdfPreviewTitle.textContent.startsWith("PDF Preview (CV"));
+    assert.equal(els.pdfPreviewTitle.title, "");
+});
