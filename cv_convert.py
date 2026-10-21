@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 import argparse
+import io
 import os
 import re
 import shutil
 import subprocess
 import sys
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+
+THEMES_DIR = Path(__file__).resolve().parent / "themes"
+STYLES_FILTER = THEMES_DIR / "styles.lua"
+DEFAULT_TYPST_THEME = THEMES_DIR / "default.typ"
+DOCX_STYLES = THEMES_DIR / "docx-styles.xml"
 
 
 @dataclass
@@ -33,48 +40,26 @@ def strip_yaml_frontmatter(markdown_text: str) -> tuple[str, bool]:
     return markdown_text, False
 
 
-def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -> str:
-    """Apply formatting transforms for known semantic tags.
+def styled_block(style: str, text: str) -> list[str]:
+    """Wrap text in a pandoc fenced div carrying a theme style name."""
+    return [f'::: {{custom-style="{style}"}}', text, ":::", ""]
 
-    Increment 1: candidate_name becomes the document H1 heading.
-    PDF specialization: candidate_name becomes centered, larger raw Typst text.
+
+def apply_semantic_tag_formatting(markdown_text: str) -> str:
+    """Turn tagged markdown into semantic markdown for both PDF and DOCX.
+
+    Each known tag becomes a pandoc div/span with custom-style="<name>". The looks
+    live in themes/ (default.typ for PDF via styles.lua, docx-styles.xml for DOCX).
+    Only text clean-up happens here, never styling.
     """
     transformed_lines: list[str] = []
-
-    # Keep this mapping centralized so DOCX-specific transforms can be added
-    # later with minimal change.
-    pdf_tag_styles: dict[str, dict[str, str]] = {
-        "candidate_name": {"size": "18pt", "weight": "bold"},
-        "candidate_title": {"size": "12pt", "weight": "bold"},
-        "candidate_contact": {"size": "10pt", "weight": "bold"},
-    }
-
-    def typst_escape(text: str) -> str:
-        """Purpose: Execute typst escape for this module's workflow.
-        
-        Inputs:
-        - text: See type hints and call site for expected value.
-        
-        Returns:
-        - `str` value representing the operation result.
-        """
-        return text.replace("\\", "\\\\").replace('"', '\\"')
-
-    def typst_content_escape(text: str) -> str:
-        """Escape content that will be inserted into Typst content blocks."""
-        return (
-            text.replace("\\", "\\\\")
-            .replace("[", "\\[")
-            .replace("]", "\\]")
-            .replace("#", "\\#")
-        )
+    requirements_items: list[str] = []
 
     def normalize_summary_markdown(text: str) -> str:
         """Keep bold markers while removing single-asterisk emphasis.
 
-        Summary paragraphs are rendered with whole-line italics by the
-        converter, so any incidental inline italics from generation should be
-        stripped to avoid malformed emphasis like "****...***".
+        Summary paragraphs are whole-line italic in the theme, so incidental
+        inline italics from generation are stripped to avoid malformed emphasis.
         """
         protected = text.replace("**", "__BOLD_MARKER__")
         deitalicized = protected.replace("*", "")
@@ -95,54 +80,28 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         return cleaned.strip()
 
     def normalize_education_item_text(text: str) -> str:
-        """Format education entries as bold title + normal detail text.
+        """Mark the title of an education entry as an education-title span.
 
         Expected pattern: <title> - <detail> or <title> — <detail>
-        Only the left title portion is bolded.
+        Only the left title portion is marked.
         """
         cleaned = text.strip()
-        if not cleaned:
+        if not cleaned or cleaned.startswith("**"):
             return cleaned
 
-        if cleaned.startswith("**"):
-            return cleaned
-
-        if " — " in cleaned:
-            left, right = cleaned.split(" — ", 1)
-            return f"**{left.strip()}** — {right.strip()}"
-
-        if " - " in cleaned:
-            left, right = cleaned.split(" - ", 1)
-            return f"**{left.strip()}** - {right.strip()}"
+        for separator in (" — ", " - "):
+            if separator in cleaned:
+                left, right = cleaned.split(separator, 1)
+                return f'[{left.strip()}]{{custom-style="education-title"}}{separator}{right.strip()}'
 
         return cleaned
-
-    def normalize_tel_url(url: str) -> str:
-        """Purpose: Execute normalize tel url for this module's workflow.
-        
-        Inputs:
-        - url: See type hints and call site for expected value.
-        
-        Returns:
-        - `str` value representing the operation result.
-        """
-        phone = url[4:]
-        phone = phone.replace("%2B", "+").replace("%2b", "+")
-        return phone
 
     def normalize_candidate_contact_text(text: str) -> str:
         """Ensure phone values are explicit text, not tel links."""
         pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 
         def repl(match: re.Match[str]) -> str:
-            """Purpose: Execute repl for this module's workflow.
-            
-            Inputs:
-            - match: See type hints and call site for expected value.
-            
-            Returns:
-            - `str` value representing the operation result.
-            """
+            """Rewrite one contact link: show emails as their address, unwrap tel links."""
             label = match.group(1).strip()
             url = match.group(2).strip()
             if url.lower().startswith("mailto:"):
@@ -153,7 +112,7 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
                 return match.group(0)
 
             if url.lower().startswith("tel:"):
-                phone = normalize_tel_url(url)
+                phone = url[4:].replace("%2B", "+").replace("%2b", "+")
                 if any(ch.isdigit() for ch in label):
                     return label
                 return phone
@@ -172,15 +131,7 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         return payload
 
     def extract_first_tag_payload(line_text: str, tags: list[str]) -> str | None:
-        """Purpose: Execute extract first tag payload for this module's workflow.
-        
-        Inputs:
-        - line_text: See type hints and call site for expected value.
-        - tags: See type hints and call site for expected value.
-        
-        Returns:
-        - `str | None` value representing the operation result.
-        """
+        """Return the payload of the first matching tag alias, or None."""
         for tag in tags:
             payload = extract_tag_payload(line_text, tag)
             if payload is not None:
@@ -188,315 +139,61 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
         return None
 
     def strip_heading_markers(text: str) -> str:
-        """Purpose: Execute strip heading markers for this module's workflow.
-        
-        Inputs:
-        - text: See type hints and call site for expected value.
-        
-        Returns:
-        - `str` value representing the operation result.
-        """
+        """Remove leading markdown heading hashes."""
         return re.sub(r"^#+\s*", "", text).strip()
 
-    def emit_pdf_centered_with_links(tag: str, text: str) -> list[str]:
-        """Purpose: Execute emit pdf centered with links for this module's workflow.
-        
-        Inputs:
-        - tag: See type hints and call site for expected value.
-        - text: See type hints and call site for expected value.
-        
-        Returns:
-        - `list[str]` value representing the operation result.
-        """
-        style = pdf_tag_styles[tag]
-        parts: list[str] = []
-        text = normalize_candidate_contact_text(text)
-        pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
-        cursor = 0
+    def flush_requirements() -> None:
+        """Emit collected requirement items as one styled list."""
+        if requirements_items:
+            body = "\n".join(f"- {item}" for item in requirements_items)
+            transformed_lines.extend(styled_block("requirements-list", body))
+            requirements_items.clear()
 
-        for match in pattern.finditer(text):
-            prefix = text[cursor : match.start()]
-            if prefix:
-                parts.append(f"#text(\"{typst_escape(prefix)}\")")
-
-            label = typst_escape(match.group(1))
-            raw_url = match.group(2)
-            is_mailto = raw_url.lower().startswith("mailto:")
-            if raw_url.lower().startswith("mailto:"):
-                raw_url = raw_url.replace("@", "%40")
-            url = typst_escape(raw_url)
-            if is_mailto:
-                # Keep email clickable, but use normal text styling.
-                parts.append(f"#link(\"{url}\")[#text(\"{label}\")]")
-            else:
-                # Social/web links remain visibly clickable.
-                parts.append(
-                    f"#link(\"{url}\")[#underline[#text(fill: rgb(\"#0563C1\"))[#text(\"{label}\")]]]"
-                )
-            cursor = match.end()
-
-        suffix = text[cursor:]
-        if suffix:
-            parts.append(f"#text(\"{typst_escape(suffix)}\")")
-
-        if not parts:
-            parts = [f"#text(\"{typst_escape(text)}\")"]
-
-        return [
-            "```{=typst}",
-            "#align(center)[",
-            f"  #set text({style['size']}, weight: \"{style['weight']}\")",
-            "  " + " ".join(parts),
-            "]",
-            "#parbreak()",
-            "```",
-            "",
-        ]
-
-    def emit_pdf_centered(tag: str, text: str) -> list[str]:
-        """Purpose: Execute emit pdf centered for this module's workflow.
-        
-        Inputs:
-        - tag: See type hints and call site for expected value.
-        - text: See type hints and call site for expected value.
-        
-        Returns:
-        - `list[str]` value representing the operation result.
-        """
-        style = pdf_tag_styles[tag]
-        escaped_text = typst_escape(text)
-        return [
-            "```{=typst}",
-            "#align(center)[",
-            f"  #set text({style['size']}, weight: \"{style['weight']}\")",
-            f"  #text(\"{escaped_text}\")",
-            "]",
-            "#parbreak()",
-            "```",
-            "",
-        ]
-
-    def emit_pdf_section_heading(text: str) -> list[str]:
-        """Purpose: Execute emit pdf section heading for this module's workflow.
-        
-        Inputs:
-        - text: See type hints and call site for expected value.
-        
-        Returns:
-        - `list[str]` value representing the operation result.
-        """
-        escaped_text = typst_escape(text)
-        return [
-            "```{=typst}",
-            f"#text(12pt, weight: \"bold\")[{escaped_text}]",
-            "#parbreak()",
-            "```",
-            "",
-        ]
-
-    def emit_pdf_role_heading(text: str) -> list[str]:
-        """Purpose: Execute emit pdf role heading for this module's workflow.
-        
-        Inputs:
-        - text: See type hints and call site for expected value.
-        
-        Returns:
-        - `list[str]` value representing the operation result.
-        """
-        escaped_text = typst_escape(text)
-        return [
-            "```{=typst}",
-            f"#text(10pt, weight: \"bold\")[{escaped_text}]",
-            "#parbreak()",
-            "```",
-            "",
-        ]
-
-    def emit_pdf_date_range(text: str) -> list[str]:
-        """Purpose: Execute emit pdf date range for this module's workflow.
-        
-        Inputs:
-        - text: See type hints and call site for expected value.
-        
-        Returns:
-        - `list[str]` value representing the operation result.
-        """
-        parts: list[str] = []
-        pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
-        cursor = 0
-
-        for match in pattern.finditer(text):
-            prefix = text[cursor : match.start()]
-            if prefix:
-                parts.append(f"#text(\"{typst_escape(prefix)}\")")
-
-            label = typst_escape(match.group(1))
-            url = typst_escape(match.group(2))
-            parts.append(
-                f"#link(\"{url}\")[#underline[#text(fill: rgb(\"#0563C1\"))[#text(\"{label}\")]]]"
-            )
-            cursor = match.end()
-
-        suffix = text[cursor:]
-        if suffix:
-            parts.append(f"#text(\"{typst_escape(suffix)}\")")
-
-        if not parts:
-            parts = [f"#text(\"{typst_escape(text)}\")"]
-
-        return [
-            "```{=typst}",
-            "#set text(9pt)",
-            " ".join(parts),
-            "#parbreak()",
-            "```",
-            "",
-        ]
-
-    def emit_pdf_role_requirements_heading(text: str) -> list[str]:
-        """Purpose: Execute emit pdf role requirements heading for this module's workflow.
-        
-        Inputs:
-        - text: See type hints and call site for expected value.
-        
-        Returns:
-        - `list[str]` value representing the operation result.
-        """
-        escaped_text = typst_escape(text)
-        return [
-            "```{=typst}",
-            f"#text(9pt, weight: \"bold\")[{escaped_text}]",
-            "#parbreak()",
-            "```",
-            "",
-        ]
-
-    def split_frontloaded_bold(text: str) -> tuple[str | None, str]:
-        """Purpose: Execute split frontloaded bold for this module's workflow.
-        
-        Inputs:
-        - text: See type hints and call site for expected value.
-        
-        Returns:
-        - `tuple[str | None, str]` value representing the operation result.
-        """
-        match = re.match(r"^\*\*(.+?)\*\*\s*(.*)$", text)
-        if not match:
-            return None, text
-        return match.group(1).strip(), match.group(2).strip()
-
-    def emit_pdf_summary_paragraph(text: str) -> list[str]:
-        """Purpose: Execute emit pdf summary paragraph for this module's workflow.
-        
-        Inputs:
-        - text: See type hints and call site for expected value.
-        
-        Returns:
-        - `list[str]` value representing the operation result.
-        """
-        lead, rest = split_frontloaded_bold(text)
-        rest_content = typst_content_escape(rest)
-        if lead:
-            lead_content = typst_content_escape(lead)
-            summary_content = (
-                f"#strong[{lead_content}]"
-                + (f" {rest_content}" if rest_content else "")
-            )
-        else:
-            summary_content = typst_content_escape(text)
-
-        return [
-            "```{=typst}",
-            f"#text(10pt)[#emph[{summary_content}]]",
-            "#parbreak()",
-            "```",
-            "",
-        ]
-
-    def emit_pdf_role_requirements_item(text: str) -> list[str]:
-        """Purpose: Execute emit pdf role requirements item for this module's workflow.
-        
-        Inputs:
-        - text: See type hints and call site for expected value.
-        
-        Returns:
-        - `list[str]` value representing the operation result.
-        """
-        item_text = text[1:].strip() if text.startswith("-") else text
-        lead, rest = split_frontloaded_bold(item_text)
-        if lead:
-            lead_content = typst_content_escape(lead)
-            rest_content = typst_content_escape(rest)
-            item_content = f"#strong[{lead_content}]" + (f" {rest_content}" if rest_content else "")
-        else:
-            item_content = typst_content_escape(item_text)
-
-        return [
-            "```{=typst}",
-            "#set text(9pt)",
-            "#table(",
-            "  columns: (auto, 1fr),",
-            "  inset: 0pt,",
-            "  stroke: none,",
-            "  column-gutter: 0.45em,",
-            "  [•],",
-            f"  [{item_content}],",
-            ")",
-            "#parbreak()",
-            "```",
-        ]
+    # (tag aliases, style name, payload clean-up)
+    styled_tags: list[tuple[list[str], str, object]] = [
+        (["candidate_name", "name"], "candidate-name", None),
+        (["candidate_title", "title"], "candidate-title", None),
+        (["candidate_contact", "contact"], "candidate-contact", normalize_candidate_contact_text),
+        (["keywords", "keyword"], "keywords", normalize_plain_text_markdown),
+        (["section_heading", "section"], "section-heading", strip_heading_markers),
+        (["role_heading", "role"], "role-heading", strip_heading_markers),
+        (["date_range", "date"], "date-range", normalize_date_text),
+        (["summary_paragraph", "summary"], "summary-item", normalize_summary_markdown),
+        (
+            ["role_requirements_heading", "requirements_heading"],
+            "requirements-heading",
+            strip_heading_markers,
+        ),
+    ]
+    list_tags = ["bullet_primary", "bullet_secondary", "project_item"]
 
     for line in markdown_text.splitlines():
         stripped = line.strip()
 
-        name_text = extract_first_tag_payload(stripped, ["candidate_name", "name"])
-        if name_text is not None:
-            if name_text:
-                if target == "pdf":
-                    transformed_lines.extend(emit_pdf_centered("candidate_name", name_text))
-                else:
-                    transformed_lines.append(f"# {name_text}")
+        item_text = extract_first_tag_payload(stripped, ["role_requirements_item", "requirements_item"])
+        if item_text is not None:
+            item_text = item_text[1:].strip() if item_text.startswith("-") else item_text
+            if item_text:
+                requirements_items.append(item_text)
+            continue
+        flush_requirements()
+
+        handled = False
+        for aliases, style, clean in styled_tags:
+            payload = extract_first_tag_payload(stripped, aliases)
+            if payload is None:
+                continue
+            payload = clean(payload) if clean else payload
+            if payload:
+                transformed_lines.extend(styled_block(style, payload))
+            handled = True
+            break
+        if handled:
             continue
 
-        title_text = extract_first_tag_payload(stripped, ["candidate_title", "title"])
-        if title_text is not None:
-            if title_text:
-                if target == "pdf":
-                    transformed_lines.extend(emit_pdf_centered("candidate_title", title_text))
-                else:
-                    transformed_lines.append(f"**{title_text}**")
-            continue
-
-        contact_text = extract_first_tag_payload(stripped, ["candidate_contact", "contact"])
-        if contact_text is not None:
-            if contact_text:
-                contact_text = normalize_candidate_contact_text(contact_text)
-                if target == "pdf":
-                    transformed_lines.extend(emit_pdf_centered_with_links("candidate_contact", contact_text))
-                else:
-                    transformed_lines.append(contact_text)
-            continue
-
-        keywords_text = extract_first_tag_payload(stripped, ["keywords", "keyword"])
-        if keywords_text is not None:
-            keywords_text = normalize_plain_text_markdown(keywords_text)
-            transformed_lines.append(keywords_text)
-            transformed_lines.append("")
-            continue
-
-        bullet_primary_text = extract_tag_payload(stripped, "bullet_primary")
-        if bullet_primary_text is not None:
-            transformed_lines.append(f"- {bullet_primary_text}")
-            continue
-
-        bullet_secondary_text = extract_tag_payload(stripped, "bullet_secondary")
-        if bullet_secondary_text is not None:
-            transformed_lines.append(f"- {bullet_secondary_text}")
-            continue
-
-        project_item_text = extract_tag_payload(stripped, "project_item")
-        if project_item_text is not None:
-            transformed_lines.append(f"- {project_item_text}")
+        list_text = extract_first_tag_payload(stripped, list_tags)
+        if list_text is not None:
+            transformed_lines.append(f"- {list_text}")
             continue
 
         education_item_text = extract_tag_payload(stripped, "education_item")
@@ -504,69 +201,9 @@ def apply_semantic_tag_formatting(markdown_text: str, target: str = "generic") -
             transformed_lines.append(f"- {normalize_education_item_text(education_item_text)}")
             continue
 
-        section_text = extract_first_tag_payload(stripped, ["section_heading", "section"])
-
-        if section_text is not None:
-            heading_text = strip_heading_markers(section_text)
-            if target == "pdf":
-                transformed_lines.extend(emit_pdf_section_heading(heading_text))
-            else:
-                transformed_lines.append(f"**{heading_text}**")
-            continue
-
-        role_text = extract_first_tag_payload(stripped, ["role_heading", "role"])
-        if role_text is not None:
-            role_text = strip_heading_markers(role_text)
-            if target == "pdf":
-                transformed_lines.extend(emit_pdf_role_heading(role_text))
-            else:
-                transformed_lines.append(f"**{role_text}**")
-            continue
-
-        date_text = extract_first_tag_payload(stripped, ["date_range", "date"])
-        if date_text is not None:
-            date_text = normalize_date_text(date_text)
-            if target == "pdf":
-                transformed_lines.extend(emit_pdf_date_range(date_text))
-            else:
-                transformed_lines.append(date_text)
-            continue
-
-        summary_text = extract_first_tag_payload(stripped, ["summary_paragraph", "summary"])
-        if summary_text is not None:
-            summary_text = normalize_summary_markdown(summary_text)
-            if target == "pdf":
-                transformed_lines.extend(emit_pdf_summary_paragraph(summary_text))
-            else:
-                transformed_lines.append(f"*{summary_text}*")
-                transformed_lines.append("")
-            continue
-
-        requirements_heading_text = extract_first_tag_payload(
-            stripped,
-            ["role_requirements_heading", "requirements_heading"],
-        )
-        if requirements_heading_text is not None:
-            heading_text = re.sub(r"^#+\s*", "", requirements_heading_text)
-            if target == "pdf":
-                transformed_lines.extend(emit_pdf_role_requirements_heading(heading_text))
-            else:
-                transformed_lines.append(f"**{heading_text}**")
-                transformed_lines.append("")
-            continue
-
-        item_text = extract_first_tag_payload(stripped, ["role_requirements_item", "requirements_item"])
-        if item_text is not None:
-            if target == "pdf":
-                transformed_lines.extend(emit_pdf_role_requirements_item(item_text))
-            elif item_text.startswith("-"):
-                transformed_lines.append(item_text)
-            else:
-                transformed_lines.append(f"- {item_text}")
-            continue
-
         transformed_lines.append(line)
 
+    flush_requirements()
     return "\n".join(transformed_lines)
 
 
@@ -615,9 +252,27 @@ def choose_font(preferred_fonts: list[str]) -> str:
     return preferred_fonts[0]
 
 
-def compile_pdf(markdown_file: Path, output_pdf: Path, font_name: str) -> bool:
+def typst_theme_files(theme: str | None) -> list[Path]:
+    """Return the Typst theme files to include: default.typ, then the preset if any."""
+    files = [DEFAULT_TYPST_THEME]
+    name = (theme or "").strip()
+    if not name or name == "default":
+        return files
+
+    preset = THEMES_DIR / f"{name}.typ"
+    if preset.is_file():
+        files.append(preset)
+    else:
+        print(f"Unknown theme preset '{name}'; using the default theme.", file=sys.stderr)
+    return files
+
+
+def compile_pdf(markdown_file: Path, output_pdf: Path, font_name: str, theme: str | None = None) -> bool:
     """Compile markdown to PDF using Pandoc with Typst engine when available."""
     if shutil.which("pandoc") and shutil.which("typst"):
+        theme_args: list[str] = []
+        for theme_file in typst_theme_files(theme):
+            theme_args.extend(["--include-before-body", str(theme_file)])
         try:
             subprocess.run(
                 [
@@ -626,6 +281,9 @@ def compile_pdf(markdown_file: Path, output_pdf: Path, font_name: str) -> bool:
                     "-o",
                     str(output_pdf),
                     "--pdf-engine=typst",
+                    "--lua-filter",
+                    str(STYLES_FILTER),
+                    *theme_args,
                     "-V",
                     f"mainfont={font_name}",
                     "-V",
@@ -652,12 +310,40 @@ def compile_pdf(markdown_file: Path, output_pdf: Path, font_name: str) -> bool:
     return False
 
 
+def build_docx_reference(reference_docx: Path) -> bool:
+    """Write pandoc's default reference.docx with themes/docx-styles.xml merged in."""
+    try:
+        default_reference = subprocess.run(
+            ["pandoc", "--print-default-data-file", "reference.docx"],
+            check=True,
+            capture_output=True,
+        ).stdout
+    except subprocess.CalledProcessError as exc:
+        print(f"Could not read pandoc's default reference.docx: {exc}", file=sys.stderr)
+        return False
+
+    extra_styles = re.sub(r"<!--.*?-->", "", DOCX_STYLES.read_text(encoding="utf-8"), flags=re.DOTALL)
+
+    with zipfile.ZipFile(io.BytesIO(default_reference)) as source, zipfile.ZipFile(
+        reference_docx, "w", zipfile.ZIP_DEFLATED
+    ) as target:
+        for item in source.infolist():
+            data = source.read(item.filename)
+            if item.filename == "word/styles.xml":
+                styles = data.decode("utf-8")
+                data = styles.replace("</w:styles>", extra_styles.strip() + "\n</w:styles>").encode("utf-8")
+            target.writestr(item, data)
+    return True
+
+
 def compile_docx(markdown_file: Path, output_docx: Path, font_name: str) -> bool:
-    """Compile markdown to DOCX using Pandoc."""
+    """Compile markdown to DOCX using Pandoc and the themed reference document."""
     if not shutil.which("pandoc"):
         return False
 
     page_margin = "1.5cm"
+    reference_docx = output_docx.with_name("reference.docx")
+    reference_args = ["--reference-doc", str(reference_docx)] if build_docx_reference(reference_docx) else []
 
     try:
         subprocess.run(
@@ -666,6 +352,7 @@ def compile_docx(markdown_file: Path, output_docx: Path, font_name: str) -> bool
                 str(markdown_file),
                 "-o",
                 str(output_docx),
+                *reference_args,
                 "-V",
                 f"mainfont={font_name}",
                 "-V",
@@ -696,11 +383,13 @@ def convert_markdown_outputs(
     output_docx: Path,
     sanitized_markdown_path: Path | None = None,
     pdf_only: bool = False,
+    theme: str | None = None,
 ) -> ConversionResult:
     """Convert a markdown CV to PDF and DOCX outputs.
 
-    If leading YAML frontmatter is present, a sanitized markdown file is generated
-    for export stability while preserving the original markdown input.
+    The tagged markdown becomes one semantic export file (front matter stripped)
+    that both outputs compile from; the looks come from themes/. `theme` names a
+    PDF preset in themes/ (default: the CV_THEME env var, else the default theme).
     """
     if not markdown_path.exists():
         raise FileNotFoundError(f"Markdown file not found: {markdown_path}")
@@ -710,35 +399,30 @@ def convert_markdown_outputs(
     if not preferred_fonts:
         preferred_fonts = ["Calibri", "Arial", "Helvetica"]
     chosen_font = choose_font(preferred_fonts)
+    if theme is None:
+        theme = os.environ.get("CV_THEME")
 
     markdown_text = markdown_path.read_text(encoding="utf-8")
 
-    pdf_markdown_text = apply_semantic_tag_formatting(markdown_text, target="pdf")
-    pdf_export_text, pdf_stripped_frontmatter = strip_yaml_frontmatter(pdf_markdown_text)
-    # Force uniform page margins for Typst-generated PDFs.
-    pdf_margin_header = "```{=typst}\n#set page(margin: 1.5cm)\n```\n\n"
-    pdf_export_text = pdf_margin_header + pdf_export_text
-    pdf_export_path = sanitized_markdown_path or markdown_path.with_suffix(".export.md")
-    pdf_export_path.parent.mkdir(parents=True, exist_ok=True)
+    semantic_text = apply_semantic_tag_formatting(markdown_text)
+    export_text, stripped_frontmatter = strip_yaml_frontmatter(semantic_text)
+    export_path = sanitized_markdown_path or markdown_path.with_suffix(".export.md")
+    export_path.parent.mkdir(parents=True, exist_ok=True)
     output_pdf.parent.mkdir(parents=True, exist_ok=True)
     output_docx.parent.mkdir(parents=True, exist_ok=True)
-    pdf_export_path.write_text(pdf_export_text + "\n", encoding="utf-8")
+    export_path.write_text(export_text + "\n", encoding="utf-8")
 
-    pdf_ok = compile_pdf(pdf_export_path, output_pdf, chosen_font)
+    pdf_ok = compile_pdf(export_path, output_pdf, chosen_font, theme)
 
     docx_ok = False
     if not pdf_only:
-        docx_markdown_text = apply_semantic_tag_formatting(markdown_text, target="docx")
-        docx_export_text, _ = strip_yaml_frontmatter(docx_markdown_text)
-        docx_export_path = markdown_path.with_suffix(".docx.export.md")
-        docx_export_path.write_text(docx_export_text + "\n", encoding="utf-8")
-        docx_ok = compile_docx(docx_export_path, output_docx, chosen_font)
+        docx_ok = compile_docx(export_path, output_docx, chosen_font)
 
     return ConversionResult(
         pdf_ok=pdf_ok,
         docx_ok=docx_ok,
-        export_markdown_path=pdf_export_path,
-        used_sanitized_markdown=pdf_stripped_frontmatter,
+        export_markdown_path=export_path,
+        used_sanitized_markdown=stripped_frontmatter,
         chosen_font=chosen_font,
     )
 
@@ -781,6 +465,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Generate only PDF output (skip DOCX conversion)",
     )
+    parser.add_argument(
+        "--theme",
+        default=None,
+        help="PDF theme preset in themes/ layered on default.typ, e.g. compact (default: $CV_THEME)",
+    )
     return parser.parse_args()
 
 
@@ -806,6 +495,7 @@ def main() -> None:
             output_docx=output_docx,
             sanitized_markdown_path=sanitized_markdown,
             pdf_only=args.pdf_only,
+            theme=args.theme,
         )
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)

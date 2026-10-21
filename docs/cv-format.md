@@ -90,11 +90,27 @@ Section order and headings are hard-coded here. Reordering or renaming sections 
 
 ## 5. Conversion (`cv_convert.py`)
 
-- `apply_semantic_tag_formatting(text, target="pdf"|"docx")` maps tags to output. For the PDF it emits raw Typst
-  blocks (centred 18pt name, styled summary and requirement lines, links). For the DOCX it emits plain markdown. Tag
-  aliases are accepted (`name`, `summary`, `requirements_heading`/`_item`).
-- The front matter is stripped. The PDF gets a Typst `#set page(margin: 1.5cm)` header.
-- PDF: `pandoc --pdf-engine=typst` (plain `pandoc` fallback). DOCX: `pandoc`. The font is the first installed
-  font from `CV_FONT_PRIORITY` (default `Calibri,Arial,Helvetica`).
-- Intermediates: `tailored.export.md` (PDF), `tailored.docx.export.md` (DOCX).
-- Styling is in Python string templates. There is no separate template or theme file.
+- `apply_semantic_tag_formatting(text)` turns tags into **semantic markup only**: a pandoc fenced div
+  `::: {custom-style="<name>"}` per styled line, or a `[…]{custom-style="<name>"}` span. It also does text
+  clean-up (contact `tel:`/`mailto:` links, the `Dates:`/`Keywords:` labels, stray italics in summaries). Tag aliases
+  are accepted (`name`, `summary`, `requirements_heading`/`_item`). Both the PDF and the DOCX compile from the one
+  export file, `tailored.export.md` (front matter stripped).
+- Style names: `candidate-name`, `candidate-title`, `candidate-contact`, `section-heading`, `summary-item`,
+  `requirements-heading`, `requirements-list` (a div around the requirement bullets), `role-heading`, `date-range`,
+  `keywords`, and `education-title` (span). Role and project bullets and untagged lines are plain markdown.
+- **Looks live in `themes/`, not code:**
+
+| File | Role |
+|---|---|
+| `themes/styles.lua` | Pandoc Lua filter (Typst only): wraps each styled div/span in `#cv-style("<name>")[…]` |
+| `themes/default.typ` | PDF theme, passed with `--include-before-body` (it must follow the template's `conf` rule, so not `-H`). `cv-theme` holds the sizes, margin and link colour; `cv-styles` maps each name to a look; unknown names render as body text. Also sets the page (margin, footer) and 9pt body text |
+| `themes/compact.typ` | Preset layered after `default.typ`: overrides some `cv-theme` entries, then rebuilds `cv-style` and re-applies `cv-base` (Typst closures capture bindings when defined, so overriding the dict alone does nothing) |
+| `themes/docx-styles.xml` | Word `<w:style>` entries merged into pandoc's default `reference.docx` at render time (`build_docx_reference` → `output/reference.docx`). DOCX is second-class: it keeps the pre-theme plain look. Lists can't take a custom style in DOCX, so bullets stay `Compact` |
+
+- Choose a preset with `cv_convert.py --theme compact` or the `CV_THEME` env var. An unknown name warns and falls back
+  to the default.
+- PDF: `pandoc --pdf-engine=typst --lua-filter themes/styles.lua --include-before-body themes/<theme>.typ` (plain
+  `pandoc` fallback, unstyled). DOCX: `pandoc --reference-doc`. The font is the first installed font from
+  `CV_FONT_PRIORITY` (default `Calibri,Arial,Helvetica`).
+- Checking a look change: render with `pandoc … -t typst -s` (same filter and theme), then
+  `typst compile x.typ "x-{p}.png"` and `compare -metric AE` (ImageMagick) against a previous render.

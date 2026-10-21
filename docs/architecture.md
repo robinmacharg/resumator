@@ -6,7 +6,7 @@
 |---|---|
 | `generate_cv.py` | CV pipeline CLI: read inputs → build prompt → backend attempts with model fallback → extract and validate JSON → render tagged markdown → call `cv_convert` |
 | `cv_source.py` | Master CV source format: parse → dict, comment-stripped prompt text, elided phrases, linter CLI ([cv-source-format.md](cv-source-format.md)). Not yet wired into the pipeline |
-| `cv_convert.py` | Tagged markdown → PDF (pandoc + typst) and DOCX (pandoc). Also a standalone CLI (the "format only" run) |
+| `cv_convert.py` | Tagged markdown → semantic markdown → PDF (pandoc + typst) and DOCX (pandoc). Looks come from `themes/` ([cv-format.md §5](cv-format.md#5-conversion-cv_convertpy)). Also a standalone CLI (the "format only" run) |
 | `research_role.py` | Research pipeline CLI: research prompt + company + URLs + CV + job spec → backend → `research_output.md/.json` |
 | `research_format.py` | Normalises research markdown → `research_output.formatted.{md,pdf}` |
 | `backend_registry.py` | Discovers `backends/*/module.py`, interrogates each, exposes catalog and lookup ([backends.md](backends.md)) |
@@ -31,7 +31,8 @@ input/jobspec.txt┘                                                            
                          ▼ render_tagged_markdown
                   output/tailored.md  (YAML front matter + `[tag] line` markup)
                          ▼ cv_convert.convert_markdown_outputs
-    tailored.export.md → tailored_dev.pdf      tailored.docx.export.md → tailored_dev.docx
+    tailored.export.md (custom-style divs) ─┬─ styles.lua + themes/*.typ ──► tailored_dev.pdf
+                                            └─ reference.docx (+ docx-styles.xml) ──► tailored_dev.docx
 ```
 
 Format details: [cv-format.md](cv-format.md).
@@ -67,6 +68,7 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 
 ## Tests
 
-- `tests/`: unittest coverage for the server helpers, `env_utils` and the `claudecode` backend (with a fake `claude`
-  on PATH). Nothing covers `generate_cv`, `cv_convert`, or the other backends.
+- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_convert` (render tests skip
+  without pandoc/typst) and the `claudecode` backend (with a fake `claude` on PATH). Nothing covers `generate_cv` or
+  the other backends.
 - `cv_web/static/js/__tests__/`: `node --test` coverage of the frontend feature modules.

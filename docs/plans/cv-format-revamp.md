@@ -4,7 +4,7 @@
 a revised generation contract whose output matches the target layout; and styling that lives in theme files rather
 than in code.
 
-**Status:** steps 1–5 done; step 6 spike reviewed. Next: step 6 implementation (theme files). See [Handoff](#handoff).
+**Status:** steps 1–6 done. Next: step 7 (`prompt.md` v2). See [Handoff](#handoff).
 
 ## Why
 
@@ -116,7 +116,7 @@ Recorded from the brief so later steps can check against it.
 | 3 | Review gate: format and conversion reviewed, questions answered | D3, D4, D7–D10 | done |
 | 4 | Claude Code backend: `backends/claudecode/module.py` (`claude -p`, JSON output, model selection, tools off) plus a smoke test. Baseline: run the current pipeline on Claude and compare with the existing `tailored_dev.pdf` | Second backend, baseline comparison | done |
 | 5 | Formalise the source format: `cv_source.py` (stdlib parse → dict, strip comments, collect elided phrases, apply directives, lint required fields, date forms, `TODO`s and unknown keys) plus tests; finalise the spec; `input/import_prompt.md` from the import rules | Parser, linter, spec | done |
-| 6 | Styling: spike how pandoc carries named styles (fenced divs/spans with `custom-style`: DOCX supports them natively; Typst probably needs a small pandoc Lua filter mapping them to theme functions). Then move all current looks into `themes/default.typ` + `themes/docx-styles.xml` (D13), and add one compact preset | Theme files; `cv_convert` emits no styling | todo |
+| 6 | Styling: spike how pandoc carries named styles (fenced divs/spans with `custom-style`: DOCX supports them natively; Typst probably needs a small pandoc Lua filter mapping them to theme functions). Then move all current looks into `themes/default.typ` + `themes/docx-styles.xml` (D13), and add one compact preset | Theme files; `cv_convert` emits no styling | done |
 | 7 | `prompt.md` v2. **Input contract:** replace the stale "Input Contract" block (it describes `—` separators and `subsection:` labels) with a short description of the new source format: sections, entries, fields, elision means context-only (D3), comments already stripped, directives, `TODO`. **Output contract:** rewrite per the gap table. Also add the steering rule (D11). Then update `validate_and_normalize_payload` and `render_tagged_markdown` (semantic names from step 6); add tests for the validator and renderer | Revised contract | todo |
 | 8 | Wire the pipeline: `generate_cv` parses the source, sends it (comments stripped) plus computed facts (today, 10-year cutoff, directives) to the model; elision check and page count after render (read the PDF's `/Pages /Count`; counting `/Type /Page` markers over-counts). Steering (D11): read `input/steering.md` if present, append the section, record the text as `metadata.steering` in `tailored.model.json`. No UI or `EDITOR_FILES` changes | End-to-end run | todo |
 | 9 | Swap in: replace `input/CV.md` with the reviewed v2 (back up the old one); run the full pipeline on Claude against the current job spec; compare with the step 4 baselines | Real output | todo |
@@ -128,27 +128,18 @@ Recorded from the brief so later steps can check against it.
 
 For the next session. Read this section, the Decisions table and the step you're on; skip the Log unless needed.
 
-- **Branch:** `improvement/20261021-integrate-claude-revamp-cv-format` (off `develop`). Steps 1–5 committed.
+- **Branch:** `improvement/20261021-integrate-claude-revamp-cv-format` (off `develop`). Steps 1–6 committed.
 - **Input edits:** the user committed their `input/` edits (jobspec, prompt, research files) in `4d04545`. Their
   `prompt.md` edit (the stale "Input Contract" block) is what step 7 replaces.
 - **Working agreement:** stop and report after each step; update the docs in the same step
   ([AGENTS.md](../../AGENTS.md) "Doc upkeep"); add a Log line; commit only when asked. No UI changes unless asked.
-- **Next: step 6 implementation.** The spike is reviewed (D13, D14). Make `cv_convert.apply_semantic_tag_formatting`
-  emit only `custom-style` divs/spans, and add `themes/styles.lua`, `themes/default.typ`, one compact preset and
-  `themes/docx-styles.xml`. Pin the footer page-number size and keep the education title bold. Verify with a PNG
-  diff against today's render; the only differences allowed are the D14 spacing. The prototype is in the session
-  scratchpad, which won't survive, so rebuild it from the notes below.
-- **Spike results (step 6):**
-  - Typst ignores `custom-style`, so a Lua filter (`themes/styles.lua`) wraps each styled div/span in
-    `#cv-style("name")[…]`. The theme (`-B themes/default.typ`, which must come *after* the template's `conf` show
-    rule, so not `-H`) holds a `cv-styles` dict; unknown names fall back to plain text.
-  - Today's body is 9pt only because raw `#set text(9pt)` blocks leak document-wide; the theme states it outright.
-  - Typst closures capture bindings at definition time, so a preset that overrides styles must redefine `cv-style`
-    as well, or the theme should read its sizes from one overridable dict. Layer presets with repeated `-B`.
-  - DOCX: div → paragraph style and span → character style (auto-created if missing). A div around a list does
-    **not** restyle the list items (they stay `Compact`).
-  - Compare with `typst compile x.typ "x-{p}.png"` plus `compare -metric AE` (ImageMagick). This works around the
-    missing `pdftoppm`.
+- **Step 6 result:** `cv_convert` emits `custom-style` divs/spans only; the looks are in `themes/` (`styles.lua`,
+  `default.typ`, `compact.typ`, `docx-styles.xml`). The full spec, style names and PNG-diff recipe are in
+  [cv-format.md §5](../cv-format.md#5-conversion-cv_convertpy).
+- **Next: step 7.** `render_tagged_markdown` still emits the old `[tag]` lines that `cv_convert` maps to style names.
+  When the v2 contract adds elements (headline, earlier-career intro, skills groups), give each a style name in
+  `apply_semantic_tag_formatting` plus an entry in `default.typ` (`test_every_emitted_style_has_a_typst_look` checks
+  this) and, if needed, `docx-styles.xml`.
 - **For step 8 (from step 5):** `cv_source.parse_cv_source` gives `prompt_text`, `directives` and `elided`
   (`{text, line, scope}`). Phrase-scope elisions can be single common words ("three"), so the post-generation check
   should match whole entries/fields/bullets strictly and treat short phrases as warnings only, or skip them.
@@ -202,3 +193,10 @@ None outstanding. New ones go here as steps raise them.
 - 2026-10-21 · Step 6 review · User approved the spike. DOCX styling goes in a text `themes/docx-styles.xml`
   because PDF is the primary format (D13). The tidier spacing is accepted (D14), and DOCX keeps today's look for
   now.
+- 2026-10-21 · Step 6 · Rewrote `apply_semantic_tag_formatting` to emit semantic markup only, with one export file
+  for both formats (`tailored.docx.export.md` dropped, also from `ALLOWED_OUTPUT_FILES`). Added `themes/` and
+  `--theme`/`CV_THEME`. Requirement items became one `requirements-list` div; the theme draws its items as the old
+  bullet tables. PNG diff against the old render: page 2 identical; page 1 differs only in the D14 spacing plus 9
+  anti-aliasing pixels. Both renders are 2 pages, and compact is also 2 on this CV. The DOCX now puts the title and
+  contact lines in separate paragraphs (the old output merged them into one). Added
+  `tests/test_cv_convert.py` (17 tests; 80/80 pass). Docs: cv-format.md §5, architecture.md, gaps.md, AGENTS.md.

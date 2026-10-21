@@ -71,6 +71,8 @@ Suggested shape:
 - `model_providers.json` defaults have drifted from the module defaults (gemini: `3.5-flash-lite` vs `2.5-flash`).
 - `backend_registry` re-imports and re-interrogates every backend on each call (including the bridge health check).
   Consider a short TTL cache.
-- Tests: nothing covers `validate_and_normalize_payload`, `render_tagged_markdown`, `cv_convert`, or the backends
+- Tests: nothing covers `validate_and_normalize_payload`, `render_tagged_markdown`, or the backends
   (except `claudecode`).
 - `gemini-code-*.py` and `curl.sh` at the root are scratch files.
+- DOCX keeps its plain pre-theme look and doesn't mirror the PDF (`themes/docx-styles.xml`). Low priority: PDF is the
+  primary output.

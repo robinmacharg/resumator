@@ -115,7 +115,6 @@ ALLOWED_OUTPUT_FILES = {
     "tailored_dev.docx",
     "tailored.md",
     "tailored.export.md",
-    "tailored.docx.export.md",
     "research_output.formatted.md",
     "research_output.formatted.pdf",
 }
