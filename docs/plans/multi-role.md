@@ -8,8 +8,8 @@ demand.
 **Status:** IN PROGRESS. Design agreed (R1–R21). Stage S1 (steps 1–5) done: spike, `cv_web/store.py`, `cv_merge.py`,
 `cv_convert.render_cv`, `--io json` pipe mode. S2 steps 6–8 done: `cv_web/role_runner.py`, the migration (run on this
 install), and the role API (`cv_web/server_roles.py`). Step 9 (the UI) is done, so S2 is complete. S3 (steps 10–11:
-promote and pull, version history and import) is done. S4 steps 12–13 (first-run flow, role-mode CLI) are done; next is
-step 14 (docs).
+promote and pull, version history and import) is done. S4 (steps 12–14: first-run flow, role-mode CLI, docs) is done, so the
+multi-role build is complete. S5 (steps 15–18, token efficiency) is the follow-up.
 Work happens on branch `feature/20261021-multi-role` (from `develop`).
 
 **Files:** this one holds the status, steps and Handoff (read it every session). The design (decisions R1–R21,
@@ -53,7 +53,7 @@ Each stage ends with the app working and tests passing. One-shot CLI behaviour i
 |---|---|---|---|
 | 12 | First-run flow: example data or blank (R3) | First run | done |
 | 13 | Role-mode CLI: `python3 -m resumator --role … --action cv|research|render|list|create|backup` | CLI | done |
-| 14 | Docs: architecture, cv-format, AGENTS.md, gaps; retire the single-file assumptions | Docs in sync | todo |
+| 14 | Docs: architecture, cv-format, AGENTS.md, gaps; retire the single-file assumptions | Docs in sync | done |
 
 **S5 — Token efficiency** (follow-up; measure first, then act on what the numbers show)
 
@@ -100,9 +100,10 @@ in-memory rendering is too slow; the fallback is a private temp directory per re
 
 ## Handoff
 
-For the next session: the design is agreed (R1–R21). Steps 1–13 are done; next is S4, step 14 (docs: architecture,
-cv-format, AGENTS.md, gaps; retire the single-file assumptions). Work on branch `feature/20261021-multi-role`.
-Steps 1–13 are committed (step 13 in "multi-role step 13"). `input/jobspec.txt` has an unrelated uncommitted
+For the next session: the design is agreed (R1–R21). Steps 1–14 are done (S1–S4 complete); next is S5, step 15
+(record token usage per run), a follow-up the user may schedule separately. Work on branch
+`feature/20261021-multi-role`. Steps 1–14 are committed (step 14 in "multi-role step 14"); the branch hasn't been
+merged or pushed. `input/jobspec.txt` has an unrelated uncommitted
 change of the user's: leave it out of commits. The Schema section in multi-role-design.md is what's built.
 
 **This install's DB** (`cv_web/resumator.db`, gitignored) was migrated by the user: master v1 (`import`), role 1
@@ -133,6 +134,10 @@ Headless Chrome (`/Applications/Google Chrome.app`) with `--remote-debugging-por
   research PDF aren't shown (docs/gaps.md). (File mode for an empty DB was replaced in step 12.)
 - Known backend limit (from step 8): `role_runner.run_script` doesn't start a new process session, so research stop
   falls back to `terminate()` of the script; a provider child may outlive it. Mind Ctrl-C for the step 13 CLI.
+
+**Step 14 brought the docs in line** (README, architecture.md "two ways to run" and file contract, cv-format.md,
+gaps.md, AGENTS.md, static ARCHITECTURE.md). Known gaps left for later are in docs/gaps.md: role research output
+and PDF still file-based, past run logs not shown, UI file-mode fallback to remove, merge limits.
 
 **Step 13 gave the role CLI** (`resumator.py`, design doc "CLI (R5)" as built; docs/architecture.md row). For
 step 14: AGENTS.md and architecture.md already list it; README/docs that still describe only the file-based flow

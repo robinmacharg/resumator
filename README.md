@@ -1,8 +1,10 @@
 # Resumator
 
 A local web tool that tailors a master CV to a job spec with an LLM and renders the result as PDF and DOCX. It also
-generates role research and interview prep notes. You can choose between several LLM backends: Claude Code CLI,
-Gemini CLI, OpenAI, Hugging Face, a local Swiftlet server, or Copilot via a VS Code bridge.
+generates role research and interview prep notes. Each job application is a **role** with its own CV copy, job
+spec, steering and run history, kept in a local SQLite database (`cv_web/resumator.db`, not in git). You can choose
+between several LLM backends: Claude Code CLI, Gemini CLI, OpenAI, Hugging Face, a local Swiftlet server, or Copilot
+via a VS Code bridge.
 
 **Docs:** [architecture](docs/architecture.md) · [LLM backends](docs/backends.md) ·
 [CV formats](docs/cv-format.md) · [gaps & roadmap](docs/gaps.md) · [frontend](cv_web/static/ARCHITECTURE.md) ·
@@ -28,18 +30,27 @@ python3 -m venv .venv && source .venv/bin/activate   # optional
 python3 -m cv_web        # → http://127.0.0.1:8765  (Ctrl+C to stop)
 ```
 
-1. Edit the CV, CV Prompt, Job Spec and `.env` in the tabs, then save.
-2. Pick a provider and model, then **Run Full Pipeline**. Progress streams to Logs → Run Log.
-3. Review the Tailored tab (`output/tailored.md`) and the PDF preview (`output/tailored_dev.pdf`).
-4. Research tab: enter the company name and URLs, then run, then format to PDF.
+1. First run: choose **Example data** (a sample CV, role and finished run to look around) or a **Blank master CV**.
+2. Fill in the master CV (the full record of your career; format: [cv-source-format](docs/cv-source-format.md)).
+3. Add a role with **+** in the sidebar: name, company and the job spec. Its CV starts as a copy of the master;
+   edit it freely (for example to leave something out). **Pull from master** / **Promote to master** merge changes
+   either way, entry by entry, and **History** restores older versions.
+4. Pick a provider and model, then **Run Full Pipeline**. Progress streams to Logs → Run Log. Every run is kept:
+   the Run picker chooses which one the PDF preview and Tailored tab show, in the selected theme.
+5. Research tab: run research for the selected role's company.
 
-CLI equivalents are in [AGENTS.md](AGENTS.md#commands-repo-root).
+Role-mode CLI: `python3 -m resumator --action list|create|cv|research|render|…`. The one-shot scripts
+(`generate_cv.py`, `research_role.py`) still work on `input/` and `output/` files without the database. Both are in
+[AGENTS.md](AGENTS.md#commands-repo-root). An install from before roles moves its files in once with
+`python3 -m resumator --action migrate-single-role --role "Name"`.
 
 ## Troubleshooting
 
-- Generation failed: open Logs → Debug Log for the newest attempt. The raw model text is in
-  `output/tailored.model-output.txt`.
+- Generation failed: read Logs → Run Log while it runs. A role run's log and raw model text are also saved with the
+  run (`GET /api/roles/<id>/runs/cv/<run>`; the UI doesn't show past logs yet). One-shot runs leave a debug log per
+  attempt in Logs → Debug Log and the raw model text in `output/tailored.model-output.txt`.
 - "Failed JSON contract validation": the model output broke the schema in
   [docs/cv-format.md](docs/cv-format.md#3-model-json-contract). Try another model.
 - Provider greyed out: hover over it to see the reason (usually a missing key in `.env`).
 - Code changes not showing: restart the server. If port 8765 is busy, stop the old process.
+- Back up the database before risky changes: `python3 -m resumator --action backup` (copies to `cv_web/backups/`).

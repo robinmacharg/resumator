@@ -195,7 +195,7 @@ This map identifies which frontend feature owns each backend/static endpoint int
 | `…/cv/versions/<v>`, `…/cv/versions/<v>/restore` (role or master) | `cv-history-feature.js` | Version history and restore. |
 | `/api/roles/<id>/runs`, `…/runs/cv/<run>`, `…/runs/cv/<run>/cv.pdf\|docx` | `role-runs-feature.js` (documents via `pdf-preview-feature.js`) | Run history, run detail for the Tailored tab, on-demand PDF/DOCX. |
 | `/api/roles/<id>/runs/cv`, `…/runs/research` | `cv-pipeline-feature.js`, `research-feature.js` | Start role runs; progress on the shared `/api/run/status` and `/api/research/status`. |
-| `/output/tailored.md` | `app-operations-feature.js` | Load tailored markdown output into viewer. |
+| `/output/tailored.md` | `app-operations-feature.js` | File mode only: load tailored markdown output into viewer (role mode shows the picked run's model JSON). |
 
 ## app.js Composition Walkthrough
 

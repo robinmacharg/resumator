@@ -1,11 +1,21 @@
 # Architecture
 
+Two ways to run, sharing the same pipeline scripts:
+
+- **Role mode** (the web UI and `python3 -m resumator`): roles, master and role CVs (versioned) and every run live
+  in SQLite (`cv_web/resumator.db`). Runs go through `cv_web/role_runner.py`, which talks to the scripts over pipes
+  (`--io json`), so no `input/` or `output/` data files are read or written (except the Research tab's formatted
+  output and PDF, still file-based: [gaps](gaps.md)). PDFs are rendered on demand, never stored
+  ([plan](plans/multi-role.md), design R1–R21).
+- **One-shot file mode** (`generate_cv.py`, `research_role.py`, `cv_convert.py`): reads `input/`, writes `output/`,
+  no database. The web UI falls back to it only when the role API can't be reached.
+
 ## Components
 
 | File | Role |
 |---|---|
 | `generate_cv.py` | CV pipeline CLI: read inputs → build prompt → backend attempts with model fallback → extract and validate JSON → render tagged markdown → call `cv_convert` |
-| `cv_source.py` | Master CV source format: parse → dict, comment-stripped prompt text, elided phrases, linter CLI ([cv-source-format.md](cv-source-format.md)). Not yet wired into the pipeline |
+| `cv_source.py` | Master CV source format: parse → dict, comment-stripped prompt text, elided phrases, linter CLI ([cv-source-format.md](cv-source-format.md)). `generate_cv` refuses a CV with lint errors and sends `prompt_text` |
 | `cv_convert.py` | Tagged markdown → semantic markdown → PDF (pandoc + typst) and DOCX (pandoc). Looks come from `themes/` ([cv-format.md §5](cv-format.md#5-conversion-cv_convertpy)). Also a standalone CLI (the "format only" run). `render_cv` does the same in memory (bytes out, no files) for role runs; `count_pdf_pages` reads PDF bytes |
 | `resumator.py` | Role-mode CLI (R5), `python3 -m resumator --action …`: `list`, `create` (CV seeded from the master), `cv` and `research` (through `role_runner`, log on stderr, `--out` writes the run's PDF), `render` (current or `--run` CV run → PDF/DOCX, default `output/<slug>-run<id>.<format>`), `backup`, `setup` (first run) and `migrate-single-role` (wraps `cv_web.migrate_single_role`). `--provider`, `--model`, `--theme`, `--no-steering`/`--steering-file` override the role for one run; `--db` picks the DB. Ctrl-C stops the run (exit 130, nothing saved). Never writes `input/` |
 | `research_role.py` | Research pipeline CLI: research prompt + company + URLs + CV + job spec → backend → `research_output.md/.json` |
@@ -27,6 +37,10 @@
 | `VSCodeExtension/` | VS Code extension that exposes Copilot over local HTTP (`vscodebridge` backend) |
 
 ## CV pipeline data flow
+
+One-shot file mode below. In role mode the same steps run inside `generate_cv --io json`: the CV, job spec,
+steering and prompt come in the request, and the raw output, model JSON, warnings, page count and PDF bytes come
+back in the result; `role_runner` saves all but the PDF as a `cv_run` row.
 
 ```
 input/prompt.md ─┐
@@ -59,8 +73,13 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 
 ## File contract
 
-- `input/` holds the user-editable sources (tracked in git).
-- `output/` holds generated files (gitignored). Every run overwrites them; there is no per-application history.
+- `cv_web/resumator.db` (gitignored) holds role mode's data: roles, CV versions, prompt versions, runs, settings
+  (`cv_web/store.py`). `python3 -m resumator --action backup` copies it to `cv_web/backups/`.
+- `input/` holds the one-shot sources (tracked in git). `input/CV.md` isn't kept in sync with the DB master (R10);
+  it's the one-shot default and the source for "Import CV.md". The prompt templates (`prompt.md`,
+  `research_prompt.md`) are read from `input/` in both modes.
+- `output/` holds one-shot generated files (gitignored). Every one-shot run overwrites them; role mode keeps its
+  history in the DB instead.
 - `output/gemini_debug_logs/` holds one log per attempt for all providers, despite the name. File names are
   `{cv-attempt|research-attempt}-NN-<model>-<ts>.log`.
 - `--io json` (both pipelines) touches none of this: inputs come in the request, attempt logs go to stderr, and the
@@ -72,7 +91,8 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 
 - Entry: `python3 -m cv_web` → `server.py` (composition root), 127.0.0.1:8765.
 - Editable files (`EDITOR_FILES` in `server.py`, mirrored by `EDITABLE_FILES` in `static/app.js`): `cv`, `prompt`,
-  `research_prompt`, `jobspec`, `env`.
+  `research_prompt`, `jobspec`, `env`. In role mode `cv` and `jobspec` are the role's (or the master CV) and are
+  saved through the Role API, never to `input/`.
 - `/output/<name>` only serves `ALLOWED_OUTPUT_FILES`.
 - Runs: `server_run_helpers.make_command` builds `generate_cv.py` (full) or `cv_convert.py --pdf --docx` (format)
   commands. `server_process_runners` streams stdout and stderr into runtime state, and the UI polls

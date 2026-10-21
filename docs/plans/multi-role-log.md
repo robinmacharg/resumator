@@ -189,3 +189,12 @@ are history, not instructions.
   every action, a real `cv` run through `generate_cv --io json` with the fake `claude` (run saved current, PDF and
   DOCX written), Ctrl-C both ways; `input/CV.md` and `output/` unchanged. Not re-tested: the server's research stop.
   Docs: architecture.md, AGENTS.md, design doc. Committed as "multi-role step 13"; `input/jobspec.txt` left out.
+- 2026-10-21 · Step 14 · Done (docs only, no code). README: the role workflow (first run, sidebar, master/role CV,
+  run picker), the role CLI and backup. architecture.md: "two ways to run" (role mode vs one-shot file mode), file
+  contract (DB, `input/CV.md` not synced, `output/` one-shot only), role-mode data flow note, editable files; fixed a
+  stale "cv_source not yet wired" row. cv-format.md: DB CVs, role run metadata columns, tagged markdown rebuilt on
+  demand, theme picker per role. gaps.md: CV import now targets the master via the merge view; new gaps for past run
+  logs not shown and the UI file-mode fallback. AGENTS.md: overview, design doc row, DB invariants (don't write to
+  the live DB; migrations append-only). Found while checking: the UI doesn't show a past run's log (added to gaps
+  rather than claimed in the README). Tests not re-run (no code changes since step 13's 288 + 94). Committed as
+  "multi-role step 14"; `input/jobspec.txt` left out.

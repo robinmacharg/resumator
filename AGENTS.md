@@ -1,7 +1,8 @@
 # Resumator — agent guide
 
-Local tool: master CV (`input/CV.md`) + job spec → LLM → validated JSON → tagged markdown → PDF/DOCX.
-Second pipeline: company/role research notes. Python stdlib only; vanilla-JS web UI.
+Local tool: master CV + job spec → LLM → validated JSON → tagged markdown → PDF/DOCX, per job application ("role").
+Roles, versioned CVs and runs live in SQLite (`cv_web/resumator.db`); the one-shot scripts still work on `input/`
+and `output/` files. Second pipeline: company/role research notes. Python stdlib only; vanilla-JS web UI.
 
 ## Read only what the task needs
 
@@ -12,6 +13,7 @@ Second pipeline: company/role research notes. Python stdlib only; vanilla-JS web
 | CV input format, prompt contract, JSON schema, rendering, PDF, themes (`themes/`) | [docs/cv-format.md](docs/cv-format.md) |
 | Master CV source format v1, `cv_source.py` parser/linter, import rules | [docs/cv-source-format.md](docs/cv-source-format.md) |
 | Planned work and known issues | [docs/gaps.md](docs/gaps.md) |
+| Roles, DB schema, merge, first run, role CLI (decisions R1–R21) | [docs/plans/multi-role-design.md](docs/plans/multi-role-design.md) |
 | Frontend JS modules, endpoint ownership | [cv_web/static/ARCHITECTURE.md](cv_web/static/ARCHITECTURE.md) |
 | VS Code Copilot bridge extension | [VSCodeExtension/README.md](VSCodeExtension/README.md) |
 
@@ -25,7 +27,9 @@ Second pipeline: company/role research notes. Python stdlib only; vanilla-JS web
   (`gemini`, `pandoc`, `typst`).
 - Scripts use cwd-relative `input/` and `output/`: run them from the repo root.
 - `input/CV.md` is the user's real CV and `.env` holds real keys. Don't rewrite their content unless asked, and never echo
-  `.env` values.
+  `.env` values. `cv_web/resumator.db` holds the user's real roles and CVs: don't write to it in checks. Copy it
+  with SQLite's backup API and use `--db` (CLI) or `server_roles.DB_PATH` (server) on the copy.
+- Schema changes are a new `store.MIGRATIONS` entry; never edit an applied migration.
 - Model output must pass `validate_and_normalize_payload` in `generate_cv.py`. If you change the JSON contract,
   update `input/prompt.md`, the validator, `render_tagged_markdown`, and `cv_convert.py` together.
 - Looks live in `themes/` (Typst theme + Lua filter for PDF, `docx-styles.xml` for DOCX). `cv_convert` emits

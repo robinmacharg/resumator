@@ -2,9 +2,10 @@
 
 Priority: **P1** = planned feature, **P2** = correctness or hygiene, **P3** = cleanup.
 
-## P1 — Import an existing CV (upload → canonical `input/CV.md`)
+## P1 — Import an existing CV (upload → master CV)
 
-Today a user has to hand-write `CV.md` in the format described in [cv-format.md §1](cv-format.md).
+Today a user has to hand-write the master CV in the format described in [cv-format.md §1](cv-format.md) (the
+first-run blank template helps).
 
 Suggested shape:
 1. **Upload**: the server only parses JSON bodies. Either add a stdlib multipart parser (`cgi` was removed in Python
@@ -14,8 +15,9 @@ Suggested shape:
    PATH; otherwise disable PDF import with a clear reason. All of this goes through subprocess, so no new Python deps.
 3. **Normalise with an LLM**: `input/import_prompt.md` (exists) → the selected backend (reuse the attempt loop) → the
    canonical CV.md layout. Instruct the model to preserve every fact, invent nothing, and mark unknown fields as `TODO`.
-4. **Review before replacing**: write `output/CV.imported.md` and show a diff or preview. Only an explicit
-   "Replace CV" overwrites `input/CV.md` (back up to `input/CV.md.bak`).
+4. **Review before saving**: show the result in the existing merge dialog (as "Import CV.md" does,
+   `role_merge.import_view`), saved as an `import` master version. Nothing is overwritten: older versions stay in
+   History.
 5. **Validate structurally**: `cv_source.lint_cv_source` (exists) on the imported file.
 
 Touches: `cv_web/server_http_handlers.py` (route), `server_run_helpers.py` (command), a new `import_cv.py` CLI,
@@ -59,6 +61,8 @@ Suggested shape:
 - **Role research isn't shown**: role research runs are stored (`research_run`), but the Research tab only shows
   the live log; past runs, the formatted output and the research PDF still come from `output/` files. Needs a
   run list in the tab and a research render route (like the CV run PDF).
+- **Past run logs aren't shown**: each role run saves its log and raw output, but the UI only shows the live Run
+  Log and the picked run's model JSON. A failed run's details need the API (`…/runs/cv/<run>`).
 - **Merge limits (promote/pull)**: entry-level only (R11). A renamed heading shows as a removal plus an addition;
   reordering on the incoming side is ignored; section titles show their lower-case key ("in roles"). After a promote
   while master changes are still unpulled, the role's base stays put, so editing a promoted entry again before a
@@ -71,6 +75,9 @@ Suggested shape:
 
 ## P3 — Cleanup
 
+- File mode in the web UI (`[data-file-only]`, the file branches in the feature modules and the `input/`-backed
+  editors for CV and job spec) is now only a fallback for an unreachable role API. Remove it, or keep it as an
+  explicit "no database" switch.
 - Dead code: `run_gemini_with_diagnostics` in both `generate_cv.py` and `research_role.py`. Both have a local
   `load_dotenv_file` that duplicates `env_utils.parse_dotenv_file`.
 - `research_role.py` keeps its own `DEFAULT_*_MODEL` and fallback lists that duplicate the backend modules. It should
