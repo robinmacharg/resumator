@@ -13,6 +13,8 @@ from http import HTTPStatus
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from cv_web import server_roles
+
 
 def handle_save(handler, payload: dict[str, Any], deps: dict[str, Any]) -> None:
     """Handle save payload requests and publish updated UI state.
@@ -466,6 +468,9 @@ def dispatch_get(handler, request_path: str, deps: dict[str, Any]) -> None:
     if handle_output_get(handler, route, deps):
         return
 
+    if server_roles.dispatch(handler, "GET", parsed, None, deps):
+        return
+
     handler.send_error(HTTPStatus.NOT_FOUND, "Unknown route")
 
 
@@ -515,6 +520,9 @@ def dispatch_post(handler, request_path: str, deps: dict[str, Any]) -> None:
 
     if route in {"/api/run/full", "/api/run/format"}:
         handle_cv_run(handler, route, payload, deps)
+        return
+
+    if server_roles.dispatch(handler, "POST", parsed, payload, deps):
         return
 
     handler.send_error(HTTPStatus.NOT_FOUND, "Unknown route")

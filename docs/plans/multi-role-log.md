@@ -109,3 +109,17 @@ are history, not instructions.
   `multi-role-design.md` (R1–R21, schema, run I/O, UI, first run, migration, CLI; read the sections a step needs) and
   this log (append-only; read the last few entries). Content moved unchanged apart from cross-references; the
   docstrings in `store.py`, `role_runner.py` and `migrate_single_role.py` now point at the design file.
+- 2026-10-21 · Step 7 install run · The user ran the migration by hand with `--no-research`: the DB has master v1,
+  role 1 "Quantum Base" (CV version 2) and 3 CV runs (3 current), and no research. Step 7 is done.
+- 2026-10-21 · Step 8 server API · Done; committed at the user's request. `cv_web/server_roles.py` adds the role API (roles CRUD,
+  archive via status, delete via `POST …/delete`; role and master CV read/save as `edit` versions; run list, detail,
+  select current, start CV/research runs in the background through `role_runner`; run PDF/DOCX through an in-memory
+  LRU `RENDER_CACHE`, warmed by a finished run). Kept additive: file-based endpoints and the UI are unchanged until
+  step 9. "Scoped to a role" = role runs share the run locks and live state, so `/api/run/status` and
+  `/api/research/status` carry `roleId`/`runId`. Decided: camelCase JSON; GET/POST only; documents re-rendered
+  from `raw_output` validated with the run day's cutoff (no tagged markdown is stored); master CV routes added now
+  for step 9. Added `CVWebHandler._bytes_response`. Fixed while testing: release the run
+  lock only after finalizing; `?theme=` needs `keep_blank_values`. Known limit: research stop can't kill the
+  provider child (no new session in `run_script`). 20 tests in `tests/test_server_roles.py`; the full suite (243)
+  and the frontend tests (50) pass; smoke-tested over HTTP on a scratch copy of the real DB (run 3 renders, 133 KB
+  compact PDF). architecture.md ("Role API"), static/ARCHITECTURE.md and AGENTS.md are updated.

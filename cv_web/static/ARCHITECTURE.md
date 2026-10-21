@@ -146,6 +146,7 @@ This map identifies which frontend feature owns each backend/static endpoint int
 | `/api/research/stop` | `research-feature.js` | Request stop for active research run. |
 | `/api/research/format` | `research-feature.js` | Format research PDF output. |
 | `/api/research/reset-prompt` | `research-feature.js` | Restore default research prompt file. |
+| `/api/roles…`, `/api/master/cv` | none yet (step 9 of [the multi-role plan](../../docs/plans/multi-role.md)) | Role API; routes in [docs/architecture.md](../../docs/architecture.md) "Role API". |
 | `/output/tailored.md` | `app-operations-feature.js` | Load tailored markdown output into viewer. |
 
 ## app.js Composition Walkthrough

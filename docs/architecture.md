@@ -16,8 +16,9 @@
 | `env_utils.py` | `.env` parser |
 | `cv_web/` | stdlib `http.server` UI wrapper. Runs the CLIs as subprocesses and streams their output |
 | `cv_merge.py` | Entry-level three-way merge of CV source text (`split_units`, `compare`, `merge`) for promote/pull between master and role CVs. Pure functions; not yet wired in ([plan](plans/multi-role.md)) |
-| `cv_web/store.py` | SQLite data layer for the multi-role workspace (`cv_web/resumator.db`, gitignored): migrations, roles, master/role CV versions, prompt versions, CV and research runs, settings, `backup`. Not yet wired in ([plan](plans/multi-role.md)) |
-| `cv_web/role_runner.py` | Role runs (`run_cv`, `run_research`): builds the `--io json` request from the store (role CV, job spec, steering, theme, prompt template text saved as a `prompt_version`), runs the script from the repo root, streams stderr to an `on_log` callback, and saves the `cv_run`/`research_run` row with the log (errors appended). Returns `pdf_base64` without storing it. Not yet wired in ([plan](plans/multi-role.md)) |
+| `cv_web/store.py` | SQLite data layer for the multi-role workspace (`cv_web/resumator.db`, gitignored): migrations, roles, master/role CV versions, prompt versions, CV and research runs, settings, `backup`. Used by `server_roles`, `role_runner` and `migrate_single_role` ([plan](plans/multi-role.md)) |
+| `cv_web/role_runner.py` | Role runs (`run_cv`, `run_research`): builds the `--io json` request from the store (role CV, job spec, steering, theme, prompt template text saved as a `prompt_version`), runs the script from the repo root, streams stderr to an `on_log` callback, and saves the `cv_run`/`research_run` row with the log (errors appended). Returns `pdf_base64` without storing it. Called by `server_roles` (the role CLI follows in [plan](plans/multi-role.md) step 13) |
+| `cv_web/server_roles.py` | Role API (`dispatch`, tried by `server_http_handlers` for every GET/POST): roles, role and master CVs, run history, role runs in the background (sharing the run locks and live state), and run PDF/DOCX rendered from `raw_output` through the in-memory `RENDER_CACHE`. See "Role API" below |
 | `cv_web/migrate_single_role.py` | One-time CLI (`python3 -m cv_web.migrate_single_role --name … [--archive DIR] [--no-research]`): imports `input/CV.md` as a master `import` version and a first role (job spec, seeded CV, current and archived CV runs, research run) from today's `input/`/`output/` files. Provider, model, theme and prompt hash stay NULL (not recorded in those files). Skips when the role exists; one transaction |
 | `VSCodeExtension/` | VS Code extension that exposes Copilot over local HTTP (`vscodebridge` backend) |
 
@@ -76,9 +77,29 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 - Request bodies are JSON only. There is no multipart/file-upload handling yet ([gaps.md](gaps.md)).
 - Module map and endpoint ownership: [cv_web/static/ARCHITECTURE.md](../cv_web/static/ARCHITECTURE.md).
 
+### Role API (`server_roles.py`)
+
+JSON in and out, camelCase keys (store rows converted by `camel`). Errors are `{error}` with 400 (bad request), 404
+(unknown role or a run of another role), 409 (conflict: run in progress, no master, nothing to render) or 500.
+The UI doesn't use these yet ([plan](plans/multi-role.md) step 9); the file-based endpoints above are unchanged.
+
+| Route | What |
+|---|---|
+| `GET /api/roles[?status=]` | Role list (R20): role fields plus `lastRunAt`, `currentSteered` |
+| `POST /api/roles` | Create `{name, company, jobspec, status, theme, steeringText, steeringEnabled, slug}`; seeds its CV from the master (409 without one) |
+| `GET`/`POST /api/roles/<id>` | Read / update the same fields. Archive = `{status: "closed"}` (R21); `theme: ""` = default |
+| `POST /api/roles/<id>/delete` | Delete the role, its CV versions and runs (409 while its run is live) |
+| `GET`/`POST /api/roles/<id>/cv`, `/api/master/cv` | Current CV and version list (no content) / save `{content, note}` as an `edit` version (`unchanged: true` when identical) |
+| `GET /api/roles/<id>/runs` | `{cvRuns, researchRuns}`, newest first, without large text |
+| `GET /api/roles/<id>/runs/<cv\|research>/<run>` | One run in full (raw output, model JSON, log) |
+| `POST /api/roles/<id>/runs/<cv\|research>/<run>/current` | Make a successful run current |
+| `POST /api/roles/<id>/runs/cv` | Start `{selectedProvider, selectedModel, theme, steering}` (null/absent = the role's). Progress on `/api/run/status` (`kind: role-cv`, `roleId`, then `runId`, `error`) |
+| `POST /api/roles/<id>/runs/research` | Start `{selectedProvider, selectedModel, company, urls, dryRun}`. Progress on `/api/research/status`; `/api/research/stop` stops it |
+| `GET /api/roles/<id>/runs/cv/<run>/cv.<pdf\|docx>[?theme=]` | Rendered from the run's `raw_output` (validated as on its run day, with its CV version's directives). No `theme` = the run's; `theme=` = default. Cached in memory by (run, theme, format), 32 entries, lost on restart; a finished run warms its own PDF (R16) |
+
 ## Tests
 
-- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_merge`, `store` (temp DBs), `role_runner` (real scripts on a temp DB with a fake `claude`), `migrate_single_role` (fixture files), `cv_convert` (render tests skip
+- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_merge`, `store` (temp DBs), `role_runner` (real scripts on a temp DB with a fake `claude`), `server_roles` (temp DB; rendering and runs patched), `migrate_single_role` (fixture files), `cv_convert` (render tests skip
   without pandoc/typst; the in-memory vs file-route parity test also skips without a local `output/tailored.md`) and the `claudecode` backend (with a fake `claude` on PATH). Nothing covers `generate_cv` or
   the other backends.
 - `cv_web/static/js/__tests__/`: `node --test` coverage of the frontend feature modules.
