@@ -30,6 +30,7 @@ import { parseResearchUrlsInput } from "./app-utils.js";
  * @property {(payload: any) => void} renderResearchState Apply research state to UI.
  * @property {(run: any) => string} summarizeResearchOutput Convert run payload to display text.
  * @property {() => number | null} [getActiveRoleId] Role mode: the active role, or null for file mode.
+ * @property {() => boolean} [isRoleRequired] Role mode with no role yet: runs are refused.
  * @property {() => Promise<void>} [saveRoleEditsBeforeRun] Role mode: save unsaved edits first.
  * @property {(roleId: number, run: any) => Promise<void>} [afterRoleResearchRun] Role mode: after a stored run.
  */
@@ -59,6 +60,7 @@ export function createResearchFeature(ctx) {
         renderResearchState,
         summarizeResearchOutput,
         getActiveRoleId,
+        isRoleRequired,
         saveRoleEditsBeforeRun,
         afterRoleResearchRun,
     } = ctx;
@@ -103,6 +105,11 @@ export function createResearchFeature(ctx) {
      */
     async function runResearch() {
         const roleId = getActiveRoleId ? getActiveRoleId() : null;
+        if (roleId === null && isRoleRequired && isRoleRequired()) {
+            setStatus("Runs belong to a role: add one with + first.", true);
+            setResearchStatus("Runs belong to a role: add one with + first.", true);
+            return;
+        }
         const companyName = (els.researchCompanyInput.value || "").trim();
         if (!companyName && roleId === null) {
             setStatus("Company name is required for research run.", true);

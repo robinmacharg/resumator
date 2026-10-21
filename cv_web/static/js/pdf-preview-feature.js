@@ -108,7 +108,7 @@ export function createPdfPreviewFeature(ctx) {
 
     /**
      * Use a role run as the CV preview, or go back to `output/` files with null.
-     * @param {{url: string | null, docxUrl: string | null, label: string, steering: string, generatedAt: string | null} | null} source
+     * @param {{url: string | null, docxUrl: string | null, label: string, steering: string, generatedAt: string | null, placeholder?: string} | null} source
      * @returns {void}
      */
     function setCvRunSource(source) {
@@ -162,7 +162,7 @@ export function createPdfPreviewFeature(ctx) {
         els.pdfPreview.classList.add("hidden");
         if (els.pdfPlaceholder) {
             els.pdfPlaceholder.classList.add("visible");
-            els.pdfPlaceholder.textContent = "No runs yet for this role";
+            els.pdfPlaceholder.textContent = source.placeholder || "No runs yet for this role";
         }
     }
 

@@ -119,10 +119,16 @@ flowchart TD
     object (`{enabled, text}`) that full runs send. In role mode `onSteeringChanged` (the role workspace) saves
     edits on the role instead; `applySteering` shows a role's steering.
 
-- `role-workspace-feature.js` (multi-role plan step 9)
+- `role-workspace-feature.js` (multi-role plan steps 9 and 12)
   - Role sidebar (list, **+** dialog, status select where `closed` = archive, delete) and role selection
-    (remembered in localStorage). With roles in the DB the app is in **role mode** (`body.role-mode`;
-    `[data-role-only]`/`[data-file-only]` elements show and hide); with none it keeps file mode.
+    (remembered in localStorage). Once the DB is set up (`state.workspace`) the app is in **role mode**
+    (`body.role-mode`; `[data-role-only]`/`[data-file-only]` elements show and hide). File mode is only a fallback
+    when the role API can't be reached.
+  - First run (step 12): `GET /api/setup` says when the choice is due; `#firstRunDialog` offers example data or a
+    blank master CV (`chooseFirstRun`) and can't be dismissed (Escape is cancelled, or it reopens on close).
+  - No roles yet (`isMasterOnly`, `body.no-role`): the master CV is open, `[data-needs-role]` controls (CV picker,
+    promote/pull, run picker, status/delete) hide, the job spec is read-only, CV and research runs are refused
+    (`isRoleRequired` in the run features), theme changes are only kept, and the preview says "No role yet".
   - Owns the `cv` and `jobspec` editors in role mode (`getRoleOwnedKeys`): loads and saves them through the Role
     API, with a Role CV / Master CV picker (the CV tab label says which). `draft-files-feature.js` keeps these keys
     out of file payloads, browser drafts and file snapshots, so `input/` is never written with role content.
@@ -183,6 +189,7 @@ This map identifies which frontend feature owns each backend/static endpoint int
 | `/api/research/stop` | `research-feature.js` | Request stop for active research run. |
 | `/api/research/format` | `research-feature.js` | Format research PDF output. |
 | `/api/research/reset-prompt` | `research-feature.js` | Restore default research prompt file. |
+| `/api/setup` (status, choice) | `role-workspace-feature.js` | First-run choice: example data or a blank master CV. |
 | `/api/roles`, `/api/roles/<id>` (read, update, `/delete`), `/api/roles/<id>/cv`, `/api/master/cv` | `role-workspace-feature.js` | Role list, create/update/archive/delete, role and master CV read/save. Routes in [docs/architecture.md](../../docs/architecture.md) "Role API". |
 | `/api/roles/<id>/merge`, `/api/master/import` (view, save) | `role-merge-feature.js` | Promote/pull/import merge view and saving it. |
 | `…/cv/versions/<v>`, `…/cv/versions/<v>/restore` (role or master) | `cv-history-feature.js` | Version history and restore. |

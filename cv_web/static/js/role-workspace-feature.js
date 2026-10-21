@@ -3,12 +3,16 @@ import { getStorageString, setStorageString } from "./storage-utils.js";
 /**
  * Architecture role:
  * - Layer: domain workflow feature used by app bootstrap (multi-role plan step 9).
- * - Responsibility: the role sidebar (list, create, status, delete), role selection, and the role-owned editors:
- *   the role or master CV and the job spec, saved through the Role API instead of `input/` files.
+ * - Responsibility: the role sidebar (list, create, status, delete), role selection, the role-owned editors (the
+ *   role or master CV and the job spec, saved through the Role API instead of `input/` files), and the first-run
+ *   choice (step 12).
  *
  * Plain-language purpose:
- * - With roles in the DB the app is in "role mode": the CV and Job Spec tabs edit the selected role, steering and
- *   theme are kept on the role, and runs are stored per role. With no roles the app keeps today's file mode.
+ * - Once the DB is set up the app is in "role mode" (`state.workspace`): the CV and Job Spec tabs edit the selected
+ *   role, steering and theme are kept on the role, and runs are stored per role. With no roles yet only the master
+ *   CV is open (`body.no-role`): runs, merges and the job spec wait for a role.
+ * - A new install first chooses example data or a blank master CV. File mode (`input/` files) is left only as a
+ *   fallback when the role API can't be reached.
  */
 
 const ROLE_OWNED_KEYS = ["cv", "jobspec"];
@@ -20,8 +24,8 @@ const CV_LABELS = { role: "Role CV", master: "Master CV" };
  * Dependencies required by the role workspace feature.
  *
  * @typedef {Object} RoleWorkspaceFeatureContext
- * @property {any} state Shared app state (activeRoleId, roles, cvSource, diskFiles).
- * @property {any} els DOM element registry (sidebar, dialog, editors, CV source picker).
+ * @property {any} state Shared app state (workspace, activeRoleId, roles, cvSource, diskFiles).
+ * @property {any} els DOM element registry (sidebar, dialogs, editors, CV source picker).
  * @property {(path: string, options?: RequestInit) => Promise<any>} api JSON API helper.
  * @property {any} editableFiles Editable file metadata map (the CV tab label changes with the open CV).
  * @property {any} localStorageKeys Local storage key map.
@@ -61,10 +65,21 @@ export function createRoleWorkspaceFeature(ctx) {
 
     let steeringTimer = null;
     let pendingSteering = null;
+    let firstRunPending = false;
 
-    /** @returns {boolean} */
+    /** @returns {boolean} A role is open. */
     function isActive() {
         return state.activeRoleId !== null;
+    }
+
+    /** @returns {boolean} The DB is in use (role mode), with or without an open role. */
+    function inWorkspace() {
+        return Boolean(state.workspace);
+    }
+
+    /** @returns {boolean} Role mode with no role yet: only the master CV is open. */
+    function isMasterOnly() {
+        return inWorkspace() && !isActive();
     }
 
     /** @returns {any | null} */
@@ -72,9 +87,9 @@ export function createRoleWorkspaceFeature(ctx) {
         return state.roles.find((role) => role.id === state.activeRoleId) || null;
     }
 
-    /** @returns {string[]} Editor keys the role owns while role mode is on. */
+    /** @returns {string[]} Editor keys the DB owns while role mode is on. */
     function getRoleOwnedKeys() {
-        return isActive() ? ROLE_OWNED_KEYS : [];
+        return inWorkspace() ? ROLE_OWNED_KEYS : [];
     }
 
     /**
@@ -82,7 +97,7 @@ export function createRoleWorkspaceFeature(ctx) {
      * @returns {boolean}
      */
     function hasUnsavedEdits() {
-        if (!isActive()) {
+        if (!inWorkspace()) {
             return false;
         }
         const values = currentFileValues();
@@ -119,10 +134,15 @@ export function createRoleWorkspaceFeature(ctx) {
      * @returns {void}
      */
     function syncModeUi() {
-        const active = isActive();
+        const active = inWorkspace();
         if (els.body) {
             els.body.classList.toggle("role-mode", active);
+            els.body.classList.toggle("no-role", isMasterOnly());
             els.body.classList.toggle("cv-master", active && state.cvSource === "master");
+        }
+        if (els.jobspecEditor) {
+            els.jobspecEditor.readOnly = isMasterOnly();
+            els.jobspecEditor.placeholder = isMasterOnly() ? "Add a role with + to give it a job spec." : "";
         }
         editableFiles.cv.tabLabel = active ? CV_LABELS[state.cvSource] : "CV";
         if (els.cvSourceSelect) {
@@ -277,11 +297,52 @@ export function createRoleWorkspaceFeature(ctx) {
     }
 
     /**
-     * Startup: list roles and open the remembered one (or the first open role). No roles = file mode.
+     * Role mode with no roles: the master CV is open, the job spec is empty and read-only.
+     * @returns {Promise<void>}
+     */
+    async function openMasterOnly() {
+        state.activeRoleId = null;
+        state.cvSource = "master";
+        state.cvRuns = [];
+        state.selectedCvRunId = null;
+        applyRoleFiles({ jobspec: "" });
+        await loadOpenCv();
+        syncModeUi();
+        renderSidebar();
+        roleRunsFeature.showSelectedRun();
+        await roleRunsFeature.refreshTailoredOutput();
+        setStatus("Editing the master CV. Add a role with + to tailor it and run.");
+    }
+
+    /**
+     * Enter role mode: open the remembered role (or the first open one), or the master alone when there are none.
+     * @returns {Promise<void>}
+     */
+    async function enterWorkspace() {
+        state.workspace = true;
+        if (!state.roles.length) {
+            try {
+                await openMasterOnly();
+            } catch (err) {
+                setStatus(`Couldn't open the master CV: ${err.message}`, true);
+            }
+            return;
+        }
+        const savedId = Number(getStorageString(localStorageKeys.active_role_id, ""));
+        const saved = state.roles.find((role) => role.id === savedId);
+        const fallback = state.roles.find((role) => role.status !== "closed") || state.roles[0];
+        await selectRole((saved || fallback).id, { force: true });
+    }
+
+    /**
+     * Startup: offer the first-run choice on a new install, else enter role mode. File mode only when the role
+     * API can't be reached.
      * @returns {Promise<void>}
      */
     async function initialize() {
+        let setup;
         try {
+            setup = await api("/api/setup");
             await refreshRoles();
         } catch (err) {
             state.roles = [];
@@ -289,14 +350,65 @@ export function createRoleWorkspaceFeature(ctx) {
             setStatus(`Role list unavailable, using input/ files: ${err.message}`, true);
             return;
         }
-        if (!state.roles.length) {
+        if (setup.needed) {
             syncModeUi();
+            openFirstRunDialog();
             return;
         }
-        const savedId = Number(getStorageString(localStorageKeys.active_role_id, ""));
-        const saved = state.roles.find((role) => role.id === savedId);
-        const fallback = state.roles.find((role) => role.status !== "closed") || state.roles[0];
-        await selectRole((saved || fallback).id, { force: true });
+        await enterWorkspace();
+    }
+
+    /**
+     * Show the first-run choice (example data or blank). It can't be dismissed without choosing.
+     * @returns {void}
+     */
+    function openFirstRunDialog() {
+        firstRunPending = true;
+        if (!els.firstRunDialog) {
+            setStatus("First run: choose example data or a blank master CV.", true);
+            return;
+        }
+        if (els.firstRunError) {
+            els.firstRunError.textContent = "";
+        }
+        els.firstRunDialog.showModal();
+    }
+
+    /**
+     * The first-run dialog closed (Escape can't always be cancelled): reopen it until a choice is made.
+     * @returns {void}
+     */
+    function handleFirstRunDialogClosed() {
+        if (firstRunPending && els.firstRunDialog) {
+            els.firstRunDialog.showModal();
+        }
+    }
+
+    /**
+     * Carry out the first-run choice, then enter role mode (the example role, or the blank master).
+     * @param {"example" | "blank"} choice
+     * @returns {Promise<boolean>} False when the server refused.
+     */
+    async function chooseFirstRun(choice) {
+        try {
+            await api("/api/setup", { method: "POST", body: JSON.stringify({ choice }) });
+            await refreshRoles();
+        } catch (err) {
+            if (els.firstRunError) {
+                els.firstRunError.textContent = err.message;
+            }
+            setStatus(`First-run setup failed: ${err.message}`, true);
+            return false;
+        }
+        firstRunPending = false;
+        if (els.firstRunDialog) {
+            els.firstRunDialog.close();
+        }
+        await enterWorkspace();
+        if (choice === "example") {
+            setStatus("Example data loaded: a sample master CV, a role and a finished run.");
+        }
+        return true;
     }
 
     /**
@@ -337,6 +449,10 @@ export function createRoleWorkspaceFeature(ctx) {
         }
         const value = currentFileValues()[key];
         const label = key === "cv" ? CV_LABELS[state.cvSource] : "Job spec";
+        if (key === "jobspec" && !isActive()) {
+            setStatus("Add a role with + first: the job spec belongs to a role.", true);
+            return true;
+        }
         try {
             if (key === "cv") {
                 const path = state.cvSource === "master" ? "/api/master/cv" : `/api/roles/${state.activeRoleId}/cv`;
@@ -370,6 +486,8 @@ export function createRoleWorkspaceFeature(ctx) {
         try {
             if (key === "cv") {
                 await loadOpenCv();
+            } else if (!isActive()) {
+                applyRoleFiles({ jobspec: "" });
             } else {
                 const { role } = await api(`/api/roles/${state.activeRoleId}`);
                 applyRoleFiles({ jobspec: role.jobspec || "" });
@@ -461,11 +579,15 @@ export function createRoleWorkspaceFeature(ctx) {
     }
 
     /**
-     * Theme changes in role mode are saved on the role and re-render the preview. Returns false in file mode.
+     * Theme changes in role mode are saved on the role and re-render the preview. With no role yet the choice is
+     * only kept (no format run). Returns false in file mode.
      * @param {string} theme
      * @returns {boolean} True when handled here.
      */
     function handleThemeChanged(theme) {
+        if (isMasterOnly()) {
+            return true;
+        }
         if (!isActive()) {
             return false;
         }
@@ -564,8 +686,8 @@ export function createRoleWorkspaceFeature(ctx) {
             });
             els.newRoleDialog.close();
             await refreshRoles();
-            const wasFileMode = !isActive();
-            await selectRole(role.id, { force: wasFileMode });
+            const hadNoRole = !isActive();
+            await selectRole(role.id, { force: hadNoRole });
             setStatus(`Created role "${role.name}" with a copy of the master CV.`);
         } catch (err) {
             setStatus(`Couldn't create the role: ${err.message}`, true);
@@ -574,6 +696,8 @@ export function createRoleWorkspaceFeature(ctx) {
 
     return {
         isActive,
+        inWorkspace,
+        isMasterOnly,
         getActiveRole,
         getRoleOwnedKeys,
         hasUnsavedEdits,
@@ -593,5 +717,7 @@ export function createRoleWorkspaceFeature(ctx) {
         deleteActiveRole,
         openNewRoleDialog,
         createRoleFromDialog,
+        chooseFirstRun,
+        handleFirstRunDialogClosed,
     };
 }

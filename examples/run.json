@@ -1,0 +1,99 @@
+{
+  "startedAt": "2026-10-01T09:00:00+00:00",
+  "finishedAt": "2026-10-01T09:01:30+00:00",
+  "provider": "example",
+  "model": "canned",
+  "output": {
+    "candidate": {
+      "name": "Alex Morgan",
+      "phone": "+44 7700 900123",
+      "email": "alex.morgan@example.com",
+      "linkedin": "https://www.linkedin.com/in/example-alex-morgan",
+      "github": "https://github.com/example-alex-morgan",
+      "stackoverflow": null,
+      "website": null,
+      "location": "Bristol, UK",
+      "subheader_lines": []
+    },
+    "metadata": {
+      "company": "Northwind Health"
+    },
+    "document": {
+      "headline": "Senior Mobile Engineer | iOS lead in regulated sectors",
+      "professional_summary": [
+        "**Lead iOS engineer for regulated apps:** leads the retail banking app at Brightwater Bank, with 1.2M monthly users.",
+        "**Release automation:** moved two apps to weekly releases with Fastlane and GitHub Actions, cutting build time by 40%.",
+        "**Accessibility first:** led a WCAG 2.2 AA audit, with VoiceOver journeys covered by UI tests.",
+        "**Health sector delivery:** shipped video consultations for a 40-clinic patient app in six weeks."
+      ],
+      "role_requirements": {
+        "role_title": "Lead iOS Engineer",
+        "items": [
+          "**Swift and SwiftUI:** daily on the banking app; migrated legacy Objective-C screens to Swift at Harbour Health.",
+          "**Regulated sectors:** four years in health and four in banking.",
+          "**CI/CD:** Fastlane and GitHub Actions pipeline behind weekly releases.",
+          "**Accessibility:** WCAG 2.2 AA audit lead; author of an accessible SwiftUI charts library."
+        ]
+      },
+      "education_credentials": [
+        "BSc (Hons) Computer Science, University of the West of England",
+        "AWS Certified Cloud Practitioner"
+      ],
+      "selected_key_roles": [
+        {
+          "title": "Senior Mobile Engineer",
+          "company": "Brightwater Bank",
+          "date_range": "Mar 2022 - Present",
+          "app_store_url": null,
+          "keywords": ["Swift", "SwiftUI", "Fastlane", "GitHub Actions"],
+          "bullets": [
+            "**Release pipeline:** weekly releases with Fastlane and GitHub Actions; build time down 40%.",
+            "**Accessibility:** led the WCAG 2.2 AA audit; VoiceOver and TalkBack journeys covered by UI tests.",
+            "**Offline payments:** designed the queued-payment flow for poor connections.",
+            "Mentors two mid-level engineers."
+          ]
+        },
+        {
+          "title": "Mobile Developer",
+          "company": "Harbour Health",
+          "date_range": "Jun 2018 - Feb 2022",
+          "app_store_url": null,
+          "keywords": ["Swift", "Objective-C", "HealthKit"],
+          "bullets": [
+            "**Video consultations:** shipped in-app video calls in six weeks.",
+            "**Migration:** moved legacy Objective-C screens to Swift without a feature freeze.",
+            "Wrote the team's release checklist and on-call guide."
+          ]
+        }
+      ],
+      "earlier_career": {
+        "sectors": ["agency", "education"],
+        "items": [
+          {
+            "role_title": "Junior iOS Developer",
+            "company": "Pixel Orchard",
+            "technologies": ["Objective-C", "Swift"],
+            "date_range": "Sep 2015 - May 2018"
+          },
+          {
+            "role_title": "Support Technician",
+            "company": "Westcountry College",
+            "technologies": [],
+            "date_range": "Sep 2013 - Aug 2015"
+          }
+        ]
+      },
+      "open_source_contributions": [
+        "Tide Times: open-source tide table app and widget (Swift, WidgetKit).",
+        "Accessible Charts: SwiftUI charts with audio graphs and VoiceOver summaries.",
+        "Talk: \"Make releases boring\", on release automation."
+      ],
+      "technical_skills": [
+        {"group": "Languages", "items": ["Swift", "Objective-C", "Kotlin", "TypeScript"]},
+        {"group": "Frameworks", "items": ["SwiftUI", "UIKit", "React Native"]},
+        {"group": "Testing", "items": ["XCTest", "XCUITest", "snapshot testing"]},
+        {"group": "CI/CD", "items": ["Fastlane", "GitHub Actions", "Bitrise"]}
+      ]
+    }
+  }
+}

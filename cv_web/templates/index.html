@@ -47,7 +47,7 @@
                         </button>
                     </div>
                     <ul id="roleList" class="role-list"></ul>
-                    <div class="role-sidebar-foot" data-role-only>
+                    <div class="role-sidebar-foot" data-role-only data-needs-role>
                         <label class="model-picker" for="roleStatusSelect">
                             <span>Status</span>
                             <select id="roleStatusSelect" aria-label="Role status">
@@ -95,7 +95,7 @@
                                     <input id="steerCheckbox" type="checkbox" checked />
                                     Steer CV generation
                                 </label>
-                                <label class="model-picker cv-run-picker" for="runSelect" data-role-only>
+                                <label class="model-picker cv-run-picker" for="runSelect" data-role-only data-needs-role>
                                     <span>Run</span>
                                     <select id="runSelect" aria-label="CV run to preview">
                                         <option value="">No runs yet</option>
@@ -169,6 +169,7 @@
                                                 id="cvSourceSelect"
                                                 aria-label="Which CV to edit"
                                                 data-role-only
+                                                data-needs-role
                                             >
                                                 <option value="role">Role CV</option>
                                                 <option value="master">Master CV</option>
@@ -179,6 +180,7 @@
                                                 type="button"
                                                 title="Copy this role's CV changes into the master CV (you pick which)"
                                                 data-role-only
+                                                data-needs-role
                                             >
                                                 Promote to master
                                             </button>
@@ -188,6 +190,7 @@
                                                 type="button"
                                                 title="Bring master CV changes into this role's CV (you pick which)"
                                                 data-role-only
+                                                data-needs-role
                                             >
                                                 Pull from master
                                             </button>
@@ -657,6 +660,22 @@
                     <button class="btn btn-primary" type="submit">Create role</button>
                 </div>
             </form>
+        </dialog>
+
+        <dialog id="firstRunDialog" class="role-dialog">
+            <div class="role-dialog-form">
+                <h2>Welcome to Resumator</h2>
+                <p>
+                    Start with example data (a sample master CV, a role with a short job spec and a finished run, to
+                    look around without a model call), or with a blank master CV to fill in. You can delete the
+                    example role later.
+                </p>
+                <p id="firstRunError" class="merge-error" role="alert"></p>
+                <div class="role-dialog-actions">
+                    <button id="firstRunBlankBtn" class="btn btn-secondary" type="button">Blank master CV</button>
+                    <button id="firstRunExampleBtn" class="btn btn-primary" type="button">Example data</button>
+                </div>
+            </div>
         </dialog>
 
         <dialog id="mergeDialog" class="role-dialog merge-dialog">

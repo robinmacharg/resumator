@@ -276,6 +276,13 @@ On startup with no database (or an empty one):
    run, also useful for demos and tests) or **blank** (an empty master CV template, no roles).
 3. Record `first_run_done` so the choice isn't offered again.
 
+As built (step 12): `cv_web/first_run.py` and `GET/POST /api/setup`. The choice is due while the DB has no master,
+no roles and no `first_run_done`, so a migrated install never sees it. The example data lives in `examples/`
+(a fictional master CV, a "Lead iOS Engineer" role at Northwind Health and a canned run with a fixed date, so it
+validates the same whenever it's rendered). Both master versions use source `example`, with a note for which. With
+no roles (blank, or after deleting the last role) the UI stays in role mode with only the master CV open; runs
+wait for a role. The UI's file mode is left only as a fallback when the role API can't be reached (step 14 docs).
+
 ## One-time migration of this install (R4)
 
 A CLI command, `python3 -m cv_web.migrate_single_role --name "Quantum Base" [--archive DIR …] [--no-research]`

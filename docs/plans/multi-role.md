@@ -8,7 +8,8 @@ demand.
 **Status:** IN PROGRESS. Design agreed (R1–R21). Stage S1 (steps 1–5) done: spike, `cv_web/store.py`, `cv_merge.py`,
 `cv_convert.render_cv`, `--io json` pipe mode. S2 steps 6–8 done: `cv_web/role_runner.py`, the migration (run on this
 install), and the role API (`cv_web/server_roles.py`). Step 9 (the UI) is done, so S2 is complete. S3 (steps 10–11:
-promote and pull, version history and import) is done. Next is S4, step 12 (first-run flow).
+promote and pull, version history and import) is done. S4 step 12 (first-run flow) is done; next is step 13
+(role-mode CLI).
 Work happens on branch `feature/20261021-multi-role` (from `develop`).
 
 **Files:** this one holds the status, steps and Handoff (read it every session). The design (decisions R1–R21,
@@ -50,7 +51,7 @@ Each stage ends with the app working and tests passing. One-shot CLI behaviour i
 
 | # | Step | Output | Status |
 |---|---|---|---|
-| 12 | First-run flow: example data or blank (R3) | First run | todo |
+| 12 | First-run flow: example data or blank (R3) | First run | done |
 | 13 | Role-mode CLI: `python3 -m resumator --role … --action cv|research|render|list|create|backup` | CLI | todo |
 | 14 | Docs: architecture, cv-format, AGENTS.md, gaps; retire the single-file assumptions | Docs in sync | todo |
 
@@ -99,9 +100,9 @@ in-memory rendering is too slow; the fallback is a private temp directory per re
 
 ## Handoff
 
-For the next session: the design is agreed (R1–R21). Steps 1–11 are done (S3 complete); next is S4, step 12
-(first-run flow, R3). Work on branch `feature/20261021-multi-role`. Steps 1–11 are committed (step 11 in
-"multi-role step 11"). `input/jobspec.txt` has an unrelated uncommitted
+For the next session: the design is agreed (R1–R21). Steps 1–12 are done; next is S4, step 13 (role-mode CLI,
+design doc "CLI (R5)"). Work on branch `feature/20261021-multi-role`. Steps 1–12 are committed (step 12 in
+"multi-role step 12"). `input/jobspec.txt` has an unrelated uncommitted
 change of the user's: leave it out of commits. The Schema section in multi-role-design.md is what's built.
 
 **This install's DB** (`cv_web/resumator.db`, gitignored) was migrated by the user: master v1 (`import`), role 1
@@ -129,16 +130,23 @@ Headless Chrome (`/Applications/Google Chrome.app`) with `--remote-debugging-por
   `base_master_id`. Promote and pull add versions with sources `promote`/`pull` (check `store` for the allowed
   `source` values and how `base_master_id` moves).
 - Known UI limits: no "make current" run button (the API has `…/current`); past role research runs and the
-  research PDF aren't shown (docs/gaps.md); file mode only remains for an empty DB (step 12 replaces it).
+  research PDF aren't shown (docs/gaps.md). (File mode for an empty DB was replaced in step 12.)
 - Known backend limit (from step 8): `role_runner.run_script` doesn't start a new process session, so research stop
   falls back to `terminate()` of the script; a provider child may outlive it. Mind Ctrl-C for the step 13 CLI.
+
+**Step 12 gave the first run** (design doc "First-run behaviour", as built): `cv_web/first_run.py` (`status`,
+`set_up`) over `examples/`, routes `GET/POST /api/setup`. The UI has `state.workspace` (role mode, DB in use) apart
+from `activeRoleId`; with no roles only the master is open (`isMasterOnly`, `body.no-role`, `[data-needs-role]`).
+For step 13: `first_run.set_up` can back a CLI `init`/first-run action if wanted (not in the R5 list), and
+`role_runner.run_cv`/`run_research` are what the CLI should call (see the step 8 stop/Ctrl-C note below).
+Example data is handy for CLI tests: `first_run.set_up(conn, "example")` gives a role with a current run. For step
+14: file mode in the UI is now only a fallback when the role API fails; the one-shot CLI is still file-based (R5).
 
 **Steps 10–11 gave promote, pull, import and history** (docs/architecture.md "Role API", static/ARCHITECTURE.md).
 Step 11 as built: `cv-history-feature.js` (History button, role or master CV, restore = a new `edit` version via
 `…/cv/versions/<v>/restore`) and import through the merge dialog (`GET/POST /api/master/import`, Import CV.md button
 shown only with the master open). The import base is the file text at the last import in `setting.master_import_text`
-(design doc, "CV versions"). For step 12: file mode only remains for an empty DB, and the first-run choice
-(example data or blank) replaces it; `setting` can hold `first_run_done`. The `example` CV source already exists.
+(design doc, "CV versions").
 Step 10 notes, kept for reference:
 - `cv_web/role_merge.py`: `view(conn, role_id, direction)` / `parse_decisions` / `apply(…)` over `cv_merge`. Routes
   `GET/POST /api/roles/<id>/merge`. The base rule (pull moves it, promote only when nothing is left to pull) is in

@@ -182,6 +182,13 @@ export function createAppEventBindingsFeature(ctx) {
             if (els.cvSourceSelect) {
                 els.cvSourceSelect.addEventListener("change", roleWorkspaceFeature.handleCvSourceChanged);
             }
+            bindOptionalClick(els.firstRunExampleBtn, () => roleWorkspaceFeature.chooseFirstRun("example"));
+            bindOptionalClick(els.firstRunBlankBtn, () => roleWorkspaceFeature.chooseFirstRun("blank"));
+            if (els.firstRunDialog) {
+                // Escape would leave a new install with no choice made; Chrome doesn't always let it be cancelled.
+                els.firstRunDialog.addEventListener("cancel", (event) => event.preventDefault());
+                els.firstRunDialog.addEventListener("close", roleWorkspaceFeature.handleFirstRunDialogClosed);
+            }
         }
         if (roleMergeFeature) {
             bindOptionalClick(els.promoteCvBtn, () => roleMergeFeature.openMerge("promote"));

@@ -15,6 +15,7 @@ Second pipeline: company/role research notes. Python stdlib only; vanilla-JS web
 | Frontend JS modules, endpoint ownership | [cv_web/static/ARCHITECTURE.md](cv_web/static/ARCHITECTURE.md) |
 | VS Code Copilot bridge extension | [VSCodeExtension/README.md](VSCodeExtension/README.md) |
 
+`examples/` holds fictional first-run data (master CV, job spec, canned run, blank template); keep it fictional.
 `discussion.txt` is the original brief (superseded by `docs/`). Skip `output/`, `.venv/`, `VSCodeExtension/runtime/`,
 `VSCodeExtension/node_modules/`, and `gemini-code-*.py` (scratch).
 
@@ -43,7 +44,7 @@ python3 generate_cv.py --io json < request.json     # also research_role.py: JSO
 python3 research_format.py
 python3 -m cv_web.migrate_single_role --name "Role" [--archive DIR]  # one-time: this install's files → first role in the DB
 python3 cv_source.py --lint [path]                  # lint a CV source file (default input/CV.md)
-python3 -m unittest discover -s tests -v            # Python tests (server helpers, env_utils, cv_source, cv_merge, store, role_merge, role_runner, server_roles, migrate_single_role, contract, backends, --io json)
+python3 -m unittest discover -s tests -v            # Python tests (server helpers, env_utils, cv_source, cv_merge, store, role_merge, role_runner, server_roles, migrate_single_role, first_run, contract, backends, --io json)
 (cd cv_web/static && npm test)                      # frontend tests (node --test)
 ```
 

@@ -32,6 +32,7 @@ import { pollUntilDone } from "./async-workflow-utils.js";
  * @property {(run: any) => string} summarizeRun Convert run payload to display text.
  * @property {() => {enabled: boolean, text: string}} [getSteeringRequest] Steering for full runs.
  * @property {() => number | null} [getActiveRoleId] Role mode: the active role, or null for file mode.
+ * @property {() => boolean} [isRoleRequired] Role mode with no role yet: runs are refused.
  * @property {() => Promise<void>} [saveRoleEditsBeforeRun] Role mode: save unsaved role edits first.
  * @property {(roleId: number, run: any) => Promise<void>} [afterRoleCvRun] Role mode: reload the run history.
  */
@@ -63,6 +64,7 @@ export function createCvPipelineFeature(ctx) {
         summarizeRun,
         getSteeringRequest,
         getActiveRoleId,
+        isRoleRequired,
         saveRoleEditsBeforeRun,
         afterRoleCvRun,
     } = ctx;
@@ -104,6 +106,10 @@ export function createCvPipelineFeature(ctx) {
      */
     async function runPipeline(kind) {
         const roleId = getActiveRoleId ? getActiveRoleId() : null;
+        if (roleId === null && isRoleRequired && isRoleRequired()) {
+            setStatus("Runs belong to a role: add one with + first.", true);
+            return;
+        }
         if (roleId !== null) {
             await runRolePipeline(roleId);
             return;

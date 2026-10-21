@@ -56,7 +56,9 @@ const state = {
     runStatusTimerId: null,
     runStatusStartMs: 0,
     runStatusMessage: "",
-    // Role mode (multi-role plan): null = file mode (no roles yet).
+    // Role mode (multi-role plan): workspace = the DB is in use (false = file mode fallback); activeRoleId null
+    // in role mode = no role yet (master CV only).
+    workspace: false,
     activeRoleId: null,
     roles: [],
     cvSource: "role",
@@ -79,6 +81,10 @@ const els = {
     newRoleNameInput: document.getElementById("newRoleNameInput"),
     newRoleCompanyInput: document.getElementById("newRoleCompanyInput"),
     newRoleJobspecInput: document.getElementById("newRoleJobspecInput"),
+    firstRunDialog: document.getElementById("firstRunDialog"),
+    firstRunExampleBtn: document.getElementById("firstRunExampleBtn"),
+    firstRunBlankBtn: document.getElementById("firstRunBlankBtn"),
+    firstRunError: document.getElementById("firstRunError"),
     newRoleCancelBtn: document.getElementById("newRoleCancelBtn"),
     cvSourceSelect: document.getElementById("cvSourceSelect"),
     promoteCvBtn: document.getElementById("promoteCvBtn"),
@@ -357,6 +363,7 @@ const cvHistoryFeature = createCvHistoryFeature({
 // Role-mode hooks shared by the CV and research run features.
 const roleRunDeps = {
     getActiveRoleId: () => state.activeRoleId,
+    isRoleRequired: () => roleWorkspaceFeature.isMasterOnly(),
     saveRoleEditsBeforeRun: roleWorkspaceFeature.saveEditsBeforeRun,
 };
 

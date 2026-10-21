@@ -28,7 +28,7 @@ mention the fintech background".
 
 Suggested shape:
 1. Done, differently: the web UI has a Steering tab on the CV tab, kept on the role in role mode (in browser
-   localStorage with no roles; copied once into the first role opened), plus a "Steer CV generation" checkbox. Full runs send the text; the server writes it to `output/steering.run.md`
+   localStorage while no role is open; copied once into the first role opened), plus a "Steer CV generation" checkbox. Full runs send the text; the server writes it to `output/steering.run.md`
    and passes `--steering-file`, or `--no-steering` when unticked or empty. A 🧭 before the PDF title marks a CV
    generated with steering (from `metadata.steering`).
 2. Done: `generate_cv` reads `input/steering.md` (or `--steering-file`) and appends `=== CANDIDATE STEERING ===`

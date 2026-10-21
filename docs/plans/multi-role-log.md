@@ -167,3 +167,15 @@ are history, not instructions.
   import", history and restore; `input/CV.md` unchanged. The live DB has the user's own promote trials (20:36 UTC,
   roles 2–3), checked to be theirs, not test writes. Docs: architecture.md, static ARCHITECTURE.md, gaps.md, design doc.
 - 2026-10-21 · Process · Committed step 11 at the user's request ("multi-role step 11"); `input/jobspec.txt` left out.
+- 2026-10-21 · Step 12 · Done. `cv_web/first_run.py` (`status`, `set_up`) and `GET/POST /api/setup`; fictional
+  `examples/` (master CV, job spec, canned run with a fixed date, blank TODO template; both CVs lint clean). The UI
+  asks on a new install (`#firstRunDialog`, example or blank). Differed from the plan: with no roles the UI stays in
+  role mode with only the master open (`state.workspace` apart from `activeRoleId`, `body.no-role`,
+  `[data-needs-role]`; runs refused, job spec read-only, preview says "No role yet") instead of falling back to file
+  mode, which is now only for an unreachable role API. Both master versions use source `example`. Fixed during the
+  check: Chrome let Escape close the dialog (the `cancel` isn't cancellable without user activation), so it reopens
+  on close; the no-role preview said "No runs yet for this role" (run sources can carry a placeholder now). 12 new
+  Python tests (274) and 7 frontend (94) pass. A CDP smoke test on fresh scratch DBs (port 8799) covered example
+  (role, canned run, its PDF 200, no dialog after reload) and blank (Escape, master-only controls, run refused,
+  creating a role leaves no-role mode); `input/CV.md` unchanged. Docs: architecture.md, static ARCHITECTURE.md,
+  gaps.md, design doc, AGENTS.md. Committed as "multi-role step 12"; `input/jobspec.txt` left out.

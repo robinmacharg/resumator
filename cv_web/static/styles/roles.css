@@ -1,8 +1,10 @@
 /* Role sidebar and role-mode controls (multi-role plan step 9). */
 
-/* Shows role-only controls in role mode and file-only controls otherwise. */
+/* Shows role-only controls in role mode and file-only controls otherwise; with no role yet (master CV only, step
+   12) hides the controls that need one. */
 body:not(.role-mode) [data-role-only],
 body.role-mode [data-file-only],
+body.no-role [data-needs-role],
 body:not(.cv-master) [data-master-only] {
   display: none !important;
 }

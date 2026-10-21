@@ -331,5 +331,24 @@ class StartRunTests(ServerRolesTestCase):
         self.assertIsNotNone(last["runId"])
 
 
+
+class SetupTests(ServerRolesTestCase):
+    def test_existing_data_needs_no_first_run(self) -> None:
+        body = self.json("GET", "/api/setup")
+        self.assertEqual((body["needed"], body["hasMaster"], body["roleCount"]), (False, True, 1))
+        self.json("POST", "/api/setup", {"choice": "blank"}, status=409)
+
+    def test_first_run_example_on_an_empty_db(self) -> None:
+        store.delete_role(self.conn, self.role_id)
+        self.conn.execute("DELETE FROM cv_version")
+        self.assertTrue(self.json("GET", "/api/setup")["needed"])
+        self.json("POST", "/api/setup", {"choice": "nope"}, status=400)
+        body = self.json("POST", "/api/setup", {"choice": "example"})
+        self.assertEqual(body["choice"], "example")
+        runs = self.json("GET", f"/api/roles/{body['roleId']}/runs")["cvRuns"]
+        self.assertEqual([(run["id"], run["isCurrent"]) for run in runs], [(body["runId"], 1)])
+        self.assertEqual(self.json("GET", "/api/setup")["done"], "example")
+
+
 if __name__ == "__main__":
     unittest.main()

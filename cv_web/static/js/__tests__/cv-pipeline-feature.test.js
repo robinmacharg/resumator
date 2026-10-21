@@ -210,3 +210,16 @@ test("cv pipeline in role mode reports the run's error", async () => {
 
     assert.deepEqual(calls.setStatus.at(-1), { message: "Run failed: model output invalid", isError: true });
 });
+
+test("cv pipeline in role mode with no role yet refuses to run", async () => {
+    const { ctx, calls } = createContext({
+        getActiveRoleId: () => null,
+        isRoleRequired: () => true,
+    });
+    const feature = createCvPipelineFeature(ctx);
+
+    await feature.runPipeline("format");
+
+    assert.deepEqual(calls.setRunning, []);
+    assert.deepEqual(calls.setStatus, [{ message: "Runs belong to a role: add one with + first.", isError: true }]);
+});

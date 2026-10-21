@@ -110,6 +110,25 @@ test("file mode leaves the Tailored tab to the file behaviour", async () => {
     assert.equal(await feature.refreshTailoredOutput(), false);
 });
 
+test("role mode with no role yet shows an empty preview instead of file output", async () => {
+    const { feature, state, els, calls } = createHarness({ activeRoleId: null });
+    state.workspace = true;
+
+    feature.showSelectedRun();
+
+    assert.deepEqual(calls.sources.at(-1), {
+        url: null,
+        docxUrl: null,
+        label: "no role yet",
+        steering: "",
+        generatedAt: null,
+        placeholder: "No role yet: add one with +",
+    });
+    assert.equal(await feature.refreshTailoredOutput(), true);
+    assert.match(els.tailoredViewer.value, /No role yet/);
+    assert.deepEqual(calls.api, []);
+});
+
 test("afterCvRun reloads the history and shows the new run", async () => {
     const { feature, state } = createHarness();
 

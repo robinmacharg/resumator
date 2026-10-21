@@ -61,7 +61,14 @@ function roleRecord(id, extra = {}) {
     return { ...base, jobspec: `job ${id}`, steeringText: "", steeringEnabled: 1, theme: null, ...extra };
 }
 
-function createHarness({ roles = ROLES, storage = {}, roleExtra = {}, confirm = () => true } = {}) {
+function createHarness({
+    roles = ROLES,
+    storage = {},
+    roleExtra = {},
+    confirm = () => true,
+    setup = { needed: false },
+    setupRoles = ROLES,
+} = {}) {
     global.document = { createElement: fakeElement };
     global.localStorage = createLocalStorageMock(storage);
     const calls = {
@@ -72,9 +79,11 @@ function createHarness({ roles = ROLES, storage = {}, roleExtra = {}, confirm = 
         status: [],
         showRun: 0,
         reload: 0,
+        dialog: [],
+        tailored: 0,
         onCreate: () => {},
     };
-    const state = { activeRoleId: null, roles: [], cvSource: "role", diskFiles: {} };
+    const state = { workspace: false, activeRoleId: null, roles: [], cvSource: "role", diskFiles: {} };
     const editors = { cv: "", jobspec: "", prompt: "p", research_prompt: "rp", env: "" };
     const els = {
         body: fakeElement("body"),
@@ -82,6 +91,12 @@ function createHarness({ roles = ROLES, storage = {}, roleExtra = {}, confirm = 
         roleStatusSelect: fakeElement("select"),
         activeRoleLabel: fakeElement("strong"),
         cvSourceSelect: fakeElement("select"),
+        jobspecEditor: fakeElement("textarea"),
+        firstRunDialog: {
+            showModal: () => calls.dialog.push("open"),
+            close: () => calls.dialog.push("close"),
+        },
+        firstRunError: fakeElement("p"),
         fileLoadButtons: [
             Object.assign(fakeElement("button"), { dataset: { file: "cv" } }),
             Object.assign(fakeElement("button"), { dataset: { file: "prompt" } }),
@@ -91,6 +106,16 @@ function createHarness({ roles = ROLES, storage = {}, roleExtra = {}, confirm = 
     const api = async (path, options = {}) => {
         const body = options.body ? JSON.parse(options.body) : null;
         calls.api.push({ path, method: options.method || "GET", body });
+        if (path === "/api/setup") {
+            if (!options.method) {
+                return setup;
+            }
+            if (body.choice === "fail") {
+                throw new Error("First-run setup is already done");
+            }
+            roles = body.choice === "example" ? setupRoles : [];
+            return { success: true, choice: body.choice };
+        }
         if (path === "/api/roles" && !options.method) {
             return { roles };
         }
@@ -130,6 +155,9 @@ function createHarness({ roles = ROLES, storage = {}, roleExtra = {}, confirm = 
             showSelectedRun: () => {
                 calls.showRun += 1;
             },
+            refreshTailoredOutput: async () => {
+                calls.tailored += 1;
+            },
         },
         confirm,
         reloadPage: () => {
@@ -139,16 +167,111 @@ function createHarness({ roles = ROLES, storage = {}, roleExtra = {}, confirm = 
     return { feature, state, els, editors, editableFiles, calls };
 }
 
-test("initialize with no roles stays in file mode", async () => {
-    const { feature, state, els } = createHarness({ roles: [] });
+test("initialize on a new install offers the first-run choice and stays out of role mode", async () => {
+    const { feature, state, els, calls } = createHarness({ roles: [], setup: { needed: true } });
 
     await feature.initialize();
 
-    assert.equal(state.activeRoleId, null);
-    assert.equal(feature.isActive(), false);
+    assert.deepEqual(calls.dialog, ["open"]);
+    assert.equal(state.workspace, false);
     assert.deepEqual(feature.getRoleOwnedKeys(), []);
     assert.equal(els.body.classList.contains("role-mode"), false);
     assert.equal(els.roleList.children[0].textContent, "No roles yet. Use + to add one.");
+});
+
+test("initialize falls back to file mode when the role API is unavailable", async () => {
+    const { feature, state, els, calls } = createHarness();
+    global.document = { createElement: fakeElement };
+    const failing = createRoleWorkspaceFeature({
+        state,
+        els,
+        api: async () => {
+            throw new Error("down");
+        },
+        editableFiles: { cv: { tabLabel: "CV" } },
+        localStorageKeys,
+        setStatus: (message, isError) => calls.status.push({ message, isError }),
+        syncDirtyIndicators: () => {},
+    });
+
+    await failing.initialize();
+
+    assert.equal(state.workspace, false);
+    assert.deepEqual(failing.getRoleOwnedKeys(), []);
+    assert.match(calls.status.at(-1).message, /using input\/ files: down/);
+});
+
+test("with no roles but a master, only the master CV is open", async () => {
+    const { feature, state, els, editors, editableFiles, calls } = createHarness({ roles: [] });
+
+    await feature.initialize();
+
+    assert.equal(state.workspace, true);
+    assert.equal(feature.isMasterOnly(), true);
+    assert.equal(state.cvSource, "master");
+    assert.deepEqual(feature.getRoleOwnedKeys(), ["cv", "jobspec"]);
+    assert.equal(editors.cv, "master cv");
+    assert.equal(editors.jobspec, "");
+    assert.equal(els.body.classList.contains("role-mode"), true);
+    assert.equal(els.body.classList.contains("no-role"), true);
+    assert.equal(els.body.classList.contains("cv-master"), true);
+    assert.equal(els.jobspecEditor.readOnly, true);
+    assert.equal(editableFiles.cv.tabLabel, "Master CV");
+    assert.deepEqual([calls.showRun, calls.tailored], [1, 1]);
+});
+
+test("with no role the master saves, the job spec and theme changes are held back", async () => {
+    const { feature, editors, calls } = createHarness({ roles: [] });
+    await feature.initialize();
+
+    editors.cv = "edited master";
+    await feature.saveFile("cv");
+    editors.jobspec = "spec";
+    assert.equal(await feature.saveFile("jobspec"), true);
+    assert.equal(feature.handleThemeChanged("compact"), true);
+    assert.equal(feature.handleSteeringChanged({ text: "x", enabled: true }), false);
+
+    const posts = calls.api.filter((call) => call.method === "POST");
+    assert.deepEqual(posts.map((call) => call.path), ["/api/master/cv"]);
+    assert.equal(calls.status.at(-1).isError, true);
+    assert.equal(calls.showRun, 1);
+});
+
+test("choosing example data loads the example role", async () => {
+    const { feature, state, els, calls } = createHarness({
+        roles: [],
+        setup: { needed: true },
+        storage: { "cvweb.roles.local_copied": "true" },
+    });
+    await feature.initialize();
+
+    assert.equal(await feature.chooseFirstRun("example"), true);
+
+    assert.deepEqual(calls.dialog, ["open", "close"]);
+    feature.handleFirstRunDialogClosed();
+    assert.deepEqual(calls.dialog, ["open", "close"]);
+    assert.deepEqual(calls.api.find((call) => call.method === "POST").body, { choice: "example" });
+    assert.equal(state.workspace, true);
+    assert.equal(state.activeRoleId, 1);
+    assert.equal(els.body.classList.contains("no-role"), false);
+    assert.match(calls.status.at(-1).message, /Example data loaded/);
+});
+
+test("choosing blank opens the master alone; a refusal keeps the dialog open", async () => {
+    const { feature, state, els, calls } = createHarness({ roles: [], setup: { needed: true } });
+    await feature.initialize();
+
+    feature.handleFirstRunDialogClosed();
+    assert.deepEqual(calls.dialog, ["open", "open"]);
+    calls.dialog.length = 1;
+    assert.equal(await feature.chooseFirstRun("fail"), false);
+    assert.deepEqual(calls.dialog, ["open"]);
+    assert.equal(els.firstRunError.textContent, "First-run setup is already done");
+
+    assert.equal(await feature.chooseFirstRun("blank"), true);
+    assert.equal(state.workspace, true);
+    assert.equal(state.activeRoleId, null);
+    assert.equal(state.cvSource, "master");
 });
 
 test("initialize opens the remembered role and fills the role-owned editors", async () => {

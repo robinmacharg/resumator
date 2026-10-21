@@ -20,6 +20,8 @@
 | `cv_web/role_runner.py` | Role runs (`run_cv`, `run_research`): builds the `--io json` request from the store (role CV, job spec, steering, theme, prompt template text saved as a `prompt_version`), runs the script from the repo root, streams stderr to an `on_log` callback, and saves the `cv_run`/`research_run` row with the log (errors appended). Returns `pdf_base64` without storing it. Called by `server_roles` (the role CLI follows in [plan](plans/multi-role.md) step 13) |
 | `cv_web/role_merge.py` | Promote and pull (`view`, `parse_decisions`, `apply`): three-way merge of the role CV and the master against the role's `base_master_id` version, saved as a `promote` master version or a `pull` role version. A pull moves the role's base to the current master; a promote moves it (with an unchanged-content `promote` role version) only when nothing is left to pull. Also "Import `input/CV.md` as master" (`import_view`, `apply_import`, R12): base = the file text at the last import (setting `master_import_text`, else the newest `import` version), saved as an `import` master version. Called by `server_roles` |
 | `cv_web/server_roles.py` | Role API (`dispatch`, tried by `server_http_handlers` for every GET/POST): roles, role and master CVs, run history, role runs in the background (sharing the run locks and live state), and run PDF/DOCX rendered from `raw_output` through the in-memory `RENDER_CACHE`. See "Role API" below |
+| `cv_web/first_run.py` | First run for a new install (R3): `status` (the choice is due while the DB has no master, no roles and no `first_run_done` setting) and `set_up(conn, "example" \| "blank")`. Example: master CV, a role ("Lead iOS Engineer", Northwind Health) with its job spec and a canned successful CV run, from `examples/` (master versions use source `example`). Blank: the `examples/blank-cv.md` template as the master, no roles. One transaction; records `first_run_done` |
+| `examples/` | Fictional first-run data, also handy for demos and tests: `master-cv.md`, `jobspec.txt`, `run.json` (the canned run's model output with a fixed run date, so its role cutoff never drifts) and `blank-cv.md` (TODO template). Both CVs lint without errors |
 | `cv_web/migrate_single_role.py` | One-time CLI (`python3 -m cv_web.migrate_single_role --name … [--archive DIR] [--no-research]`): imports `input/CV.md` as a master `import` version and a first role (job spec, seeded CV, current and archived CV runs, research run) from today's `input/`/`output/` files. Provider, model, theme and prompt hash stay NULL (not recorded in those files). Skips when the role exists; one transaction |
 | `VSCodeExtension/` | VS Code extension that exposes Copilot over local HTTP (`vscodebridge` backend) |
 
@@ -82,14 +84,17 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 
 JSON in and out, camelCase keys (store rows converted by `camel`). Errors are `{error}` with 400 (bad request), 404
 (unknown role or a run of another role), 409 (conflict: run in progress, no master, nothing to render) or 500.
-The UI uses them whenever the DB has roles ("role mode", `role-workspace-feature.js` and `role-runs-feature.js`;
-see [static/ARCHITECTURE.md](../cv_web/static/ARCHITECTURE.md)). With no roles it keeps the file-based endpoints above,
-which are unchanged. In role mode the CV and job spec editors never reach them, so `input/CV.md` isn't overwritten;
-the prompt and `.env` editors stay file-based. Role research runs are stored, but the UI doesn't list or render
+The UI is in "role mode" once the DB is set up (`role-workspace-feature.js` and `role-runs-feature.js`; see
+[static/ARCHITECTURE.md](../cv_web/static/ARCHITECTURE.md)). A new install first picks example data or a blank master
+CV (`/api/setup`); with no roles yet only the master CV is open and runs wait for a role. The file-based endpoints
+above are unchanged, and the UI falls back to them only when the role API can't be reached. In role mode the CV and
+job spec editors never reach them, so `input/CV.md` isn't overwritten; the prompt and `.env` editors stay file-based. Role research runs are stored, but the UI doesn't list or render
 them yet (see [gaps.md](gaps.md)).
 
 | Route | What |
 |---|---|
+| `GET /api/setup` | First-run status: `{needed, done, hasMaster, roleCount}` (`done` = the choice made, or null) |
+| `POST /api/setup` | `{choice: "example" \| "blank"}` → `{choice, masterVersionId, roleId, runId}` (null role and run for blank). 400 for another choice, 409 once done or when the DB already has data |
 | `GET /api/roles[?status=]` | Role list (R20): role fields plus `lastRunAt`, `currentSteered` |
 | `POST /api/roles` | Create `{name, company, jobspec, status, theme, steeringText, steeringEnabled, slug}`; seeds its CV from the master (409 without one) |
 | `GET`/`POST /api/roles/<id>` | Read / update the same fields. Archive = `{status: "closed"}` (R21); `theme: ""` = default |
@@ -110,7 +115,7 @@ them yet (see [gaps.md](gaps.md)).
 
 ## Tests
 
-- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_merge`, `store` (temp DBs), `role_merge` (temp DB), `role_runner` (real scripts on a temp DB with a fake `claude`), `server_roles` (temp DB; rendering and runs patched), `migrate_single_role` (fixture files), `cv_convert` (render tests skip
+- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_merge`, `store` (temp DBs), `role_merge` (temp DB), `role_runner` (real scripts on a temp DB with a fake `claude`), `first_run` (temp DB; the `examples/` files), `server_roles` (temp DB; rendering and runs patched), `migrate_single_role` (fixture files), `cv_convert` (render tests skip
   without pandoc/typst; the in-memory vs file-route parity test also skips without a local `output/tailored.md`) and the `claudecode` backend (with a fake `claude` on PATH). Nothing covers `generate_cv` or
   the other backends.
 - `cv_web/static/js/__tests__/`: `node --test` coverage of the frontend feature modules.

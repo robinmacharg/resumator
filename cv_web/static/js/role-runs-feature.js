@@ -84,12 +84,14 @@ export function createRoleRunsFeature(ctx) {
      * @returns {void}
      */
     function showSelectedRun() {
-        if (state.activeRoleId === null) {
+        const noRole = state.activeRoleId === null;
+        if (noRole && !state.workspace) {
             return;
         }
-        const run = selectedRun();
+        const run = noRole ? null : selectedRun();
         if (!run) {
-            setCvRunSource({ url: null, docxUrl: null, label: "no runs yet", steering: "", generatedAt: null });
+            const source = { url: null, docxUrl: null, label: "no runs yet", steering: "", generatedAt: null };
+            setCvRunSource(noRole ? { ...source, label: "no role yet", placeholder: "No role yet: add one with +" } : source);
             updatePreview();
             return;
         }
@@ -142,10 +144,18 @@ export function createRoleRunsFeature(ctx) {
      * @returns {Promise<boolean>} False in file mode, so the caller shows output/tailored.md.
      */
     async function refreshTailoredOutput() {
-        if (state.activeRoleId === null) {
+        const noRole = state.activeRoleId === null;
+        if (noRole && !state.workspace) {
             return false;
         }
         if (!els.tailoredViewer) {
+            return true;
+        }
+        if (noRole) {
+            if (els.tailoredTitle) {
+                els.tailoredTitle.textContent = "Model output";
+            }
+            els.tailoredViewer.value = "No role yet. Add one with + to tailor the master CV.";
             return true;
         }
         const run = selectedRun();

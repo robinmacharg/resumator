@@ -3,7 +3,8 @@
 Architecture role:
 - Layer: backend HTTP handlers over `cv_web/store.py` and `cv_web/role_runner.py`.
 - Responsibility: the `/api/roles…` and `/api/master/cv` routes, including promote and pull (`…/merge`, step 10,
-  over `cv_web/role_merge.py`), CV version history and restore, and importing `input/CV.md` (step 11). `server_http_handlers.dispatch_get/post` hand
+  over `cv_web/role_merge.py`), CV version history and restore, importing `input/CV.md` (step 11), and the first-run
+  choice (`/api/setup`, step 12, over `cv_web/first_run.py`). `server_http_handlers.dispatch_get/post` hand
   every request to `dispatch` first; it returns False for routes it doesn't own.
 
 Design notes (docs/plans/multi-role-design.md R6, R16, R21):
@@ -29,12 +30,13 @@ from typing import Any
 from urllib.parse import parse_qs
 
 from cv_convert import available_themes, render_cv
-from cv_web import role_merge, role_runner, store
+from cv_web import first_run, role_merge, role_runner, store
 from cv_web import server_runtime_state as runtime
 from cv_web.server_request_parsing import parse_selected_model, parse_selected_provider, parse_url_list
 from cv_web.server_run_helpers import _build_research_run_state, _build_run_state
 
 DB_PATH = store.DB_PATH
+EXAMPLES_DIR = first_run.EXAMPLES_DIR
 IMPORT_PATH = role_merge.IMPORT_PATH
 
 CONTENT_TYPES = {
@@ -360,6 +362,7 @@ _GET_ROUTES = [
     (re.compile(r"/api/master/cv"), "get_master_cv"),
     (re.compile(r"/api/master/cv/versions/(?P<version>\d+)"), "get_master_cv_version"),
     (re.compile(r"/api/master/import"), "get_import"),
+    (re.compile(r"/api/setup"), "get_setup"),
 ]
 _POST_ROUTES = [
     (re.compile(r"/api/roles"), "create_role"),
@@ -373,6 +376,7 @@ _POST_ROUTES = [
     (re.compile(r"/api/master/cv"), "save_master_cv"),
     (re.compile(r"/api/master/cv/versions/(?P<version>\d+)/restore"), "restore_master_cv"),
     (re.compile(r"/api/master/import"), "save_import"),
+    (re.compile(r"/api/setup"), "save_setup"),
 ]
 
 
@@ -399,7 +403,7 @@ def dispatch(handler, method: str, parsed: Any, payload: dict[str, Any] | None, 
     except ApiError as exc:
         handler._json_response({"error": str(exc)}, status=exc.status)
         return True
-    except role_merge.MergeError as exc:
+    except (role_merge.MergeError, first_run.FirstRunError) as exc:
         handler._json_response({"error": str(exc)}, status=exc.status)
         return True
     except store.StoreError as exc:
@@ -496,6 +500,15 @@ def _save_import(conn, role, params, query, payload, deps):
     return {"success": True, **result, "masterCv": _cv_payload(conn, None)}
 
 
+def _get_setup(conn, role, params, query, payload, deps):
+    return first_run.status(conn)
+
+
+def _save_setup(conn, role, params, query, payload, deps):
+    result = first_run.set_up(conn, str(payload.get("choice", "")), EXAMPLES_DIR)
+    return {"success": True, **result}
+
+
 def _get_merge(conn, role, params, query, payload, deps):
     return role_merge.view(conn, role["id"], query.get("direction", ""))
 
@@ -544,6 +557,8 @@ def _get_run_document(conn, role, params, query, payload, deps):
 
 
 _HANDLERS = {
+    "get_setup": _get_setup,
+    "save_setup": _save_setup,
     "list_roles": _list_roles,
     "get_role": _get_role,
     "create_role": _create_role,
