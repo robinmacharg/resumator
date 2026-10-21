@@ -1,7 +1,7 @@
-# CV source format (draft v1)
+# CV source format (v1)
 
-> **Status: draft for review** ([plan](plans/cv-format-revamp.md), step 1). Once agreed, this replaces
-> [cv-format.md §1](cv-format.md#1-input-master-cv-inputcvmd).
+> Agreed format ([plan](plans/cv-format-revamp.md)). `input/CV.md` moves to it at plan step 9; until then
+> [cv-format.md §1](cv-format.md#1-input-master-cv-inputcvmd) describes the current file.
 
 The master CV (`input/CV.md`) is the candidate's full record: every fact, nothing tailored. The generator selects,
 orders and rewords for each job; this file never needs to look like the output. When in doubt, include it here and
@@ -145,23 +145,38 @@ Fields that apply to every output generated from this CV.
 
 Directives may later be set from the UI per run. This section holds the defaults.
 
-## Importing an existing CV (rules for the agent)
+## Parser and linter: `cv_source.py`
 
-When converting a PDF, DOCX or free-form CV into this format:
+Stdlib only. Run from the repo root:
 
-1. **Preserve every fact and invent nothing.** If something is missing (a job title or a month, say), write `TODO`
-   and add a comment saying what the source shows.
-2. **Keep the candidate's wording.** Fix only extraction damage: hyphenation, lines wrapped mid-sentence, page
-   footers, tracked-change residue (for example `PresentSeptember 2023` becomes `Sep 2023`), citation artefacts such
-   as `[cite: 1]`, and bullets split across pages.
-3. **One entry per role.** A source table or grouped "earlier roles" list becomes separate `##` entries. Merging is
-   the generator's job.
-4. **Don't carry over decorative emphasis.** Drop bold or italics that come from the source layout. Keep quotes and
-   titles of works.
-5. **Map fields:** a role's opening descriptive sentence goes in `Summary`, technologies it names go in `Keywords`
-   (only ones it names), and achievements go in bullets. App Store and product URLs become `Link` fields.
-6. **Normalise dates** to `Mon YYYY`. Vague dates ("mid 2016") become the nearest form (`2016`) with a comment.
-7. **Route the leftovers:** availability and clearance go to `# Candidate`, governance and community items to
-   `# Other`, an "issued on" date is dropped, and anything unplaceable goes in a comment.
-8. **Flag contradictions** in a comment rather than resolving them (for example a grade count that doesn't add up,
-   or dates that overlap without a stated reason).
+```bash
+python3 cv_source.py --lint [path]   # issues as path:line: level: message; exit 1 on any error
+python3 cv_source.py --json [path]   # the parsed dict
+```
+
+`parse_cv_source(text)` returns a dict:
+
+| Key | Holds |
+|---|---|
+| `sections` | Lowercased section name → `{title, line, known, fields, elided_fields, bullets, prose, entries}` |
+| `fields` | Lowercased key → list of values (every repeat kept). Values keep their inline markup, elided text included |
+| `entries` | `{heading, title, subtitle, line, elided, fields, elided_fields, bullets}`; `title`/`subtitle` split the heading on `\|` |
+| `bullets` | `{text, line, elided}`, continuation lines joined |
+| `directives` | `{omit: [...], contact_links: bool}`, defaults applied |
+| `elided` | Every elided item, `{text, line, scope}` with scope `entry`, `field`, `bullet` or `phrase` (for the post-generation check) |
+| `todos` | `{line, text}` per line containing `TODO` |
+| `prompt_text` | What the model gets: comments and comment-only lines removed, everything else as written |
+
+`lint_cv_source(doc)` levels:
+
+| Level | Examples |
+|---|---|
+| error | Missing `# Candidate` or `# Roles`, missing required field, bad `Dates`, duplicate section, bad `Contact links` value |
+| warning | Unknown field, non-repeatable field repeated, field after bullets, stray text, roles not newest first, `\| Company` missing from a role heading, bad `Link`, unmatched `~~`, `TODO` left in |
+| info | Unknown section (sent as context), overlapping roles |
+
+## Importing an existing CV
+
+The import rules and a compact copy of this format live in [input/import_prompt.md](../input/import_prompt.md), the
+prompt an agent or the (later) import pipeline uses to convert a PDF, DOCX or free-form CV. Change the format here
+and there together. Run `--lint` on the result before review.

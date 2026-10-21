@@ -5,6 +5,7 @@
 | File | Role |
 |---|---|
 | `generate_cv.py` | CV pipeline CLI: read inputs → build prompt → backend attempts with model fallback → extract and validate JSON → render tagged markdown → call `cv_convert` |
+| `cv_source.py` | Master CV source format: parse → dict, comment-stripped prompt text, elided phrases, linter CLI ([cv-source-format.md](cv-source-format.md)). Not yet wired into the pipeline |
 | `cv_convert.py` | Tagged markdown → PDF (pandoc + typst) and DOCX (pandoc). Also a standalone CLI (the "format only" run) |
 | `research_role.py` | Research pipeline CLI: research prompt + company + URLs + CV + job spec → backend → `research_output.md/.json` |
 | `research_format.py` | Normalises research markdown → `research_output.formatted.{md,pdf}` |

@@ -4,7 +4,7 @@
 a revised generation contract whose output matches the target layout; and styling that lives in theme files rather
 than in code.
 
-**Status:** steps 1–4 done. Next: step 5 (formalise the source format). See [Handoff](#handoff).
+**Status:** steps 1–5 done. Next: step 6 (styling spike and theme files). See [Handoff](#handoff).
 
 ## Why
 
@@ -113,7 +113,7 @@ Recorded from the brief so later steps can check against it.
 | 2 | Convert the attached 2023 PDF CV to the draft format | [input/CV.v2.md](../../input/CV.v2.md) (`input/CV.md` untouched) | done |
 | 3 | Review gate: format and conversion reviewed, questions answered | D3, D4, D7–D10 | done |
 | 4 | Claude Code backend: `backends/claudecode/module.py` (`claude -p`, JSON output, model selection, tools off) plus a smoke test. Baseline: run the current pipeline on Claude and compare with the existing `tailored_dev.pdf` | Second backend, baseline comparison | done |
-| 5 | Formalise the source format: `cv_source.py` (stdlib parse → dict, strip comments, collect elided phrases, apply directives, lint required fields, date forms, `TODO`s and unknown keys) plus tests; finalise the spec; `input/import_prompt.md` from the import rules | Parser, linter, spec | todo |
+| 5 | Formalise the source format: `cv_source.py` (stdlib parse → dict, strip comments, collect elided phrases, apply directives, lint required fields, date forms, `TODO`s and unknown keys) plus tests; finalise the spec; `input/import_prompt.md` from the import rules | Parser, linter, spec | done |
 | 6 | Styling: spike how pandoc carries named styles (fenced divs/spans with `custom-style`: DOCX supports them natively; Typst probably needs a small pandoc Lua filter mapping them to theme functions). Then move all current looks into `themes/default.typ` + `themes/reference.docx`, and add one compact preset | Theme files; `cv_convert` emits no styling | todo |
 | 7 | `prompt.md` v2. **Input contract:** replace the stale "Input Contract" block (it describes `—` separators and `subsection:` labels) with a short description of the new source format: sections, entries, fields, elision means context-only (D3), comments already stripped, directives, `TODO`. **Output contract:** rewrite per the gap table. Also add the steering rule (D11). Then update `validate_and_normalize_payload` and `render_tagged_markdown` (semantic names from step 6); add tests for the validator and renderer | Revised contract | todo |
 | 8 | Wire the pipeline: `generate_cv` parses the source, sends it (comments stripped) plus computed facts (today, 10-year cutoff, directives) to the model; elision check and page count after render (read the PDF's `/Pages /Count`; counting `/Type /Page` markers over-counts). Steering (D11): read `input/steering.md` if present, append the section, record the text as `metadata.steering` in `tailored.model.json`. No UI or `EDITOR_FILES` changes | End-to-end run | todo |
@@ -126,18 +126,20 @@ Recorded from the brief so later steps can check against it.
 
 For the next session. Read this section, the Decisions table and the step you're on; skip the Log unless needed.
 
-- **Branch:** `improvement/20261021-integrate-claude-revamp-cv-format` (off `develop`). Steps 1–4 committed.
-- **Not ours:** the working tree also holds the user's uncommitted edits to `cv_web/static/package.json`,
+- **Branch:** `improvement/20261021-integrate-claude-revamp-cv-format` (off `develop`). Steps 1–5 committed.
+- **Not ours:** the working tree also holds the user's uncommitted edits to
   `input/jobspec.txt`, `input/prompt.md`, `input/research_company.txt` and `input/research_urls.txt`. Never stage them.
   Their `prompt.md` edit (the stale "Input Contract" block) is what step 7 replaces; build on whatever is committed
   by then.
 - **Working agreement:** stop and report after each step; update the docs in the same step
   ([AGENTS.md](../../AGENTS.md) "Doc upkeep"); add a Log line; commit only when asked. No UI changes unless asked.
-- **Next: step 5.** Write `cv_source.py` at the repo root, stdlib only. Use the `parse → dict` shape described in
-  [cv-source-format.md](../cv-source-format.md), and note that D3 changed: elided text stays in the prompt; the parser
-  only *collects* elided phrases for the post-generation check. Lint `input/CV.v2.md` (it should pass, apart from
-  info-level notes). Add tests in `tests/`, a `python3 cv_source.py --lint [path]` CLI, and `input/import_prompt.md`
-  from the spec's import rules. Then remove the "draft" banner from the spec and update its D3/D4 wording if needed.
+- **Next: step 6.** Spike how pandoc carries named styles: fenced divs/spans with `custom-style` (native in DOCX via a
+  reference doc; Typst likely needs a small Lua filter mapping them to theme functions). Report the spike before
+  moving every look out of `cv_convert.apply_semantic_tag_formatting` into `themes/default.typ` and
+  `themes/reference.docx`, plus one compact preset. Rendered output must look the same as today's before the move.
+- **For step 8 (from step 5):** `cv_source.parse_cv_source` gives `prompt_text`, `directives` and `elided`
+  (`{text, line, scope}`). Phrase-scope elisions can be single common words ("three"), so the post-generation check
+  should match whole entries/fields/bullets strictly and treat short phrases as warnings only, or skip them.
 - **Gotchas:**
   - Run scripts from the repo root (cwd-relative `input/` and `output/`).
   - Never echo `.env` values.
@@ -174,3 +176,9 @@ None outstanding. New ones go here as steps raise them.
 - 2026-10-21 · Planning · Added D11 (steering via `input/steering.md`, file only and no UI yet; wired in step 8,
   prompt rule in step 7) and D12 (Copilot comparison deferred to the new step 11). Widened step 7 to replace the
   stale `prompt.md` input contract. Added a Handoff section ahead of a new session.
+- 2026-10-21 · Step 5 · Added `cv_source.py` (parse → dict, `prompt_text`, elided items by scope, directives, linter,
+  `--lint`/`--json` CLI) and `tests/test_cv_source.py` (20 tests; full suite 63/63). `input/CV.v2.md` lints with 0
+  errors, 0 warnings and 3 info (the overlaps already flagged in its comments); the old `input/CV.md` fails, as
+  expected. Spec finalised (banner removed, parser section added); the import rules moved to
+  `input/import_prompt.md`, which the spec now points to, rather than living in both. D3/D4 wording needed no change.
+  Docs: AGENTS.md, architecture.md, gaps.md.

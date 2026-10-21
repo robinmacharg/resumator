@@ -10,6 +10,7 @@ Second pipeline: company/role research notes. Python stdlib only; vanilla-JS web
 | Overall flow, files, web server, run lifecycle | [docs/architecture.md](docs/architecture.md) |
 | Adding/changing an LLM provider, env vars, retries | [docs/backends.md](docs/backends.md) |
 | CV input format, prompt contract, JSON schema, rendering, PDF | [docs/cv-format.md](docs/cv-format.md) |
+| Master CV source format v1, `cv_source.py` parser/linter, import rules | [docs/cv-source-format.md](docs/cv-source-format.md) |
 | Planned work and known issues | [docs/gaps.md](docs/gaps.md) |
 | Frontend JS modules, endpoint ownership | [cv_web/static/ARCHITECTURE.md](cv_web/static/ARCHITECTURE.md) |
 | VS Code Copilot bridge extension | [VSCodeExtension/README.md](VSCodeExtension/README.md) |
@@ -37,7 +38,8 @@ python3 generate_cv.py [--provider ID] [--model M]  # CV pipeline
 python3 cv_convert.py --help                        # re-render output/tailored.md only
 python3 research_role.py --company-name "X" [--url U ...] [--dry-run]
 python3 research_format.py
-python3 -m unittest discover -s tests -v            # Python tests (server helpers, env_utils)
+python3 cv_source.py --lint [path]                  # lint a CV source file (default input/CV.md)
+python3 -m unittest discover -s tests -v            # Python tests (server helpers, env_utils, cv_source, backends)
 (cd cv_web/static && npm test)                      # frontend tests (node --test)
 ```
 

@@ -12,12 +12,11 @@ Suggested shape:
    simpler option.
 2. **Extract text**: `.md`/`.txt` as-is. `.docx`: `pandoc -t gfm`. `.pdf`: `pdftotext -layout` (poppler) if it is on
    PATH; otherwise disable PDF import with a clear reason. All of this goes through subprocess, so no new Python deps.
-3. **Normalise with an LLM**: new `input/import_prompt.md` → the selected backend (reuse the attempt loop) → the
+3. **Normalise with an LLM**: `input/import_prompt.md` (exists) → the selected backend (reuse the attempt loop) → the
    canonical CV.md layout. Instruct the model to preserve every fact, invent nothing, and mark unknown fields as `TODO`.
 4. **Review before replacing**: write `output/CV.imported.md` and show a diff or preview. Only an explicit
    "Replace CV" overwrites `input/CV.md` (back up to `input/CV.md.bak`).
-5. **Validate structurally**: a light parser checks the front-matter keys and the `##`/`**Dates:**` role blocks.
-   This parser could also lint hand-written CVs (see P2 "No CV.md schema").
+5. **Validate structurally**: `cv_source.lint_cv_source` (exists) on the imported file.
 
 Touches: `cv_web/server_http_handlers.py` (route), `server_run_helpers.py` (command), a new `import_cv.py` CLI,
 a frontend feature module and tab ([static ARCHITECTURE.md checklist](../cv_web/static/ARCHITECTURE.md)), and docs.
@@ -49,8 +48,9 @@ Suggested shape:
 - **CV.md content issues**: 54 `[cite: 1]` artefacts left over from a Gemini paste. The `skills_raw` lists are not
   valid YAML (`- "a", "b"`). In the Boostworks role, one bullet is split mid-sentence ("…to give" / "* Customer
   Relations…").
-- **No CV.md schema or linter**: a malformed CV is only caught (if at all) by the model's output. A light checker
-  would also support CV import.
+- **No CV.md schema or linter**: in progress. `cv_source.py --lint` checks the v1 source format
+  ([cv-source-format.md](cv-source-format.md)); it applies once `input/CV.md` moves to that format
+  ([plan](plans/cv-format-revamp.md) step 9).
 - **Provider-agnostic messages**: `generate_cv` says "via Gemini CLI" in its argparse help and, on any provider,
   suggests setting `GEMINI_MODEL*` after all attempts fail. It also prints "Gemini CLI returned empty output". The
   log directory is named `gemini_debug_logs` for all providers.
