@@ -4,7 +4,7 @@
 a revised generation contract whose output matches the target layout; and styling that lives in theme files rather
 than in code.
 
-**Status:** steps 1–8 done; step 9 swap done, comparison pending. Next: step 9 comparison. See [Handoff](#handoff).
+**Status:** steps 1–8 done; step 9 run, comparison and page-fit changes done; 13 lines still over 2 pages (Open questions). See [Handoff](#handoff).
 
 ## Why
 
@@ -38,6 +38,9 @@ than in code.
 | D17 | **Misbehaving runs warn, they don't fail, when the output still renders.** A selected role that starts before the cutoff is a warning (a year-only start counts as December). Hard failures are kept for output that can't render. Every warning must reach the user (CLI now; recorded in the output for the later UI) | Your call (revised from the step 7 draft, which failed the run). Faulty output the user may not spot is worse than a noisy run |
 | D18 | The Earlier Career Highlights intro span is years only: `YYYY - YYYY` (or `- Present`) | Your call |
 | D19 | `generate_cv` stops before the model call when `lint_cv_source` reports errors. A single-point `date_range` (`2016`) is valid output | Step 8 calls, open to review. A broken source wastes a model call. The source allows `Dates: 2016`, and Opus copied it faithfully |
+| D20 | Earlier career is capped at 8 items (merge related older roles before dropping any; drop the oldest and least relevant first) and technical skills at 4–5 groups. Going over warns (D17) | Your call (step 9). 15 earlier lines and 8 skill groups pushed the CV to 3 pages |
+| D21 | **Standing weightings are data, not prompt text.** Repeatable `Emphasise:` / `Downplay:` directives in the CV's `# Directives` (currently AI-assisted development, AI tooling, LLM applications / Android), passed in RUN FACTS. `prompt.md` has one generic "Weightings" rule. Precedence: truthfulness, then the job spec's requirements, then steering (per job), then weightings (standing) | Your call to weight them; the mechanism was my call. Swapping topics is a one-line CV edit with no prompt change |
+| D22 | Sector lists in the earlier-career intro use a serial comma | Your call. Sectors that contain "and" ran together |
 
 ### Backend order (D10)
 
@@ -144,14 +147,18 @@ For the next session. Read this section, the Decisions table and the step you're
 - **State:** swap done: `input/CV.md` is the v2 source and the old file is `input/CV.v1.md` (both via `git mv`). The
   web UI server was restarted and lists Claude Code as enabled and the default (first enabled backend). It needs no
   key: the `claude` CLI's own login is used.
-- **Next: step 9 comparison.** Run `python3 generate_cv.py --provider claudecode` (or from the UI) and compare with
-  `output/baseline-gemini-2.5-flash/` and the step 4 Opus run.
-  - Fast mode truncates the 22k-char v2 prompt text to 18k ([gaps.md](../gaps.md)). The user turned it off in
-    `.env` after step 8.
-  - The step 8 trial run (fast mode on) came out at **3 pages**. Opus listed all 15 earlier roles one per line, and
-    Education held only the Scrum Master certificate (the degree was truncated away). Recheck the page count with
-    fast mode off before tuning anything.
-  - `CV.v2.md` has no `~~elided~~` text, so the elision check has only unit-test coverage. Steering has not been
+- **Step 9 result:** with fast mode off, Opus is still **3 pages** (about 24 lines onto page 3; 9 with
+  `--theme compact`). The degree is back in Education, which confirms the step 8 gap was fast-mode truncation. The
+  overflow comes from the contract, not the model: rule 12 asks for every other role (15 earlier-career lines), and
+  rule 17 sets no cap on skill groups (8). Outputs: `output/tailored*` (this run) and `output/step8-opus-fastmode/`.
+- **Step 9 page fit (D20–D22):** with the caps and weightings, Opus kept to 8 earlier items and 5 skill groups, but
+  is still **3 pages** (13 lines over; it was 24). The compact theme fits it on 2 pages. Android mentions went from 6
+  to 0, and AI now has a summary entry, a requirement match and a skill group. Outputs: `output/tailored*` (latest),
+  `output/step9-opus/` (before the caps), `output/step8-opus-fastmode/`.
+- **Next:** the remaining page-fit and Android questions (Open questions), then step 10.
+  - `input/jobspec.txt` has an uncommitted user edit (Quantum Base, Lead Mobile Engineer). The user accepted that
+    run as the step 9 result; no like-for-like Kodly rerun.
+  - `CV.md` has no `~~elided~~` text, so the elision check has only unit-test coverage. Steering has not been
     tried live either.
 - **Gotchas:**
   - Run scripts from the repo root (cwd-relative `input/` and `output/`).
@@ -165,7 +172,12 @@ For the next session. Read this section, the Decisions table and the step you're
 
 ## Open questions
 
-None outstanding. New ones go here as steps raise them.
+- **Remaining page fit.** After D20 the output is still 13 lines over on the default theme (2 pages with compact).
+  The bulk is 25 role bullets averaging 100–170 characters. Options: 4 bullets for older selected roles, a
+  ~150-character bullet guide, make compact the default theme, or wait for the UI page-fit controls.
+- **Android downplay may be too strong.** The Quantum Base spec asks for "native Android (Kotlin)", yet the output
+  never says "Android": it answers with "Kotlin and cross-platform integration". Is that the intent, or should the
+  rule ensure a requirement on a downplayed topic is named once?
 
 ## Log
 
@@ -233,3 +245,14 @@ None outstanding. New ones go here as steps raise them.
   and references were updated (cv-format.md §1 now points to the source-format spec, plus cv-source-format.md,
   gaps.md and the `test_cv_source` fixture). The UI server had been running since before step 4 and showed Claude
   Code as disabled ("module load failed"); `/api/server/restart` fixed it. 116/116 pass. Comparison not run yet.
+- 2026-10-21 · Step 9 (comparison) · Fast mode confirmed off. Opus on `CV.md` passed first time in 60s, but is still
+  3 pages (1,414 words against Gemini's 1,030). Overflow is contract-driven: 15 earlier roles (rule 12) and 8 skill
+  groups. Education now includes the degree. Quality is good: every requirement is grounded in a named role, all
+  selected roles fall after the cutoff, and the headline uses held titles. Found that the job spec had changed
+  (uncommitted, Quantum Base), so the comparison with the Kodly-based baselines is not like-for-like. Kept step 8
+  output in `output/step8-opus-fastmode/`. Page fit raised as an open question; no code changed.
+- 2026-10-21 · Step 9 (page fit) · User's calls: cap earlier career and skill groups (D20), weight Android down and AI
+  tooling up as swappable weightings (D21), serial comma (D22), no Kodly rerun. Weightings are `Emphasise`/`Downplay`
+  directives in `input/CV.md` plus one generic prompt rule, not topic-specific prompt text. Caps warn (D17). 3 new
+  tests; 119/119 pass. Live Opus run: within the caps, but still 3 pages (13 lines over; compact fits 2). Android 6→0
+  mentions, AI 16→21. Docs: cv-source-format.md, cv-format.md §2–3.

@@ -17,7 +17,8 @@ The prompt contains these sections, in this order:
 - `=== RUN FACTS ===` (if present): values the tool computed. Treat them as authoritative:
   - `Today`: the current month.
   - `Selected-roles cutoff`: the earliest start month allowed in selected_key_roles.
-  - `Directives`: output switches, for example `Omit: keywords`.
+  - `Directives`: output switches, for example `Omit: keywords`, and the candidate's standing weightings,
+    `Emphasise: <topics>` and `Downplay: <topics>` (see "Weightings").
 - `=== CANDIDATE STEERING ===` (if present): what the candidate wants this CV to emphasise. It guides selection,
   ordering and phrasing, and never overrides the truthfulness constraints or the job specification.
 
@@ -148,8 +149,10 @@ Selected key roles:
     source material may have fewer, but at least 1.
 
 Earlier career:
-12. earlier_career.items: every other role (not elided) not in selected_key_roles, newest first, one item each.
-    Roles that fit the cutoff but were not selected belong here too.
+12. earlier_career.items: at most 8, newest first, from the roles (not elided) not in selected_key_roles. Roles that
+    fit the cutoff but were not selected belong here first. Then the older roles most relevant to the job: merge
+    related or adjacent older roles into one item (rule 14) before leaving any out, and leave out the oldest and
+    least relevant first.
 13. technologies: 1 to 6 of the role's most job-relevant skills ([] if it lists none).
 14. If you merge several roles into one item, date_range must span all of them.
 15. earlier_career.sectors: 3 to 8 short phrases naming the industries and technology areas these roles cover,
@@ -158,13 +161,25 @@ Earlier career:
 Projects and skills:
 16. open_source_contributions: the 3 or 4 most relevant entries from `# Projects`. Each is one line: name, what it is,
     and why it matters; keep a link as `[name](url)` when the source has one.
-17. technical_skills: groups tailored to the job (for example languages, mobile, frontend, devops, management). Group
-    names are short; items are concrete skills from the Master CV.
+17. technical_skills: 4 or 5 groups tailored to the job (for example languages, mobile, frontend, devops,
+    management). Group names are short; items are concrete skills from the Master CV.
+
+Weightings:
+18. `Emphasise` and `Downplay` in RUN FACTS Directives are the candidate's standing weightings: they apply to every
+    job. Each lists topics separated by commas.
+    - Emphasise: when choosing and ordering summary entries, requirement evidence, roles, bullets, keywords,
+      projects and skill groups, prefer evidence of these topics wherever it is relevant or close to relevant to the
+      job. Give them at least one professional_summary entry when the Master CV supports it.
+    - Downplay: do not open the headline, the summary or a role's bullets with these topics, and do not present them
+      as a core strength. Mention them only where the job asks for them: briefly, and after stronger evidence.
+    - Weightings change selection, order and emphasis only. They never override the truthfulness constraints, and a
+      job requirement on a downplayed topic is still answered honestly. Where the candidate steering note
+      conflicts with a weighting, follow the steering note: it is specific to this job.
 
 General:
-18. Leave out non-professional achievements unrelated to the job.
-19. Mention security clearance and management experience only where relevant to the job, in a fitting section.
-20. Use British English and the source's spelling of names and products.
+19. Leave out non-professional achievements unrelated to the job.
+20. Mention security clearance and management experience only where relevant to the job, in a fitting section.
+21. Use British English and the source's spelling of names and products.
 
 Critical output rules:
 - Return JSON only.

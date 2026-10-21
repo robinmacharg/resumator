@@ -18,7 +18,7 @@ is kept as `input/CV.v1.md` and is not used by the pipeline.
 - `main` parses the CV with `cv_source.parse_cv_source` and stops if `lint_cv_source` reports errors. The model gets
   `prompt_text` (comments stripped, elided text kept as context). `--cv PATH` overrides `input/CV.md`.
 - After the job spec, `build_prompt` appends `=== RUN FACTS ===` (`build_run_facts`: `Today`, `Selected-roles
-  cutoff` = today minus 10 years to the month, `Directives`), then `=== CANDIDATE STEERING ===`
+  cutoff` = today minus 10 years to the month, `Directives` including the `Emphasise`/`Downplay` weightings), then `=== CANDIDATE STEERING ===`
   (`build_steering_section`) when `input/steering.md` is non-empty.
 
 ## 3. Model JSON contract (v2)
@@ -38,9 +38,9 @@ date span come from the renderer.
 | `document.role_requirements` | `role_title` + `items` 4–6, each opening with `**bold phrase**` (a leading `- ` is stripped) |
 | `document.education_credentials` | 1–3 |
 | `document.selected_key_roles[]` | 1–5: `title`, `company`, `date_range`, `app_store_url` (http(s) or null), `keywords` ≥0, `bullets` 1–5. With `role_cutoff=(year, month)`, a start before the cutoff is a warning (a year-only start counts as December) |
-| `document.earlier_career` | `sectors` ≥1 + `items[]` ≥1: `role_title, company, technologies` ≥0, `date_range` |
+| `document.earlier_career` | `sectors` ≥1 + `items[]` ≥1 (more than 8 warns): `role_title, company, technologies` ≥0, `date_range` |
 | `document.open_source_contributions` | 3–4 |
-| `document.technical_skills[]` | ≥1 `{group, items ≥1}` |
+| `document.technical_skills[]` | ≥1 `{group, items ≥1}` (more than 5 groups warns) |
 
 - Date ranges are rewritten to D7 form by `normalize_date_range`: `Mon YYYY`, `YYYY` or `Present` either side of
   ` - `. Full or upper-case month names, en dashes and "to" are accepted. Ranges that end before they start fail.
@@ -53,7 +53,7 @@ After rendering, `main` collects run warnings (D17), prints them, and records th
 
 | Warning | Source |
 |---|---|
-| Rule breaches | `validation_warnings` from `parse_and_validate_json_output`, with `role_cutoff` from RUN FACTS |
+| Rule breaches | `validation_warnings` from `parse_and_validate_json_output`: selected roles before `role_cutoff` (from RUN FACTS), over 8 earlier-career items, over 5 skill groups |
 | Elided text in the output | `find_elision_leaks`: whole entries, bullets and field values matched word for word after markup is stripped; phrases only from 3 words up. Rewordings are not caught |
 | Over two pages | `count_pdf_pages` reads the root `/Type /Pages` `/Count` (counting `/Page` markers over-counts) |
 
@@ -71,7 +71,7 @@ the body as lines prefixed with `[tag]` in a fixed section order. `directives` t
 5. `# Selected Key Roles` → per role: `[role_heading] ## Title | Company`, `[date_range] <dates> ([AppStore](url))`,
    `[keywords] Keywords: [..]` (skipped when empty or `omit` has `keywords`), `[role_bullet] * ...`
 6. `# Earlier Career Highlights` → `[earlier_intro] **<YYYY> - <YYYY|Present>** Positions across <sectors>.` (span from
-   `earlier_career_span`, years only), then `[earlier_role] * **Role** | _Company_ (tech) - dates`
+   `earlier_career_span`, years only; sectors joined with a serial comma), then `[earlier_role] * **Role** | _Company_ (tech) - dates`
 7. `# Open Source Contributions` → `[project_item] * ...`
 8. `# Technical Skills and Expertise` → `[skills_group] **Group** - a, b, c`
 

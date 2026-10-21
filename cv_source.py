@@ -67,7 +67,7 @@ SECTIONS = {
     "other": {"layout": "bullets"},
     "directives": {
         "layout": "fields",
-        "fields": {"omit": False, "contact links": False},
+        "fields": {"omit": False, "contact links": False, "emphasise": True, "downplay": True},
         "required": (),
     },
 }
@@ -192,7 +192,8 @@ def parse_cv_source(text: str) -> dict:
       `fields` maps lowercased keys to lists of values (repeatable keys keep every value). Each entry is
       `{heading, title, subtitle, line, elided, fields, elided_fields, bullets}`; `title`/`subtitle` split the
       heading on `|`. Bullets are `{text, line, elided}`. Values keep their inline markup.
-    - `directives`: `{"omit": [...], "contact_links": bool}` with defaults applied.
+    - `directives`: `{"omit": [...], "contact_links": bool, "emphasise": [...], "downplay": [...]}` with
+      defaults applied.
     - `elided`: every elided phrase, `{text, line, scope}` (scope: phrase, field, bullet or entry).
     - `todos`: `{line, text}` for each line containing `TODO`.
     - `issues`: structural problems found while parsing (see `lint_cv_source` for the full check).
@@ -310,7 +311,11 @@ def _directives(doc: dict) -> dict:
     contact_links = True
     for value in fields.get("contact links", []):
         contact_links = value.strip().lower() not in ("no", "false", "off")
-    return {"omit": omit, "contact_links": contact_links}
+    weightings = {
+        key: [topic.strip() for value in fields.get(key, []) for topic in value.split(",") if topic.strip()]
+        for key in ("emphasise", "downplay")
+    }
+    return {"omit": omit, "contact_links": contact_links, **weightings}
 
 
 def _lint_fields(issues: list, owner: str, line: int, fields: dict, spec: dict) -> None:
@@ -421,6 +426,10 @@ def lint_cv_source(doc: dict) -> list[dict]:
     for name in doc["directives"]["omit"]:
         if name not in ENTRY_FIELDS:
             issues.append((WARNING, directives["line"], f"Omit: '{name}' is not an entry field"))
+    emphasised = {topic.lower() for topic in doc["directives"]["emphasise"]}
+    for topic in doc["directives"]["downplay"]:
+        if topic.lower() in emphasised:
+            issues.append((WARNING, directives["line"], f"'{topic}' is both emphasised and downplayed"))
 
     if "roles" in sections:
         _lint_roles(issues, sections["roles"]["entries"])

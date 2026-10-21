@@ -193,6 +193,22 @@ class ValidateAndNormalizePayloadTests(unittest.TestCase):
         self.validate(payload, role_cutoff=(2016, 10), warnings=warnings)
         self.assertEqual(warnings, [])
 
+    def test_list_caps_warn_and_keep_the_output(self) -> None:
+        payload = valid_payload()
+        document = payload["document"]
+        document["earlier_career"]["items"] *= 5
+        document["technical_skills"] *= 6
+        warnings: list[str] = []
+        result = self.validate(payload, warnings=warnings)
+        self.assertEqual(len(result["document"]["earlier_career"]["items"]), 10)
+        self.assertEqual(
+            warnings,
+            [
+                "document.earlier_career has 10 items; the limit is 8.",
+                "document.technical_skills has 6 groups; the limit is 5.",
+            ],
+        )
+
     def test_parse_and_validate_json_output_extracts_fenced_json(self) -> None:
         raw = "Here you go:\n```json\n" + json.dumps(valid_payload()) + "\n```"
         payload = parse_and_validate_json_output(raw, role_cutoff=(2016, 1))
@@ -246,7 +262,7 @@ class RenderTaggedMarkdownTests(unittest.TestCase):
     def test_earlier_career(self) -> None:
         lines = self.render()
         self.assertIn(
-            "[earlier_intro] **1996 - 2018** Positions across mathematics, translation and poetry.",
+            "[earlier_intro] **1996 - 2018** Positions across mathematics, translation, and poetry.",
             lines,
         )
         self.assertIn("[earlier_role] * **Translator** | _Menabrea_ (French) - Mar 2015 - Sep 2018", lines)
@@ -273,6 +289,14 @@ class RunFactsTests(unittest.TestCase):
                 "Directives: Omit: keywords; Contact links: yes",
             ],
         )
+
+    def test_run_facts_weightings(self) -> None:
+        facts = build_run_facts(
+            date(2026, 1, 1),
+            (2016, 1),
+            {"omit": [], "contact_links": True, "emphasise": ["AI tooling", "LLMs"], "downplay": ["Android"]},
+        )
+        self.assertIn("Directives: Contact links: yes; Emphasise: AI tooling, LLMs; Downplay: Android", facts)
 
     def test_run_facts_without_omit(self) -> None:
         facts = build_run_facts(date(2026, 1, 1), (2016, 1), {"omit": [], "contact_links": False})

@@ -33,6 +33,8 @@ DEBUG_LOG_DIR = OUTPUT_DIR / "gemini_debug_logs"
 MAX_FAST_CV_CHARS = 18000
 SELECTED_ROLES_YEARS = 10
 TARGET_PDF_PAGES = 2
+MAX_EARLIER_CAREER_ITEMS = 8
+MAX_SKILL_GROUPS = 5
 # Elided phrases shorter than this many words are too common to check (D3; "three" would match anywhere).
 ELISION_MIN_PHRASE_WORDS = 3
 MONTH_ABBREVIATIONS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -289,12 +291,15 @@ def selected_roles_cutoff(today: date) -> tuple[int, int]:
 def build_run_facts(today: date, cutoff: tuple[int, int], directives: dict) -> str:
     """Build the RUN FACTS section that input/prompt.md describes.
 
-    directives takes the cv_source shape ({omit: [...], contact_links: bool}).
+    directives takes the cv_source shape ({omit: [...], contact_links: bool, emphasise: [...], downplay: [...]}).
     """
     directive_parts = []
     if directives.get("omit"):
         directive_parts.append("Omit: " + ", ".join(directives["omit"]))
     directive_parts.append("Contact links: " + ("yes" if directives.get("contact_links", True) else "no"))
+    for key, label in (("emphasise", "Emphasise"), ("downplay", "Downplay")):
+        if directives.get(key):
+            directive_parts.append(f"{label}: " + ", ".join(directives[key]))
     return "\n".join([
         "=== RUN FACTS ===",
         f"Today: {format_month(today.year, today.month)}",
@@ -677,6 +682,11 @@ def validate_and_normalize_payload(
                 "date_range": normalize_date_range(item.get("date_range"), f"{field}.date_range"),
             }
         )
+    if len(normalized_earlier_items) > MAX_EARLIER_CAREER_ITEMS:
+        warnings.append(
+            f"document.earlier_career has {len(normalized_earlier_items)} items; "
+            f"the limit is {MAX_EARLIER_CAREER_ITEMS}."
+        )
     document["earlier_career"] = {
         "sectors": require_list_of_strings(
             earlier_career.get("sectors"),
@@ -710,6 +720,10 @@ def validate_and_normalize_payload(
             min_items=1,
         )
         normalized_skills.append({"group": group_name, "items": items})
+    if len(normalized_skills) > MAX_SKILL_GROUPS:
+        warnings.append(
+            f"document.technical_skills has {len(normalized_skills)} groups; the limit is {MAX_SKILL_GROUPS}."
+        )
     document["technical_skills"] = normalized_skills
 
     return payload
@@ -804,10 +818,13 @@ def clean_bullet_text(text: str) -> str:
 
 
 def join_naturally(items: list[str]) -> str:
-    """Join 'a', 'b', 'c' as 'a, b and c'."""
-    if len(items) <= 1:
-        return "".join(items)
-    return f"{', '.join(items[:-1])} and {items[-1]}"
+    """Join 'a', 'b' as 'a and b', and 'a', 'b', 'c' as 'a, b, and c'.
+
+    The serial comma keeps items that contain "and" readable ("x and y, and z").
+    """
+    if len(items) <= 2:
+        return " and ".join(items)
+    return f"{', '.join(items[:-1])}, and {items[-1]}"
 
 
 def render_tagged_markdown(payload: dict, *, directives: dict | None = None) -> str:

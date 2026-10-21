@@ -105,11 +105,28 @@ class ParseCvSourceTests(unittest.TestCase):
         self.assertIn("~~three~~", doc["prompt_text"])
 
     def test_directives_have_defaults_and_overrides(self) -> None:
-        self.assertEqual(parse_cv_source(MINIMAL)["directives"], {"omit": [], "contact_links": True})
+        self.assertEqual(
+            parse_cv_source(MINIMAL)["directives"],
+            {"omit": [], "contact_links": True, "emphasise": [], "downplay": []},
+        )
 
-        doc = parse_cv_source(MINIMAL + "\n# Directives\nOmit: Keywords, location\nContact links: no\n")
+        text = (
+            MINIMAL
+            + "\n# Directives\nOmit: Keywords, location\nContact links: no\n"
+            + "Emphasise: AI tooling, LLM applications\nEmphasise: Swift\nDownplay: Android\n"
+        )
+        doc = parse_cv_source(text)
 
-        self.assertEqual(doc["directives"], {"omit": ["keywords", "location"], "contact_links": False})
+        self.assertEqual(
+            doc["directives"],
+            {
+                "omit": ["keywords", "location"],
+                "contact_links": False,
+                "emphasise": ["AI tooling", "LLM applications", "Swift"],
+                "downplay": ["Android"],
+            },
+        )
+        self.assertEqual(lint(text), [])
 
     def test_profile_lines_with_colons_stay_prose(self) -> None:
         doc = parse_cv_source(MINIMAL + "\n# Profile\nNote: I like engines.\n")
@@ -179,6 +196,13 @@ class LintCvSourceTests(unittest.TestCase):
         self.assertIn(("info", "unknown section '# Hobbies'; sent to the model as context"), found)
         self.assertIn(("error", "Contact links: 'maybe' should be yes or no"), found)
         self.assertIn(("warning", "Omit: 'hobbies' is not an entry field"), found)
+
+    def test_topic_both_emphasised_and_downplayed_warns(self) -> None:
+        issues = lint(MINIMAL + "\n# Directives\nEmphasise: Android, Swift\nDownplay: android\n")
+        self.assertIn(
+            ("warning", "'android' is both emphasised and downplayed"),
+            {(item["level"], item["message"]) for item in issues},
+        )
 
     def test_unmatched_elision_marker_and_bad_links(self) -> None:
         text = MINIMAL.replace("- Wrote the first program.", "- Wrote ~~the first program.")

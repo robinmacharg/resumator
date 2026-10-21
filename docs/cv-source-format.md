@@ -142,6 +142,13 @@ Fields that apply to every output generated from this CV.
 |---|---|---|
 | `Omit` | `Omit: keywords, location` | Never print these field types for any entry |
 | `Contact links` | `Contact links: no` | Include (default) or leave out the LinkedIn/GitHub/Stack Overflow line |
+| `Emphasise` | `Emphasise: AI-assisted development, AI tooling` | Repeatable, comma-separated topics. Standing weighting: the model favours evidence of these in every CV |
+| `Downplay` | `Downplay: Android` | Repeatable, comma-separated topics. Standing weighting: never leads with these or presents them as a core strength; mentioned briefly only when the job asks |
+
+`Emphasise` and `Downplay` hold standing preferences that apply to every job; swap topics in or out here. The prompt
+has one generic rule for them ([prompt.md](../input/prompt.md) "Weightings"), so no prompt edit is needed to change
+them. Per-job emphasis belongs in `input/steering.md`, which wins where the two conflict. A topic in both lists is a
+lint warning.
 
 Directives may later be set from the UI per run. This section holds the defaults.
 
@@ -162,7 +169,7 @@ python3 cv_source.py --json [path]   # the parsed dict
 | `fields` | Lowercased key → list of values (every repeat kept). Values keep their inline markup, elided text included |
 | `entries` | `{heading, title, subtitle, line, elided, fields, elided_fields, bullets}`; `title`/`subtitle` split the heading on `\|` |
 | `bullets` | `{text, line, elided}`, continuation lines joined |
-| `directives` | `{omit: [...], contact_links: bool}`, defaults applied |
+| `directives` | `{omit: [...], contact_links: bool, emphasise: [...], downplay: [...]}`, defaults applied |
 | `elided` | Every elided item, `{text, line, scope}` with scope `entry`, `field`, `bullet` or `phrase` (for the post-generation check) |
 | `todos` | `{line, text}` per line containing `TODO` |
 | `prompt_text` | What the model gets: comments and comment-only lines removed, everything else as written |

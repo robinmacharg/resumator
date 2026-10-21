@@ -380,3 +380,8 @@ Misc: Puppet, Maven, Visual Studio, Eclipse, NSIS installer, Vagrant, Sinatra, F
 - Parent Governor, Wyedean Academy and Sixth Form Centre (2016-2020, 2021-present): IT-related issues, Applied
   Learning (artistic and vocational subjects) and school financing.
 - Charity Coordinator, Chepstow Gold Senior Touch Rugby team.
+
+# Directives
+
+Emphasise: AI-assisted development, AI tooling, LLM applications
+Downplay: Android
