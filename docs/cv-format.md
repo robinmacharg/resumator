@@ -46,8 +46,11 @@ Notes:
   literal JSON braces, so adding a placeholder makes `format` raise. Escape them as `{{ }}` or keep append mode.
 - Otherwise (current behaviour) the prompt is `prompt.md` + `=== MASTER CV ===\n<cv>` + `=== JOB SPECIFICATION ===\n<spec>`.
 - `CV_FAST_MODE=true` truncates the CV to its first 18,000 chars and appends `=== FAST MODE INSTRUCTIONS ===`.
-- The v2 prompt also describes a `=== RUN FACTS ===` section (today, the selected-roles cutoff, directives) and an
-  optional `=== CANDIDATE STEERING ===` section. `build_prompt` doesn't append either yet (plan step 8).
+- `main` parses the CV with `cv_source.parse_cv_source` and stops if `lint_cv_source` reports errors. The model gets
+  `prompt_text` (comments stripped, elided text kept as context). `--cv PATH` overrides `input/CV.md`.
+- After the job spec, `build_prompt` appends `=== RUN FACTS ===` (`build_run_facts`: `Today`, `Selected-roles
+  cutoff` = today minus 10 years to the month, `Directives`), then `=== CANDIDATE STEERING ===`
+  (`build_steering_section`) when `input/steering.md` is non-empty.
 
 ## 3. Model JSON contract (v2)
 
@@ -72,9 +75,18 @@ date span come from the renderer.
 
 - Date ranges are rewritten to D7 form by `normalize_date_range`: `Mon YYYY`, `YYYY` or `Present` either side of
   ` - `. Full or upper-case month names, en dashes and "to" are accepted. Ranges that end before they start fail.
+  A single point (source `Dates: 2016`) is allowed and kept as one point; so is a range that starts and ends on it.
 - Bullet-like strings lose a leading `- `/`* ` (`clean_bullet_text`).
-- Content rules (truthfulness, elision, no location, ~200-char summaries and so on) live only in the prompt. The
-  elision check after generation is plan step 8.
+- Content rules (truthfulness, elision, no location, ~200-char summaries and so on) live only in the prompt.
+
+After rendering, `main` collects run warnings (D17), prints them, and records them in `tailored.model.json`
+(`record_run_metadata` adds `metadata.warnings`, `metadata.page_count` and, when set, `metadata.steering`):
+
+| Warning | Source |
+|---|---|
+| Rule breaches | `validation_warnings` from `parse_and_validate_json_output`, with `role_cutoff` from RUN FACTS |
+| Elided text in the output | `find_elision_leaks`: whole entries, bullets and field values matched word for word after markup is stripped; phrases only from 3 words up. Rewordings are not caught |
+| Over two pages | `count_pdf_pages` reads the root `/Type /Pages` `/Count` (counting `/Page` markers over-counts) |
 
 ## 4. Tagged markdown (`output/tailored.md`, `render_tagged_markdown`)
 

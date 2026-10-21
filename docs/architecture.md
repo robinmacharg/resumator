@@ -20,19 +20,21 @@
 
 ```
 input/prompt.md ─┐
-input/CV.md ─────┼─ build_prompt ─(CV_FAST_MODE: truncate CV to 18k chars + add fast rules)─┐
-input/jobspec.txt┘                                                                         │
+input/CV.md ─────┼─ cv_source parse + lint ─ build_prompt (+ RUN FACTS, + steering.md)
+input/jobspec.txt┘   ─(CV_FAST_MODE: truncate CV to 18k chars + add fast rules)───────────────┐
+                                                                                            │
                        backend.run_attempt(model_i)  ◄── model_sequence (primary + fallbacks)┘
                          │ non-zero rc + transient error (429/503/404/quota) → next model
                          │ other error → exit 1
                          ▼
           output/tailored.model-output.txt (raw) → extract_json_payload → tailored.model.json
-                         ▼ parse_and_validate_json_output (strict contract)
-                         ▼ render_tagged_markdown
+                         ▼ parse_and_validate_json_output (strict contract; rule breaches → warnings)
+                         ▼ render_tagged_markdown (directives) → find_elision_leaks
                   output/tailored.md  (YAML front matter + `[tag] line` markup)
                          ▼ cv_convert.convert_markdown_outputs
     tailored.export.md (custom-style divs) ─┬─ styles.lua + themes/*.typ ──► tailored_dev.pdf
                                             └─ reference.docx (+ docx-styles.xml) ──► tailored_dev.docx
+                         ▼ count_pdf_pages → record_run_metadata (warnings, page count, steering → tailored.model.json)
 ```
 
 Format details: [cv-format.md](cv-format.md).

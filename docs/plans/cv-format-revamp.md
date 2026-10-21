@@ -4,7 +4,7 @@
 a revised generation contract whose output matches the target layout; and styling that lives in theme files rather
 than in code.
 
-**Status:** steps 1–7 done. Next: step 8 (wire the pipeline). See [Handoff](#handoff).
+**Status:** steps 1–8 done. Next: step 9 (swap in the v2 CV). See [Handoff](#handoff).
 
 ## Why
 
@@ -37,6 +37,7 @@ than in code.
 | D16 | Directives are applied in the renderer as well as told to the model: `contact_links` drops the links line, `Omit: keywords` drops keyword lines | Step 7 call. The output obeys the directive even when the model doesn't |
 | D17 | **Misbehaving runs warn, they don't fail, when the output still renders.** A selected role that starts before the cutoff is a warning (a year-only start counts as December). Hard failures are kept for output that can't render. Every warning must reach the user (CLI now; recorded in the output for the later UI) | Your call (revised from the step 7 draft, which failed the run). Faulty output the user may not spot is worse than a noisy run |
 | D18 | The Earlier Career Highlights intro span is years only: `YYYY - YYYY` (or `- Present`) | Your call |
+| D19 | `generate_cv` stops before the model call when `lint_cv_source` reports errors. A single-point `date_range` (`2016`) is valid output | Step 8 calls, open to review. A broken source wastes a model call. The source allows `Dates: 2016`, and Opus copied it faithfully |
 
 ### Backend order (D10)
 
@@ -122,7 +123,7 @@ Recorded from the brief so later steps can check against it.
 | 5 | Formalise the source format: `cv_source.py` (stdlib parse → dict, strip comments, collect elided phrases, apply directives, lint required fields, date forms, `TODO`s and unknown keys) plus tests; finalise the spec; `input/import_prompt.md` from the import rules | Parser, linter, spec | done |
 | 6 | Styling: spike how pandoc carries named styles (fenced divs/spans with `custom-style`: DOCX supports them natively; Typst probably needs a small pandoc Lua filter mapping them to theme functions). Then move all current looks into `themes/default.typ` + `themes/docx-styles.xml` (D13), and add one compact preset | Theme files; `cv_convert` emits no styling | done |
 | 7 | `prompt.md` v2. **Input contract:** replace the stale "Input Contract" block (it describes `—` separators and `subsection:` labels) with a short description of the new source format: sections, entries, fields, elision means context-only (D3), comments already stripped, directives, `TODO`. **Output contract:** rewrite per the gap table. Also add the steering rule (D11). Then update `validate_and_normalize_payload` and `render_tagged_markdown` (semantic names from step 6); add tests for the validator and renderer | Revised contract | done |
-| 8 | Wire the pipeline: `generate_cv` parses the source, sends it (comments stripped) plus computed facts (today, 10-year cutoff, directives) to the model; elision check and page count after render (read the PDF's `/Pages /Count`; counting `/Type /Page` markers over-counts). Steering (D11): read `input/steering.md` if present, append the section, record the text as `metadata.steering` in `tailored.model.json`. No UI or `EDITOR_FILES` changes | End-to-end run | todo |
+| 8 | Wire the pipeline: `generate_cv` parses the source, sends it (comments stripped) plus computed facts (today, 10-year cutoff, directives) to the model; elision check and page count after render (read the PDF's `/Pages /Count`; counting `/Type /Page` markers over-counts). Steering (D11): read `input/steering.md` if present, append the section, record the text as `metadata.steering` in `tailored.model.json`. No UI or `EDITOR_FILES` changes | End-to-end run | done |
 | 9 | Swap in: replace `input/CV.md` with the reviewed v2 (back up the old one); run the full pipeline on Claude against the current job spec; compare with the step 4 baselines | Real output | todo |
 | 10 | Docs: update `cv-format.md`, `backends.md`, `gaps.md` (P2 schema/linter items resolved; P1 import narrowed), `AGENTS.md` | Docs in sync | todo |
 | 11 | Copilot comparison (D12): one run via the VS Code bridge on the final pipeline; three-way comparison with Claude and the Gemini baseline | Comparison notes | todo |
@@ -132,36 +133,34 @@ Recorded from the brief so later steps can check against it.
 
 For the next session. Read this section, the Decisions table and the step you're on; skip the Log unless needed.
 
-- **Branch:** `improvement/20261021-integrate-claude-revamp-cv-format` (off `develop`). Steps 1–7 committed.
+- **Branch:** `improvement/20261021-integrate-claude-revamp-cv-format` (off `develop`). Steps 1–7 committed; step 8
+  is uncommitted.
 - **Working agreement:** stop and report after each step; update the docs in the same step
   ([AGENTS.md](../../AGENTS.md) "Doc upkeep"); add a Log line; commit only when asked. No UI changes unless asked.
-- **Step 7 result:** `input/prompt.md` v2, validator and renderer in `generate_cv.py`, new style names in
-  `cv_convert` and `themes/`. Contract, tags and style names are in [cv-format.md §3–5](../cv-format.md); D15–D17
-  hold the calls made.
-- **Transitional state:** `generate_cv.py` runs the v2 prompt, but it still sends the old-format `input/CV.md` raw
-  and no RUN FACTS. A live run now works but isn't representative. Don't judge output quality before step 9.
-- **Next: step 8.** In `main`:
-  - Parse the CV with `cv_source.parse_cv_source` and send `prompt_text`.
-  - Append the RUN FACTS block in the shape the prompt expects (`Today: Oct 2026`, `Selected-roles cutoff: Oct 2016`,
-    `Directives: Omit: keywords; Contact links: yes`). The cutoff is today minus 10 years, to the month.
-  - Pass `role_cutoff=(year, month)` to `parse_and_validate_json_output` (it already takes `warnings`, and `main`
-    prints them) and the parsed `directives` to
-    `render_tagged_markdown`.
-  - Steering per D11 (the wrapper text is in "Steering section" above; the prompt already mentions the section).
-  - Elision check and page count. Both report as warnings (D17), alongside `validation_warnings` from
-    `parse_and_validate_json_output`. Record them in the output too (for example `metadata.warnings` in
-    `tailored.model.json`) so the later UI can show them.
-  - Until step 9 swaps the file, `input/CV.md` is old-format and fails the linter. Test step 8 against
-    `input/CV.v2.md` (for example a `--cv` flag or temporary `CV_FILE` override) rather than editing `CV.md`.
-- **For step 8 (from step 5):** `cv_source.parse_cv_source` gives `prompt_text`, `directives` and `elided`
-  (`{text, line, scope}`). Phrase-scope elisions can be single common words ("three"), so the post-generation check
-  should match whole entries/fields/bullets strictly and treat short phrases as warnings only, or skip them.
+- **Step 8 result:** `generate_cv.main` parses and lints the CV (`--cv PATH`, default `input/CV.md`), appends RUN
+  FACTS and steering, passes `role_cutoff` and `directives`, and collects warnings (rule breaches, elision leaks,
+  pages > 2). They print and go into `metadata` of `tailored.model.json` with `page_count` and `steering`. Details in
+  [cv-format.md §2–3](../cv-format.md).
+- **State:** `input/CV.md` is still old-format, so a plain `python3 generate_cv.py` (and the UI) now stops at the lint
+  step. Step 9 fixes that by swapping in `CV.v2.md`.
+- **Next: step 9.** Back up `input/CV.md` (for example `input/CV.v1.md.bak`), copy `CV.v2.md` over it, run
+  `python3 generate_cv.py --provider claudecode`, and compare with `output/baseline-gemini-2.5-flash/` and the step 4
+  Opus run.
+  - **Fast mode is on in `.env`** (`CV_FAST_MODE`) and truncates the 22k-char v2 prompt text to 18k, which drops Education,
+    Certifications, Skills and late projects. `.env` overrides the shell env, so ask the user to turn it off before
+    the step 9 comparison (logged in [gaps.md](../gaps.md)).
+  - The step 8 trial run (fast mode on) came out at **3 pages**. Opus listed all 15 earlier roles one per line, and
+    Education held only the Scrum Master certificate (the degree was truncated away). Recheck the page count with
+    fast mode off before tuning anything.
+  - `CV.v2.md` has no `~~elided~~` text, so the elision check has only unit-test coverage. Steering has not been
+    tried live either.
 - **Gotchas:**
   - Run scripts from the repo root (cwd-relative `input/` and `output/`).
   - Never echo `.env` values.
   - In zsh, `echo ====X` fails (`=cmd` expansion), so quote it.
-  - `pdftoppm` isn't installed, so PDFs can't be viewed as images; `mdls -name kMDItemNumberOfPages` gives page
-    counts.
+  - `pdftoppm` isn't installed, so PDFs can't be viewed as images. `mdls -name kMDItemNumberOfPages` can be stale
+    after a re-render: run `mdimport <pdf>` first (it gave 2 for a 3-page PDF). The pipeline's own page count is
+    reliable.
   - `output/` is gitignored; the baselines live in `output/baseline-gemini-2.5-flash/` and the latest Opus run is in
     `output/tailored*`.
 
@@ -224,3 +223,10 @@ None outstanding. New ones go here as steps raise them.
 - 2026-10-21 · Step 7 review · User approved D15 and D16. D17 revised: a cutoff breach is now a warning
   (`warnings` list through `parse_and_validate_json_output`, printed by `main`), and in general misbehaving runs
   warn rather than fail when the output still renders. D18: the earlier-career intro span is years only. 102/102 pass.
+- 2026-10-21 · Step 8 · Wired `generate_cv.main`: parse and lint (errors stop the run, D19), `--cv`, RUN FACTS, steering
+  (D11), `role_cutoff`, directives, elision check (`find_elision_leaks`: strict for entries/bullets/field values,
+  phrases from 3 words), page count from the root page tree, and warnings plus `page_count`/`steering` recorded in
+  `tailored.model.json`. The first live Opus run on `CV.v2.md` failed validation on `Dates: 2016` copied verbatim, so
+  single-point dates are now valid (D19). The second run passed: 5 selected roles, all after the cutoff, 3 pages
+  (warning shown). Found that `.env` fast mode truncates the v2 CV (gaps.md). 14 new tests; 116/116 pass. Docs:
+  cv-format.md §2–3, architecture.md, AGENTS.md, gaps.md.

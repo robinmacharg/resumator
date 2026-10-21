@@ -29,15 +29,13 @@ mention the fintech background".
 Suggested shape:
 1. New editable file `input/steering.md`: add it to `EDITOR_FILES` in `cv_web/server.py` and `EDITABLE_FILES` in
    `static/app.js`, plus a UI editor (small textarea on the CV tab, or its own tab).
-2. In `generate_cv.build_prompt`, append `=== CANDIDATE STEERING ===\n<text>` when the file is non-empty. Append it
-   after the job spec and keep append mode, because `{}` placeholders break on the JSON braces in `prompt.md`
-   ([cv-format.md §2](cv-format.md)).
+2. Done: `generate_cv` reads `input/steering.md` and appends `=== CANDIDATE STEERING ===` when it's non-empty
+   ([cv-format.md §2](cv-format.md)). The file is CLI-only until step 1.
 3. Done: `prompt.md` v2 says steering adjusts emphasis, selection and ordering only and never overrides the
    truthfulness constraints.
 4. Optional: a `--steering-file` CLI flag; pass the steering to `research_role.build_prompt` as well; persist it per
    job alongside the job spec.
-5. Record the steering text in the output (for example `metadata.steering` in `tailored.model.json`) so you can see
-   which steering produced a given output.
+5. Done: the steering text is recorded as `metadata.steering` in `tailored.model.json`.
 
 ## P2 — Correctness and hygiene
 
@@ -52,6 +50,9 @@ Suggested shape:
 - **Provider-agnostic messages**: `generate_cv` says "via Gemini CLI" in its argparse help and, on any provider,
   suggests setting `GEMINI_MODEL*` after all attempts fail. It also prints "Gemini CLI returned empty output". The
   log directory is named `gemini_debug_logs` for all providers.
+- **Fast mode cuts the end of the CV**: `CV_FAST_MODE` keeps the first 18,000 chars of the prompt text. With the
+  v1 source format that drops whole trailing sections (on `CV.v2.md`: late projects, Education, Certifications,
+  Skills). Truncate per section (for example oldest roles first) or raise the limit.
 - **No output history**: each run overwrites `output/tailored*`. Consider `output/<company>-<date>/` snapshots that
   include the job spec and steering.
 - **Stale venv**: `.venv` is Python 3.9.6, and `generate_cv.py`, `research_role.py` and `cv_convert.py` fail to import

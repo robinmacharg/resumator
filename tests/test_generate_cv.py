@@ -1,9 +1,21 @@
 import copy
 import json
+import tempfile
 import unittest
+from datetime import date
+from pathlib import Path
+from unittest import mock
 
+import generate_cv
 from generate_cv import (
+    build_prompt,
+    build_run_facts,
+    build_steering_section,
+    count_pdf_pages,
     earlier_career_span,
+    find_elision_leaks,
+    record_run_metadata,
+    selected_roles_cutoff,
     normalize_date_range,
     parse_and_validate_json_output,
     render_tagged_markdown,
@@ -72,8 +84,12 @@ class NormalizeDateRangeTests(unittest.TestCase):
         self.assertEqual(normalize_date_range("Mar 2015 to SEPT 2018", "f"), "Mar 2015 - Sep 2018")
         self.assertEqual(normalize_date_range("1996-2001", "f"), "1996 - 2001")
 
+    def test_single_point_is_kept(self) -> None:
+        self.assertEqual(normalize_date_range("2016", "f"), "2016")
+        self.assertEqual(normalize_date_range("May 2023 - may 2023", "f"), "May 2023")
+
     def test_rejects_bad_ranges(self) -> None:
-        for value in ["2019", "Smarch 2019 - 2020", "Present - 2020", "Jan 2020 - Dec 2019", "", None]:
+        for value in ["Present", "Smarch 2019 - 2020", "Present - 2020", "Jan 2020 - Dec 2019", "", None]:
             with self.subTest(value=value), self.assertRaises(ValueError):
                 normalize_date_range(value, "f")
 
@@ -240,6 +256,116 @@ class RenderTaggedMarkdownTests(unittest.TestCase):
         lines = self.render()
         self.assertIn("[project_item] * Note G", lines)
         self.assertIn("[skills_group] **Maths** - Algebra, Calculus", lines)
+
+
+class RunFactsTests(unittest.TestCase):
+    def test_cutoff_is_ten_years_to_the_month(self) -> None:
+        self.assertEqual(selected_roles_cutoff(date(2026, 10, 21)), (2016, 10))
+
+    def test_run_facts_block(self) -> None:
+        facts = build_run_facts(date(2026, 10, 21), (2016, 10), {"omit": ["keywords"], "contact_links": True})
+        self.assertEqual(
+            facts.splitlines(),
+            [
+                "=== RUN FACTS ===",
+                "Today: Oct 2026",
+                "Selected-roles cutoff: Oct 2016",
+                "Directives: Omit: keywords; Contact links: yes",
+            ],
+        )
+
+    def test_run_facts_without_omit(self) -> None:
+        facts = build_run_facts(date(2026, 1, 1), (2016, 1), {"omit": [], "contact_links": False})
+        self.assertIn("Directives: Contact links: no", facts)
+
+
+class BuildPromptTests(unittest.TestCase):
+    def test_sections_follow_inputs_in_order(self) -> None:
+        prompt = build_prompt(
+            "Prompt {not a placeholder}",
+            "cv",
+            "spec",
+            run_facts="=== RUN FACTS ===\nToday: Oct 2026",
+            steering=build_steering_section("  multi-domain skills\n"),
+        )
+        order = [prompt.index(marker) for marker in
+                 ("=== MASTER CV ===", "=== JOB SPECIFICATION ===", "=== RUN FACTS ===", "=== CANDIDATE STEERING ===")]
+        self.assertEqual(order, sorted(order))
+        self.assertTrue(prompt.endswith('Steering: "multi-domain skills"'))
+
+    def test_empty_steering_adds_nothing(self) -> None:
+        self.assertEqual(build_steering_section(" \n "), "")
+        self.assertNotIn("STEERING", build_prompt("Prompt", "cv", "spec", steering=""))
+
+
+class ElisionLeakTests(unittest.TestCase):
+    MARKDOWN = "\n".join([
+        "---",
+        "metadata:",
+        '  note: "Secret Project | Acme"',
+        "---",
+        "[role_heading] ## Engineer | Acme",
+        "[role_bullet] * Led the **migration** to three regions.",
+        "[earlier_role] * **Secret Project** | _Acme_ (C) - 2001 - 2002",
+    ])
+
+    def leaks(self, *items: tuple[str, str]) -> list[str]:
+        return find_elision_leaks([{"text": text, "line": 7, "scope": scope} for scope, text in items], self.MARKDOWN)
+
+    def test_entry_heading_matches_through_markup(self) -> None:
+        self.assertEqual(len(self.leaks(("entry", "Secret Project | Acme"))), 1)
+
+    def test_bullet_and_field_value(self) -> None:
+        self.assertEqual(len(self.leaks(("bullet", "Led the migration to three regions."))), 1)
+        self.assertEqual(len(self.leaks(("field", "Keywords: C"))), 1)
+        self.assertEqual(self.leaks(("bullet", "Led a different migration")), [])
+
+    def test_short_phrases_are_skipped(self) -> None:
+        self.assertEqual(self.leaks(("phrase", "three")), [])
+        self.assertEqual(len(self.leaks(("phrase", "to three regions"))), 1)
+
+    def test_front_matter_is_ignored(self) -> None:
+        markdown = self.MARKDOWN.replace("[earlier_role] * **Secret Project** | _Acme_ (C) - 2001 - 2002", "")
+        self.assertEqual(find_elision_leaks([{"text": "Secret Project | Acme", "line": 1, "scope": "entry"}], markdown), [])
+
+
+class PdfPageCountTests(unittest.TestCase):
+    def count(self, data: bytes) -> int | None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "cv.pdf"
+            path.write_bytes(data)
+            return count_pdf_pages(path)
+
+    def test_reads_root_page_tree(self) -> None:
+        data = (
+            b"%PDF-1.7\n1 0 obj\n<</Type/Pages/Count 3/Kids[2 0 R 3 0 R]>>\nendobj\n"
+            b"2 0 obj\n<</Type /Pages /Parent 1 0 R /Count 2 /Kids[4 0 R 5 0 R]>>\nendobj\n"
+            b"4 0 obj\n<</Type/Page/Parent 2 0 R>>\nendobj\n"
+        )
+        self.assertEqual(self.count(data), 3)
+
+    def test_unreadable_tree(self) -> None:
+        self.assertIsNone(self.count(b"%PDF-1.7\n<</Type/ObjStm>>"))
+        self.assertIsNone(count_pdf_pages(Path("/nonexistent/cv.pdf")))
+
+
+class RecordRunMetadataTests(unittest.TestCase):
+    def test_adds_run_facts_to_model_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "tailored.model.json"
+            with mock.patch.object(generate_cv, "RAW_MODEL_JSON_FILE", path):
+                record_run_metadata('{"metadata": {"company": "X"}, "document": {}}', "lead", 2, ["w1"])
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            payload["metadata"], {"company": "X", "steering": "lead", "page_count": 2, "warnings": ["w1"]}
+        )
+
+    def test_unparseable_json_is_left_alone(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "tailored.model.json"
+            with mock.patch.object(generate_cv, "RAW_MODEL_JSON_FILE", path):
+                record_run_metadata("not json", "", None, [])
+            self.assertFalse(path.exists())
 
 
 if __name__ == "__main__":

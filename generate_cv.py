@@ -6,9 +6,10 @@ import re
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
+import cv_source
 from cv_convert import convert_markdown_outputs
 from backend_registry import get_backend_or_raise
 from provider_catalog import load_provider_catalog, provider_map
@@ -20,6 +21,7 @@ OUTPUT_DIR = Path("output")
 CV_FILE = INPUT_DIR / "CV.md"
 JOBSPEC_FILE = INPUT_DIR / "jobspec.txt"
 PROMPT_FILE = INPUT_DIR / "prompt.md"
+STEERING_FILE = INPUT_DIR / "steering.md"
 ENV_FILE = Path(".env")
 TAILORED_MD = OUTPUT_DIR / "tailored.md"
 RAW_MODEL_OUTPUT_FILE = OUTPUT_DIR / "tailored.model-output.txt"
@@ -29,6 +31,10 @@ OUTPUT_DOCX = OUTPUT_DIR / "tailored_dev.docx"
 GEMINI_HEARTBEAT_SECONDS = 15
 DEBUG_LOG_DIR = OUTPUT_DIR / "gemini_debug_logs"
 MAX_FAST_CV_CHARS = 18000
+SELECTED_ROLES_YEARS = 10
+TARGET_PDF_PAGES = 2
+# Elided phrases shorter than this many words are too common to check (D3; "three" would match anywhere).
+ELISION_MIN_PHRASE_WORDS = 3
 MONTH_ABBREVIATIONS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 MONTH_LOOKUP = {
     **{name.lower(): index for index, name in enumerate(MONTH_ABBREVIATIONS, start=1)},
@@ -101,6 +107,7 @@ def parse_args() -> argparse.Namespace:
         help="Model provider override (any discovered backend id)",
     )
     parser.add_argument("--model", default="", help="Explicit model override")
+    parser.add_argument("--cv", default=str(CV_FILE), help=f"Master CV source file (default: {CV_FILE})")
     return parser.parse_args()
 
 
@@ -238,19 +245,129 @@ def load_dotenv_file(path: Path) -> dict:
     return env_vars
 
 
-def build_prompt(prompt_text: str, cv_content: str, jobspec_content: str) -> str:
-    """Create the final prompt, supporting either placeholders or auto-appended inputs."""
+def build_prompt(
+    prompt_text: str,
+    cv_content: str,
+    jobspec_content: str,
+    *,
+    run_facts: str = "",
+    steering: str = "",
+) -> str:
+    """Create the final prompt, supporting either placeholders or auto-appended inputs.
+
+    run_facts and steering are ready-made sections (build_run_facts, build_steering_section);
+    empty ones are left out. Both follow the inputs in either mode.
+    """
     if "{cv_content}" in prompt_text or "{jobspec_content}" in prompt_text:
-        return prompt_text.format(
+        prompt = prompt_text.format(
             cv_content=cv_content,
             jobspec_content=jobspec_content,
         )
+    else:
+        prompt = (
+            f"{prompt_text.strip()}\n\n"
+            f"=== MASTER CV ===\n{cv_content}\n\n"
+            f"=== JOB SPECIFICATION ===\n{jobspec_content}"
+        )
 
+    for section in (run_facts, steering):
+        if section.strip():
+            prompt = f"{prompt.rstrip()}\n\n{section.strip()}"
+    return prompt
+
+
+def format_month(year: int, month: int) -> str:
+    """Format a (year, month) pair in D7 form, for example "Oct 2016"."""
+    return f"{MONTH_ABBREVIATIONS[month - 1]} {year}"
+
+
+def selected_roles_cutoff(today: date) -> tuple[int, int]:
+    """Earliest (year, month) a selected key role may start in: today minus 10 years, to the month."""
+    return today.year - SELECTED_ROLES_YEARS, today.month
+
+
+def build_run_facts(today: date, cutoff: tuple[int, int], directives: dict) -> str:
+    """Build the RUN FACTS section that input/prompt.md describes.
+
+    directives takes the cv_source shape ({omit: [...], contact_links: bool}).
+    """
+    directive_parts = []
+    if directives.get("omit"):
+        directive_parts.append("Omit: " + ", ".join(directives["omit"]))
+    directive_parts.append("Contact links: " + ("yes" if directives.get("contact_links", True) else "no"))
+    return "\n".join([
+        "=== RUN FACTS ===",
+        f"Today: {format_month(today.year, today.month)}",
+        f"Selected-roles cutoff: {format_month(*cutoff)}",
+        "Directives: " + "; ".join(directive_parts),
+    ])
+
+
+def build_steering_section(steering_text: str) -> str:
+    """Wrap the candidate's steering note in agent instructions (D11); empty text gives ""."""
+    steering_text = steering_text.strip()
+    if not steering_text:
+        return ""
     return (
-        f"{prompt_text.strip()}\n\n"
-        f"=== MASTER CV ===\n{cv_content}\n\n"
-        f"=== JOB SPECIFICATION ===\n{jobspec_content}"
+        "=== CANDIDATE STEERING ===\n"
+        "In addition to the job specification, the candidate wants this CV to emphasise the following. Use it to "
+        "guide which roles, bullets, skills and projects you select, how you order them, and how you phrase the "
+        "headline and summary. It never overrides the truthfulness rules: do not invent or stretch facts to satisfy "
+        "it. If it conflicts with the job specification, favour the job specification and lean towards the steering "
+        "where the evidence allows.\n\n"
+        f'Steering: "{steering_text}"'
     )
+
+
+def _plain_words(text: str) -> str:
+    """Lowercase text with markdown, tags and punctuation reduced to single spaces, for loose matching."""
+    text = re.sub(r"\]\([^)]*\)", "]", text)  # drop link targets, keep link text
+    text = re.sub(r"^\[[a-z_]+\]\s*", "", text, flags=re.MULTILINE)  # tagged-markdown line tags
+    text = re.sub(r"[\W_]+", " ", text.lower())
+    return f" {text.strip()} "
+
+
+def find_elision_leaks(elided: list[dict], rendered_markdown: str) -> list[str]:
+    """Report elided source text that reappears in the rendered CV (D3).
+
+    elided takes cv_source's `{text, line, scope}` items. Whole entries, bullets and field values must not
+    appear word for word. Phrases are checked the same way when they have at least ELISION_MIN_PHRASE_WORDS
+    words; shorter ones are skipped as too common. Rewordings are not caught.
+    """
+    _, body = rendered_markdown.split("\n---\n", 1) if rendered_markdown.startswith("---\n") else ("", rendered_markdown)
+    haystack = _plain_words(body)
+    leaks: list[str] = []
+    for item in elided:
+        text = item["text"]
+        if item["scope"] == "field":
+            text = text.split(":", 1)[1] if ":" in text else text
+        needle = _plain_words(text)
+        if not needle.strip():
+            continue
+        if item["scope"] == "phrase" and len(needle.split()) < ELISION_MIN_PHRASE_WORDS:
+            continue
+        if needle in haystack:
+            leaks.append(f"elided {item['scope']} from CV line {item['line']} appears in the output: {text.strip()!r}")
+    return leaks
+
+
+def count_pdf_pages(pdf_path: Path) -> int | None:
+    """Read the page count from the PDF's root page tree (/Type /Pages without /Parent).
+
+    Counting /Type /Page markers over-counts. Returns None when the tree is unreadable, for example
+    when it sits in a compressed object stream.
+    """
+    try:
+        data = pdf_path.read_bytes()
+    except OSError:
+        return None
+    counts = []
+    for match in re.finditer(rb"<<((?:(?!>>).)*?/Type\s*/Pages\b(?:(?!>>).)*?)>>", data, re.DOTALL):
+        body = match.group(1)
+        count = re.search(rb"/Count\s+(\d+)", body)
+        if count and b"/Parent" not in body:
+            counts.append(int(count.group(1)))
+    return max(counts) if counts else None
 
 
 def extract_json_payload(raw_text: str) -> str:
@@ -365,9 +482,14 @@ def latest_month(point: tuple[int, int | None] | None) -> tuple[int, int]:
 
 
 def split_date_range(value, field_name: str) -> tuple[tuple[int, int | None], tuple[int, int | None] | None]:
-    """Parse a date range into (start, end) points; end is None for Present."""
+    """Parse a date range into (start, end) points; end is None for Present.
+
+    A single point (a source `Dates: 2016`) is a range that starts and ends there.
+    """
     date_range = require_non_empty_string(value, field_name)
     parts = DATE_RANGE_SEPARATOR.split(date_range)
+    if len(parts) == 1:
+        parts = parts * 2
     if len(parts) != 2:
         raise ValueError(
             f"{field_name} must be a range such as 'Jan 2019 - Mar 2021' or 'Jun 2020 - Present'."
@@ -384,8 +506,13 @@ def split_date_range(value, field_name: str) -> tuple[tuple[int, int | None], tu
 
 
 def normalize_date_range(value, field_name: str) -> str:
-    """Validate a date range and rewrite it as 'Mon YYYY - Mon YYYY' or '... - Present' (D7)."""
+    """Validate a date range and rewrite it as 'Mon YYYY - Mon YYYY' or '... - Present' (D7).
+
+    A range that starts and ends on the same point collapses to that point ('2016').
+    """
     start, end = split_date_range(value, field_name)
+    if start == end:
+        return format_date_point(start)
     return f"{format_date_point(start)} - {format_date_point(end)}"
 
 
@@ -839,6 +966,30 @@ def apply_fast_mode_prompt_rules(full_prompt: str, fast_mode: bool) -> str:
     return full_prompt + fast_instructions
 
 
+def record_run_metadata(
+    extracted_json_payload: str, steering_text: str, page_count: int | None, run_warnings: list[str]
+) -> None:
+    """Add the tool's run facts to metadata in tailored.model.json, for the later UI.
+
+    Records `steering` (when set), `page_count` and `warnings` alongside the model's own metadata.
+    """
+    try:
+        payload = json.loads(extracted_json_payload)
+    except json.JSONDecodeError:
+        return
+    if not isinstance(payload, dict):
+        return
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict):
+        metadata = {}
+    if steering_text:
+        metadata["steering"] = steering_text
+    metadata["page_count"] = page_count
+    metadata["warnings"] = run_warnings
+    payload["metadata"] = metadata
+    RAW_MODEL_JSON_FILE.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
 def main() -> None:
     """Purpose: Execute main for this module's workflow.
     
@@ -854,18 +1005,33 @@ def main() -> None:
     DEBUG_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     # 1. Verify input files exist
-    missing = [str(path) for path in (CV_FILE, JOBSPEC_FILE, PROMPT_FILE) if not path.exists()]
+    cv_file = Path(args.cv)
+    missing = [str(path) for path in (cv_file, JOBSPEC_FILE, PROMPT_FILE) if not path.exists()]
     if missing:
         print(f"Error: Missing required file(s): {', '.join(missing)}", file=sys.stderr)
         sys.exit(1)
 
     print("Reading inputs...")
-    cv_content = CV_FILE.read_text(encoding="utf-8")
+    cv_doc = cv_source.parse_cv_source(cv_file.read_text(encoding="utf-8"))
+    cv_errors = [item for item in cv_source.lint_cv_source(cv_doc) if item["level"] == cv_source.ERROR]
+    if cv_errors:
+        for item in cv_errors:
+            print(f"{cv_file}:{item['line']}: error: {item['message']}", file=sys.stderr)
+        print(
+            f"Error: {cv_file} is not in the CV source format. See `python3 cv_source.py --lint {cv_file}`.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    cv_content = cv_doc["prompt_text"]
+    directives = cv_doc["directives"]
     jobspec_content = JOBSPEC_FILE.read_text(encoding="utf-8")
     prompt_text = PROMPT_FILE.read_text(encoding="utf-8").strip()
     if not prompt_text:
         print(f"Error: {PROMPT_FILE} is empty.", file=sys.stderr)
         sys.exit(1)
+    steering_text = STEERING_FILE.read_text(encoding="utf-8").strip() if STEERING_FILE.exists() else ""
+    today = date.today()
+    role_cutoff = selected_roles_cutoff(today)
 
     # 3. Build process environment from current env + .env file
     process_env = os.environ.copy()
@@ -893,7 +1059,17 @@ def main() -> None:
         print("FAST_MODE enabled.")
 
     mode_cv_content = prepare_cv_content_for_mode(cv_content, fast_mode)
-    full_prompt = build_prompt(prompt_text, mode_cv_content, jobspec_content)
+    run_facts = build_run_facts(today, role_cutoff, directives)
+    print(run_facts)
+    if steering_text:
+        print(f"Steering from {STEERING_FILE}: {steering_text!r}")
+    full_prompt = build_prompt(
+        prompt_text,
+        mode_cv_content,
+        jobspec_content,
+        run_facts=run_facts,
+        steering=build_steering_section(steering_text),
+    )
     full_prompt = apply_fast_mode_prompt_rules(full_prompt, fast_mode)
 
     print(f"Invoking provider '{selected_provider}' to project CV...")
@@ -971,6 +1147,7 @@ def main() -> None:
         print("Gemini CLI returned empty output.", file=sys.stderr)
         sys.exit(1)
 
+    extracted_json_payload = ""
     try:
         extracted_json_payload = extract_json_payload(raw_model_output)
         RAW_MODEL_JSON_FILE.write_text(extracted_json_payload + "\n", encoding="utf-8")
@@ -984,7 +1161,9 @@ def main() -> None:
 
     validation_warnings: list[str] = []
     try:
-        structured_payload = parse_and_validate_json_output(raw_model_output, warnings=validation_warnings)
+        structured_payload = parse_and_validate_json_output(
+            raw_model_output, role_cutoff=role_cutoff, warnings=validation_warnings
+        )
     except ValueError as exc:
         print(f"Generated output failed JSON contract validation: {exc}", file=sys.stderr)
         print(
@@ -993,11 +1172,10 @@ def main() -> None:
         )
         sys.exit(1)
 
-    for warning in validation_warnings:
-        print(f"Warning: model output breaks a rule: {warning}", file=sys.stderr)
-
-    tailored_markdown = render_tagged_markdown(structured_payload)
+    tailored_markdown = render_tagged_markdown(structured_payload, directives=directives)
     TAILORED_MD.write_text(tailored_markdown, encoding="utf-8")
+    run_warnings = [f"model output breaks a rule: {warning}" for warning in validation_warnings]
+    run_warnings += find_elision_leaks(cv_doc["elided"], tailored_markdown)
     print(f"Generated intermediate markdown: {TAILORED_MD}")
 
     # 5. Compile markdown outputs
@@ -1018,13 +1196,24 @@ def main() -> None:
     pdf_ok = conversion_result.pdf_ok
     docx_ok = conversion_result.docx_ok
 
+    page_count = count_pdf_pages(OUTPUT_PDF) if pdf_ok else None
+    if pdf_ok and page_count is None:
+        run_warnings.append(f"could not read the page count from {OUTPUT_PDF}")
+    elif page_count is not None and page_count > TARGET_PDF_PAGES:
+        run_warnings.append(f"the PDF has {page_count} pages; the target is {TARGET_PDF_PAGES}")
+
+    record_run_metadata(extracted_json_payload, steering_text, page_count, run_warnings)
+    for warning in run_warnings:
+        print(f"Warning: {warning}", file=sys.stderr)
+
     if not pdf_ok and not docx_ok:
         print("Warning: Unable to compile PDF or DOCX from generated markdown.")
         print(f"Find your generated markdown at: {TAILORED_MD.resolve()}")
         sys.exit(0)
 
     if pdf_ok:
-        print(f"Success! PDF created at: {OUTPUT_PDF.resolve()}")
+        pages_text = f" ({page_count} pages)" if page_count is not None else ""
+        print(f"Success! PDF created at: {OUTPUT_PDF.resolve()}{pages_text}")
     else:
         print("PDF generation failed.", file=sys.stderr)
 
