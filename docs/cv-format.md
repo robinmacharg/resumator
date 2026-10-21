@@ -3,10 +3,12 @@
 The CV exists in four forms, in this order: **input master CV** → **prompt** → **model JSON** → **tagged markdown**
 → PDF/DOCX.
 
-## 1. Input master CV (`input/CV.md`)
+## 1. Input master CV (DB master and role CVs, or `input/CV.md`)
 
-Markdown in the CV source format: [cv-source-format.md](cv-source-format.md). `cv_source.py` parses and lints it;
-`generate_cv` refuses a file with lint errors. The previous free-form CV (YAML front matter, read only by the model)
+Markdown in the CV source format: [cv-source-format.md](cv-source-format.md). In role mode the master CV and each
+role's CV are versions in the DB (`cv_version`), in this same format; a role run sends its role's current CV. One-shot
+runs read `input/CV.md` (or `--cv PATH`). `cv_source.py` parses and lints it; `generate_cv` refuses a CV with lint
+errors. The previous free-form CV (YAML front matter, read only by the model)
 is kept as `input/CV.v1.md` and is not used by the pipeline.
 
 ## 2. Prompt assembly (`generate_cv.build_prompt`)
@@ -21,7 +23,8 @@ is kept as `input/CV.v1.md` and is not used by the pipeline.
   cutoff` = today minus 10 years to the month, `Directives` including the `Emphasise`/`Downplay` weightings), then `=== CANDIDATE STEERING ===`
   (`build_steering_section`) when the steering note is non-empty: `input/steering.md` by default, `--steering-file
   PATH` instead, none with `--no-steering`. The web UI's Steering tab sends its text with full runs (the server
-  writes it to `output/steering.run.md`); unticking "Steer CV generation" passes `--no-steering`.
+  writes it to `output/steering.run.md`; role runs send it in the `--io json` request instead); unticking "Steer CV
+  generation" passes `--no-steering`.
 
 ## 3. Model JSON contract (v2)
 
@@ -51,15 +54,19 @@ date span come from the renderer.
 - Content rules (truthfulness, elision, no location, ~200-char summaries and so on) live only in the prompt.
 
 After rendering, `main` collects run warnings (D17), prints them, and records them in `tailored.model.json`
-(`record_run_metadata` adds `metadata.warnings`, `metadata.page_count` and, when set, `metadata.steering`):
+(`record_run_metadata` adds `metadata.warnings`, `metadata.page_count` and, when set, `metadata.steering`; role
+runs store them in the `cv_run` row instead: `warnings_json`, `page_count`, `steering_text`):
 
 | Warning | Source |
 |---|---|
 | Rule breaches | `validation_warnings` from `parse_and_validate_json_output`: selected roles before `role_cutoff` (from RUN FACTS), over 8 earlier-career items, over 5 skill groups |
 | Elided text in the output | `find_elision_leaks`: whole entries, bullets and field values matched word for word after markup is stripped; phrases only from 3 words up. Rewordings are not caught |
-| Over two pages | `count_pdf_pages` reads the root `/Type /Pages` `/Count` (counting `/Page` markers over-counts) |
+| Over two pages | `cv_convert.count_pdf_pages` (PDF bytes) reads the root `/Type /Pages` `/Count` (counting `/Page` markers over-counts) |
 
 ## 4. Tagged markdown (`output/tailored.md`, `render_tagged_markdown`)
+
+Role mode doesn't store it: `role_runner.run_markdown` rebuilds it from a run's raw output (validated as on the
+run's day, with its CV version's directives) whenever a PDF or DOCX is rendered.
 
 `render_tagged_markdown(payload, directives=None)` echoes `candidate` and `metadata` as YAML front matter, then writes
 the body as lines prefixed with `[tag]` in a fixed section order. `directives` takes the `cv_source` shape
@@ -102,9 +109,16 @@ Section order and headings are hard-coded here. Reordering or renaming sections 
 
 - Choose a preset with `--theme compact` (`cv_convert.py` or `generate_cv.py`), the `CV_THEME` env var, or the web UI's
   Theme picker on the CV tab (listed by `cv_convert.available_themes`, so a new `themes/<name>.typ` appears there with
-  no other change; changing it re-runs formatting only). An unknown name warns and falls back to the default.
+  no other change). In role mode the theme is saved on the role and the picked run re-renders in it; in file mode
+  changing it re-runs formatting only. The role CLI takes `--theme` for `cv` and `render`. An unknown name warns and falls back to the default.
 - PDF: `pandoc --pdf-engine=typst --lua-filter themes/styles.lua --include-before-body themes/<theme>.typ` (plain
   `pandoc` fallback, unstyled). DOCX: `pandoc --reference-doc`. The font is the first installed font from
   `CV_FONT_PRIORITY` (default `Calibri,Arial,Helvetica`).
+- **In memory:** `render_cv(markdown_text, "pdf"|"docx", theme)` returns bytes (or None, reason on stderr) with no
+  input or output files: `export_markdown` builds the export text, piped to the same pandoc options
+  (`pdf_pandoc_args`, `docx_pandoc_args`) with `-t pdf -o -` / `-t docx -o -` (`-t pdf` is required, otherwise pandoc
+  writes HTML). `--reference-doc` needs a path, so `process_docx_reference` builds it once per process in a private
+  temp folder removed on exit. Pandoc's own Typst temp folder is the only other disk use. One-shot runs still write
+  `output/` files via `convert_markdown_outputs`.
 - Checking a look change: render with `pandoc … -t typst -s` (same filter and theme), then
   `typst compile x.typ "x-{p}.png"` and `compare -metric AE` (ImageMagick) against a previous render.

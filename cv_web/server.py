@@ -510,6 +510,18 @@ class CVWebHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _bytes_response(self, data: bytes, content_type: str, *, filename: str | None = None) -> None:
+        """Send an in-memory document (a role run's PDF or DOCX), uncached by the browser; DOCX as a download."""
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        if filename:
+            disposition = "inline" if content_type == "application/pdf" else "attachment"
+            self.send_header("Content-Disposition", f'{disposition}; filename="{filename}"')
+        self.end_headers()
+        self.wfile.write(data)
+
     def _serve_file(self, path: Path, content_type: str) -> None:
         """Purpose: Execute serve file for this module's workflow.
         

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import base64
 import json
 import os
 import re
@@ -10,9 +11,10 @@ from datetime import date, datetime
 from pathlib import Path
 
 import cv_source
-from cv_convert import convert_markdown_outputs
+from cv_convert import convert_markdown_outputs, count_pdf_pages, render_cv
 from backend_registry import get_backend_or_raise
 from provider_catalog import load_provider_catalog, provider_map
+from pipe_io import optional_text, require_text, run_json_io
 from provider_clients import AttemptResult
 
 INPUT_DIR = Path("input")
@@ -117,6 +119,13 @@ def parse_args() -> argparse.Namespace:
         help=f"Candidate steering note (D11; default: {STEERING_FILE}, skipped when missing or empty)",
     )
     parser.add_argument("--no-steering", action="store_true", help="Generate without any steering note")
+    parser.add_argument(
+        "--io",
+        choices=["files", "json"],
+        default="files",
+        help="files: read input/, write output/ (default). json: one request on stdin, one result on stdout, "
+        "progress on stderr, no files (multi-role runs)",
+    )
     return parser.parse_args()
 
 
@@ -368,23 +377,12 @@ def find_elision_leaks(elided: list[dict], rendered_markdown: str) -> list[str]:
     return leaks
 
 
-def count_pdf_pages(pdf_path: Path) -> int | None:
-    """Read the page count from the PDF's root page tree (/Type /Pages without /Parent).
-
-    Counting /Type /Page markers over-counts. Returns None when the tree is unreadable, for example
-    when it sits in a compressed object stream.
-    """
+def count_pdf_file_pages(pdf_path: Path) -> int | None:
+    """Page count of a PDF file (`cv_convert.count_pdf_pages`), or None when it can't be read."""
     try:
-        data = pdf_path.read_bytes()
+        return count_pdf_pages(pdf_path.read_bytes())
     except OSError:
         return None
-    counts = []
-    for match in re.finditer(rb"<<((?:(?!>>).)*?/Type\s*/Pages\b(?:(?!>>).)*?)>>", data, re.DOTALL):
-        body = match.group(1)
-        count = re.search(rb"/Count\s+(\d+)", body)
-        if count and b"/Parent" not in body:
-            counts.append(int(count.group(1)))
-    return max(counts) if counts else None
 
 
 def extract_json_payload(raw_text: str) -> str:
@@ -995,19 +993,19 @@ def apply_fast_mode_prompt_rules(full_prompt: str, fast_mode: bool) -> str:
     return full_prompt + fast_instructions
 
 
-def record_run_metadata(
+def cv_run_metadata(
     extracted_json_payload: str, steering_text: str, page_count: int | None, run_warnings: list[str]
-) -> None:
-    """Add the tool's run facts to metadata in tailored.model.json, for the later UI.
+) -> dict | None:
+    """The model JSON with the tool's run facts added to `metadata`, or None when it doesn't parse as an object.
 
-    Records `steering` (when set), `page_count` and `warnings` alongside the model's own metadata.
+    Adds `steering` (when set), `page_count` and `warnings` alongside the model's own metadata.
     """
     try:
         payload = json.loads(extracted_json_payload)
     except json.JSONDecodeError:
-        return
+        return None
     if not isinstance(payload, dict):
-        return
+        return None
     metadata = payload.get("metadata")
     if not isinstance(metadata, dict):
         metadata = {}
@@ -1016,49 +1014,77 @@ def record_run_metadata(
     metadata["page_count"] = page_count
     metadata["warnings"] = run_warnings
     payload["metadata"] = metadata
-    RAW_MODEL_JSON_FILE.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return payload
 
 
-def main() -> None:
-    """Purpose: Execute main for this module's workflow.
-    
-    Inputs:
-    - None.
-    
-    Returns:
-    - None. This function performs side effects only.
+def record_run_metadata(
+    extracted_json_payload: str, steering_text: str, page_count: int | None, run_warnings: list[str]
+) -> None:
+    """Write cv_run_metadata's payload to tailored.model.json, for the later UI (left alone when it doesn't parse)."""
+    payload = cv_run_metadata(extracted_json_payload, steering_text, page_count, run_warnings)
+    if payload is not None:
+        RAW_MODEL_JSON_FILE.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+class RunFailed(Exception):
+    """A CV run stopped. The message becomes the result's `error`; the details are already on stderr."""
+
+
+def new_cv_result() -> dict:
+    """An empty `--io json` CV result (docs/plans/multi-role.md, "Run I/O")."""
+    return {
+        "success": False,
+        "provider": "",
+        "model": "",
+        "raw_output": None,
+        "model_json": None,
+        "warnings": [],
+        "page_count": None,
+        "pdf_base64": None,
+        "error": None,
+    }
+
+
+def run_cv(
+    request: dict,
+    *,
+    files: bool,
+    cv_label: str = "the request's CV",
+    steering_label: str = "the request",
+) -> dict:
+    """Run the CV pipeline on request = {cv, jobspec, steering, prompt, theme, provider, model}; return the result.
+
+    files=True is the one-shot mode: it writes output/ (raw output, model JSON, tailored.md, PDF, DOCX, attempt
+    logs) as before. files=False (`--io json`) writes nothing: attempt logs go to stderr and the PDF is rendered in
+    memory into the result's `pdf_base64`.
     """
-    args = parse_args()
+    result = new_cv_result()
+    try:
+        _run_cv(request, result, files=files, cv_label=cv_label, steering_label=steering_label)
+    except RunFailed as exc:
+        result["error"] = str(exc)
+    return result
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    DEBUG_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 1. Verify input files exist
-    cv_file = Path(args.cv)
-    missing = [str(path) for path in (cv_file, JOBSPEC_FILE, PROMPT_FILE) if not path.exists()]
-    if missing:
-        print(f"Error: Missing required file(s): {', '.join(missing)}", file=sys.stderr)
-        sys.exit(1)
-
+def _run_cv(request: dict, result: dict, *, files: bool, cv_label: str, steering_label: str) -> None:
+    """The steps of run_cv, filling `result` as they go; raises RunFailed when the run stops."""
     print("Reading inputs...")
-    cv_doc = cv_source.parse_cv_source(cv_file.read_text(encoding="utf-8"))
+    cv_doc = cv_source.parse_cv_source(request["cv"])
     cv_errors = [item for item in cv_source.lint_cv_source(cv_doc) if item["level"] == cv_source.ERROR]
     if cv_errors:
         for item in cv_errors:
-            print(f"{cv_file}:{item['line']}: error: {item['message']}", file=sys.stderr)
+            print(f"{cv_label}:{item['line']}: error: {item['message']}", file=sys.stderr)
         print(
-            f"Error: {cv_file} is not in the CV source format. See `python3 cv_source.py --lint {cv_file}`.",
+            f"Error: {cv_label} is not in the CV source format. See `python3 cv_source.py --lint {cv_label}`.",
             file=sys.stderr,
         )
-        sys.exit(1)
+        raise RunFailed("the CV is not in the CV source format")
     cv_content = cv_doc["prompt_text"]
     directives = cv_doc["directives"]
-    jobspec_content = JOBSPEC_FILE.read_text(encoding="utf-8")
-    prompt_text = PROMPT_FILE.read_text(encoding="utf-8").strip()
-    if not prompt_text:
-        print(f"Error: {PROMPT_FILE} is empty.", file=sys.stderr)
-        sys.exit(1)
-    steering_text = "" if args.no_steering else read_steering_text(Path(args.steering_file))
+    jobspec_content = request["jobspec"]
+    prompt_text = request["prompt"].strip()
+    steering_text = (request.get("steering") or "").strip()
+    theme = request.get("theme") or None
     today = date.today()
     role_cutoff = selected_roles_cutoff(today)
 
@@ -1072,15 +1098,17 @@ def main() -> None:
     providers = provider_map(catalog)
     default_provider = str(catalog.get("defaultProvider") or "gemini").strip() or "gemini"
 
-    selected_provider = (args.provider or process_env.get("MODEL_PROVIDER") or default_provider).strip().lower()
+    requested_provider = request.get("provider") or ""
+    selected_provider = (requested_provider or process_env.get("MODEL_PROVIDER") or default_provider).strip().lower()
+    result["provider"] = selected_provider
     if selected_provider not in providers:
         print(f"Error: Unsupported provider '{selected_provider}'.", file=sys.stderr)
-        sys.exit(1)
+        raise RunFailed(f"unsupported provider '{selected_provider}'")
     selected_backend = get_backend_or_raise(selected_provider, process_env)
     if not selected_backend.status.enabled:
         reason = selected_backend.status.reason or "provider is disabled"
         print(f"Error: Provider '{selected_provider}' is disabled: {reason}", file=sys.stderr)
-        sys.exit(1)
+        raise RunFailed(f"provider '{selected_provider}' is disabled: {reason}")
 
     # 4. Formulate prompt and invoke Gemini non-interactively via stdin/stdout
     fast_mode = is_fast_mode_enabled(process_env)
@@ -1091,7 +1119,7 @@ def main() -> None:
     run_facts = build_run_facts(today, role_cutoff, directives)
     print(run_facts)
     if steering_text:
-        print(f"Steering from {args.steering_file}: {steering_text!r}")
+        print(f"Steering from {steering_label}: {steering_text!r}")
     full_prompt = build_prompt(
         prompt_text,
         mode_cv_content,
@@ -1102,17 +1130,20 @@ def main() -> None:
     full_prompt = apply_fast_mode_prompt_rules(full_prompt, fast_mode)
 
     print(f"Invoking provider '{selected_provider}' to project CV...")
-    models_to_try = build_model_sequence(process_env, provider=selected_provider, explicit_model=args.model)
-    print("Model attempt order: " + ", ".join(models_to_try))
-    print(
-        f"Diagnostics enabled. Per-attempt logs will be written to: {DEBUG_LOG_DIR.resolve()}"
+    models_to_try = build_model_sequence(
+        process_env, provider=selected_provider, explicit_model=request.get("model") or ""
     )
+    print("Model attempt order: " + ", ".join(models_to_try))
+    debug_log_dir = DEBUG_LOG_DIR if files else None
+    if debug_log_dir:
+        print(f"Diagnostics enabled. Per-attempt logs will be written to: {debug_log_dir.resolve()}")
 
     process: AttemptResult | None = None
     last_error = ""
     attempt_results: list[tuple[str, str]] = []
     for index, model_name in enumerate(models_to_try, start=1):
         print(f"{selected_provider} attempt {index}/{len(models_to_try)} with model: {model_name}")
+        result["model"] = model_name
         completed = selected_backend.backend.run_attempt(
             model_name=model_name,
             prompt_text=full_prompt,
@@ -1120,7 +1151,7 @@ def main() -> None:
             timeout_seconds=int(getattr(selected_backend.backend, "timeout_seconds", 240)),
             heartbeat_seconds=GEMINI_HEARTBEAT_SECONDS,
             attempt_index=index,
-            debug_log_dir=DEBUG_LOG_DIR,
+            debug_log_dir=debug_log_dir,
             log_prefix="cv-attempt",
             emit_live_output=True,
         )
@@ -1143,13 +1174,11 @@ def main() -> None:
             print(f"Provider call failed on model {model_name}:", file=sys.stderr)
             print(stderr_text, file=sys.stderr)
             print_attempt_summary(attempt_results, sys.stderr)
-            sys.exit(1)
+            raise RunFailed(f"provider call failed on model {model_name} ({reason})")
 
         process = completed
-        print(
-            f"Attempt {index} completed in {completed.elapsed_seconds:.1f}s. "
-            f"Debug log: {completed.log_path}"
-        )
+        log_text = f" Debug log: {completed.log_path}" if completed.log_path else ""
+        print(f"Attempt {index} completed in {completed.elapsed_seconds:.1f}s.{log_text}")
         attempt_results.append((model_name, "success"))
         break
 
@@ -1166,27 +1195,27 @@ def main() -> None:
             "Set GEMINI_MODEL and GEMINI_MODEL_FALLBACKS in .env to customize retries.",
             file=sys.stderr,
         )
-        sys.exit(1)
+        raise RunFailed("provider call failed across all configured models")
 
     raw_model_output = process.stdout or ""
-    RAW_MODEL_OUTPUT_FILE.write_text(raw_model_output, encoding="utf-8")
-    print(f"Saved raw model output to: {RAW_MODEL_OUTPUT_FILE}")
+    result["raw_output"] = raw_model_output
+    if files:
+        RAW_MODEL_OUTPUT_FILE.write_text(raw_model_output, encoding="utf-8")
+        print(f"Saved raw model output to: {RAW_MODEL_OUTPUT_FILE}")
 
     if not raw_model_output.strip():
         print("Gemini CLI returned empty output.", file=sys.stderr)
-        sys.exit(1)
+        raise RunFailed("the model returned empty output")
 
     extracted_json_payload = ""
     try:
         extracted_json_payload = extract_json_payload(raw_model_output)
-        RAW_MODEL_JSON_FILE.write_text(extracted_json_payload + "\n", encoding="utf-8")
-        print(f"Saved extracted model JSON to: {RAW_MODEL_JSON_FILE}")
+        if files:
+            RAW_MODEL_JSON_FILE.write_text(extracted_json_payload + "\n", encoding="utf-8")
+            print(f"Saved extracted model JSON to: {RAW_MODEL_JSON_FILE}")
     except ValueError:
-        print(
-            "Could not extract JSON payload from raw model output; "
-            f"inspect {RAW_MODEL_OUTPUT_FILE}.",
-            file=sys.stderr,
-        )
+        where = RAW_MODEL_OUTPUT_FILE if files else "raw_output"
+        print(f"Could not extract JSON payload from raw model output; inspect {where}.", file=sys.stderr)
 
     validation_warnings: list[str] = []
     try:
@@ -1195,51 +1224,74 @@ def main() -> None:
         )
     except ValueError as exc:
         print(f"Generated output failed JSON contract validation: {exc}", file=sys.stderr)
-        print(
-            f"Inspect {RAW_MODEL_OUTPUT_FILE} and {RAW_MODEL_JSON_FILE} for raw output details.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        if files:
+            print(
+                f"Inspect {RAW_MODEL_OUTPUT_FILE} and {RAW_MODEL_JSON_FILE} for raw output details.",
+                file=sys.stderr,
+            )
+        raise RunFailed(f"the model output failed JSON contract validation: {exc}")
 
     tailored_markdown = render_tagged_markdown(structured_payload, directives=directives)
-    TAILORED_MD.write_text(tailored_markdown, encoding="utf-8")
     run_warnings = [f"model output breaks a rule: {warning}" for warning in validation_warnings]
     run_warnings += find_elision_leaks(cv_doc["elided"], tailored_markdown)
-    print(f"Generated intermediate markdown: {TAILORED_MD}")
+    result["warnings"] = run_warnings
+    if files:
+        TAILORED_MD.write_text(tailored_markdown, encoding="utf-8")
+        print(f"Generated intermediate markdown: {TAILORED_MD}")
 
     # 5. Compile markdown outputs
-    print("Compiling PDF and DOCX...")
-    conversion_result = convert_markdown_outputs(
-        markdown_path=TAILORED_MD,
-        output_pdf=OUTPUT_PDF,
-        output_docx=OUTPUT_DOCX,
-        sanitized_markdown_path=OUTPUT_DIR / "tailored.export.md",
-        theme=args.theme,
-    )
-
-    if conversion_result.used_sanitized_markdown:
-        print(
-            f"Detected YAML frontmatter; using sanitized export file: "
-            f"{conversion_result.export_markdown_path}"
+    if files:
+        print("Compiling PDF and DOCX...")
+        conversion_result = convert_markdown_outputs(
+            markdown_path=TAILORED_MD,
+            output_pdf=OUTPUT_PDF,
+            output_docx=OUTPUT_DOCX,
+            sanitized_markdown_path=OUTPUT_DIR / "tailored.export.md",
+            theme=theme,
         )
+        if conversion_result.used_sanitized_markdown:
+            print(
+                f"Detected YAML frontmatter; using sanitized export file: "
+                f"{conversion_result.export_markdown_path}"
+            )
+        pdf_ok = conversion_result.pdf_ok
+        docx_ok = conversion_result.docx_ok
+        page_count = count_pdf_file_pages(OUTPUT_PDF) if pdf_ok else None
+        pdf_name = str(OUTPUT_PDF)
+    else:
+        print("Rendering the PDF in memory...")
+        pdf_bytes = render_cv(tailored_markdown, "pdf", theme=theme)
+        pdf_ok = pdf_bytes is not None
+        docx_ok = False
+        page_count = count_pdf_pages(pdf_bytes) if pdf_bytes else None
+        result["pdf_base64"] = base64.b64encode(pdf_bytes).decode("ascii") if pdf_bytes else None
+        pdf_name = "the PDF"
+        if not pdf_ok:
+            run_warnings.append("the PDF could not be rendered")
 
-    pdf_ok = conversion_result.pdf_ok
-    docx_ok = conversion_result.docx_ok
-
-    page_count = count_pdf_pages(OUTPUT_PDF) if pdf_ok else None
     if pdf_ok and page_count is None:
-        run_warnings.append(f"could not read the page count from {OUTPUT_PDF}")
+        run_warnings.append(f"could not read the page count from {pdf_name}")
     elif page_count is not None and page_count > TARGET_PDF_PAGES:
         run_warnings.append(f"the PDF has {page_count} pages; the target is {TARGET_PDF_PAGES}")
+    result["page_count"] = page_count
 
-    record_run_metadata(extracted_json_payload, steering_text, page_count, run_warnings)
+    if files:
+        record_run_metadata(extracted_json_payload, steering_text, page_count, run_warnings)
+    else:
+        result["model_json"] = cv_run_metadata(extracted_json_payload, steering_text, page_count, run_warnings)
     for warning in run_warnings:
         print(f"Warning: {warning}", file=sys.stderr)
+    result["success"] = True
+
+    if not files:
+        pages_text = f" ({page_count} pages)" if page_count is not None else ""
+        print(f"Success! CV generated{pages_text}.")
+        return
 
     if not pdf_ok and not docx_ok:
         print("Warning: Unable to compile PDF or DOCX from generated markdown.")
         print(f"Find your generated markdown at: {TAILORED_MD.resolve()}")
-        sys.exit(0)
+        return
 
     if pdf_ok:
         pages_text = f" ({page_count} pages)" if page_count is not None else ""
@@ -1251,6 +1303,54 @@ def main() -> None:
         print(f"Success! DOCX created at: {OUTPUT_DOCX.resolve()}")
     else:
         print("DOCX generation failed.", file=sys.stderr)
+
+
+def handle_json_request(request: dict) -> dict:
+    """`--io json`: check the request's fields, then run the CV pipeline without files."""
+    checked = {
+        "cv": require_text(request, "cv"),
+        "jobspec": require_text(request, "jobspec"),
+        "prompt": require_text(request, "prompt"),
+        "steering": optional_text(request, "steering"),
+        "theme": optional_text(request, "theme"),
+        "provider": optional_text(request, "provider"),
+        "model": optional_text(request, "model"),
+    }
+    return run_cv(checked, files=False)
+
+
+def main() -> None:
+    """Run one CV generation: one-shot from input/ to output/, or `--io json` over pipes (no files)."""
+    args = parse_args()
+    if args.io == "json":
+        sys.exit(run_json_io(handle_json_request))
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    DEBUG_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+    # 1. Verify input files exist
+    cv_file = Path(args.cv)
+    missing = [str(path) for path in (cv_file, JOBSPEC_FILE, PROMPT_FILE) if not path.exists()]
+    if missing:
+        print(f"Error: Missing required file(s): {', '.join(missing)}", file=sys.stderr)
+        sys.exit(1)
+
+    prompt_text = PROMPT_FILE.read_text(encoding="utf-8").strip()
+    if not prompt_text:
+        print(f"Error: {PROMPT_FILE} is empty.", file=sys.stderr)
+        sys.exit(1)
+    request = {
+        "cv": cv_file.read_text(encoding="utf-8"),
+        "jobspec": JOBSPEC_FILE.read_text(encoding="utf-8"),
+        "prompt": prompt_text,
+        "steering": "" if args.no_steering else read_steering_text(Path(args.steering_file)),
+        "theme": args.theme,
+        "provider": args.provider,
+        "model": args.model,
+    }
+    result = run_cv(request, files=True, cv_label=str(cv_file), steering_label=args.steering_file)
+    if not result["success"]:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

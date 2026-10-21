@@ -66,7 +66,7 @@ class HuggingFaceBackend(Backend):
         timeout_seconds: int,
         heartbeat_seconds: int,
         attempt_index: int,
-        debug_log_dir: Path,
+        debug_log_dir: Path | None,
         log_prefix: str,
         emit_live_output: bool,
         **extra_options: object,

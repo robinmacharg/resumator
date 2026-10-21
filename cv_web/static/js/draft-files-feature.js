@@ -19,22 +19,25 @@ import { getStorageString, hasAnyStorageKeys, setStorageString } from "./storage
  * @property {any} editableFiles Editable file metadata map (tab label, title element, editor getter).
  * @property {any} localStorageKeys Local storage key map.
  * @property {(message: string, isError?: boolean) => void} setStatus App status renderer used by autosave.
+ * @property {() => string[]} [getRoleOwnedKeys] Keys the active role owns ("cv", "jobspec" in role mode). They
+ *   come from the Role API, so they are left out of file payloads, browser drafts and file snapshots.
  */
 
 /**
  * Create draft/files feature.
  *
  * @param {DraftFilesFeatureContext} ctx Feature dependencies.
- * @returns {{currentFiles: () => any, syncDirtyIndicators: () => void, writeDraftToLocalStorage: () => void, hasLocalDraft: () => boolean, loadLocalDraft: (diskFiles?: any) => void, applyFilesToEditors: (files: any) => void, updateDiskSnapshot: (files: any) => void, bindMirroredEditors: (primaryEditor: HTMLTextAreaElement | null, mirrorEditor: HTMLTextAreaElement | null) => void, bindAutosave: () => void, syncResearchMirrorEditorsFromPrimary: () => void}}
+ * @returns {{currentFiles: () => any, currentFileValues: () => any, applyRoleFiles: (files: any) => void, syncDirtyIndicators: () => void, writeDraftToLocalStorage: () => void, hasLocalDraft: () => boolean, loadLocalDraft: (diskFiles?: any) => void, applyFilesToEditors: (files: any) => void, updateDiskSnapshot: (files: any) => void, bindMirroredEditors: (primaryEditor: HTMLTextAreaElement | null, mirrorEditor: HTMLTextAreaElement | null) => void, bindAutosave: () => void, syncResearchMirrorEditorsFromPrimary: () => void}}
  */
 export function createDraftFilesFeature(ctx) {
     const { state, els, editableFiles, localStorageKeys, setStatus } = ctx;
+    const getRoleOwnedKeys = ctx.getRoleOwnedKeys || (() => []);
 
     /**
-     * Collect current editable file values from primary editors.
+     * Current values of every editor, role-owned ones included.
      * @returns {{cv: string, prompt: string, research_prompt: string, jobspec: string, env: string}}
      */
-    function currentFiles() {
+    function currentFileValues() {
         return {
             cv: els.cvEditor.value,
             prompt: els.promptEditor.value,
@@ -42,6 +45,19 @@ export function createDraftFilesFeature(ctx) {
             jobspec: els.jobspecEditor.value,
             env: els.envEditor.value,
         };
+    }
+
+    /**
+     * Editor values that belong to `input/` files: in role mode the CV and job spec are left out, so file
+     * endpoints never write a role's content to disk.
+     * @returns {{cv?: string, prompt: string, research_prompt: string, jobspec?: string, env: string}}
+     */
+    function currentFiles() {
+        const files = currentFileValues();
+        getRoleOwnedKeys().forEach((key) => {
+            delete files[key];
+        });
+        return files;
     }
 
     /**
@@ -115,13 +131,13 @@ export function createDraftFilesFeature(ctx) {
      */
     function writeDraftToLocalStorage() {
         const files = currentFiles();
-        setStorageString(localStorageKeys.cv, files.cv);
-        setStorageString(localStorageKeys.prompt, files.prompt);
-        setStorageString(localStorageKeys.research_prompt, files.research_prompt);
+        ["cv", "prompt", "research_prompt", "jobspec", "env"].forEach((key) => {
+            if (key in files) {
+                setStorageString(localStorageKeys[key], files[key]);
+            }
+        });
         setStorageString(localStorageKeys.research_company, els.researchCompanyInput.value || "");
         setStorageString(localStorageKeys.research_urls, els.researchUrlsInput.value || "");
-        setStorageString(localStorageKeys.jobspec, files.jobspec);
-        setStorageString(localStorageKeys.env, files.env);
     }
 
     /**
@@ -146,12 +162,13 @@ export function createDraftFilesFeature(ctx) {
      * @returns {void}
      */
     function loadLocalDraft(diskFiles = {}) {
-        const cv = getStorageString(localStorageKeys.cv);
+        const roleOwned = getRoleOwnedKeys();
+        const cv = roleOwned.includes("cv") ? null : getStorageString(localStorageKeys.cv);
         const prompt = getStorageString(localStorageKeys.prompt);
         const researchPrompt = getStorageString(localStorageKeys.research_prompt);
         const researchCompany = getStorageString(localStorageKeys.research_company);
         const researchUrls = getStorageString(localStorageKeys.research_urls);
-        const jobspec = getStorageString(localStorageKeys.jobspec);
+        const jobspec = roleOwned.includes("jobspec") ? null : getStorageString(localStorageKeys.jobspec);
         const env = getStorageString(localStorageKeys.env);
 
         if (cv !== null) {
@@ -190,10 +207,15 @@ export function createDraftFilesFeature(ctx) {
      * @returns {void}
      */
     function applyFilesToEditors(files) {
-        els.cvEditor.value = files.cv || "";
+        const roleOwned = getRoleOwnedKeys();
+        if (!roleOwned.includes("cv")) {
+            els.cvEditor.value = files.cv || "";
+        }
         els.promptEditor.value = files.prompt || "";
         els.researchPromptEditor.value = files.research_prompt || "";
-        els.jobspecEditor.value = files.jobspec || "";
+        if (!roleOwned.includes("jobspec")) {
+            els.jobspecEditor.value = files.jobspec || "";
+        }
         els.envEditor.value = files.env || "";
         syncResearchMirrorEditorsFromPrimary();
     }
@@ -204,6 +226,7 @@ export function createDraftFilesFeature(ctx) {
      * @returns {void}
      */
     function updateDiskSnapshot(files) {
+        const previous = state.diskFiles || {};
         state.diskFiles = {
             cv: files.cv || "",
             prompt: files.prompt || "",
@@ -211,6 +234,27 @@ export function createDraftFilesFeature(ctx) {
             jobspec: files.jobspec || "",
             env: files.env || "",
         };
+        getRoleOwnedKeys().forEach((key) => {
+            state.diskFiles[key] = previous[key] || "";
+        });
+        syncDirtyIndicators();
+    }
+
+    /**
+     * Show role-owned content (from the Role API) and make it the saved snapshot for dirty checks.
+     * @param {{cv?: string, jobspec?: string}} files
+     * @returns {void}
+     */
+    function applyRoleFiles(files) {
+        if (typeof files.cv === "string") {
+            els.cvEditor.value = files.cv;
+            state.diskFiles.cv = files.cv;
+        }
+        if (typeof files.jobspec === "string") {
+            els.jobspecEditor.value = files.jobspec;
+            state.diskFiles.jobspec = files.jobspec;
+        }
+        syncResearchMirrorEditorsFromPrimary();
         syncDirtyIndicators();
     }
 
@@ -226,7 +270,11 @@ export function createDraftFilesFeature(ctx) {
             }
             timer = setTimeout(() => {
                 writeDraftToLocalStorage();
-                setStatus("Draft saved to browser storage.");
+                setStatus(
+                    getRoleOwnedKeys().length
+                        ? "Draft saved to browser storage (role CV and job spec need Save)."
+                        : "Draft saved to browser storage.",
+                );
             }, 300);
         };
 
@@ -256,6 +304,8 @@ export function createDraftFilesFeature(ctx) {
 
     return {
         currentFiles,
+        currentFileValues,
+        applyRoleFiles,
         syncDirtyIndicators,
         writeDraftToLocalStorage,
         hasLocalDraft,

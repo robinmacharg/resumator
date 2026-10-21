@@ -10,10 +10,10 @@ Every backend lives in `backends/<id>/module.py`. The module exposes `get_backen
 | `timeout_seconds` | Per-attempt timeout used by the pipelines |
 | `interrogate(env) -> BackendStatus` | `enabled`, `reason` (shown when disabled), `models`, `default_model`. Must be cheap |
 | `model_sequence(env, explicit_model) -> list[str]` | Attempt order. An explicit model means try only that one |
-| `run_attempt(*, model_name, prompt_text, env, timeout_seconds, heartbeat_seconds, attempt_index, debug_log_dir, log_prefix, emit_live_output, **extra) -> AttemptResult` | One call. Must not raise for provider errors; return a non-zero `returncode` and put the error in `stderr` |
+| `run_attempt(*, model_name, prompt_text, env, timeout_seconds, heartbeat_seconds, attempt_index, debug_log_dir, log_prefix, emit_live_output, **extra) -> AttemptResult` | One call. Must not raise for provider errors; return a non-zero `returncode` and put the error in `stderr`. `debug_log_dir` may be None (`--io json` runs): write the attempt log with `provider_clients._write_attempt_log(attempt_log_path(debug_log_dir, name), lines)`, which sends it to stderr and leaves `log_path` None |
 
 `AttemptResult` (`provider_clients.py`) has these fields: `provider, model, returncode, stdout, stderr, elapsed_seconds,
-log_path, timed_out`. `stdout` is the model's text.
+log_path, timed_out`. `stdout` is the model's text. `log_path` is None when no log file was written.
 
 ## Discovery (`backend_registry.py`)
 

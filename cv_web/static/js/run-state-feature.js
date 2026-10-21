@@ -68,6 +68,13 @@ export function createRunStateFeature(ctx) {
             els.themeSelect,
             els.steerCheckbox,
             els.restartServerBtn,
+            els.roleSidebarControls,
+            els.runSelect,
+            els.cvSourceSelect,
+            els.promoteCvBtn,
+            els.pullCvBtn,
+            els.cvHistoryBtn,
+            els.importCvBtn,
         ].forEach((el) => {
             if (!el) {
                 return;

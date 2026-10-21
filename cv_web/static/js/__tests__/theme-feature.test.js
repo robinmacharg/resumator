@@ -109,3 +109,35 @@ test("theme change during a run is saved but does not start another run", async 
     assert.equal(localStorage.getItem(localStorageKeys.selected_theme), "compact");
     assert.deepEqual(runs, []);
 });
+
+test("theme change in role mode goes to the role handler: no storage write, no format run", async () => {
+    const { state, els, runs } = createHarness();
+    const handled = [];
+    const feature = createThemeFeature({
+        state,
+        els,
+        localStorageKeys,
+        runPipeline: async (kind) => runs.push(kind),
+        onThemeChanged: (theme) => handled.push(theme) > 0,
+    });
+    feature.populateThemeSelect(["default", "compact"]);
+
+    els.themeSelect.value = "compact";
+    await feature.handleThemeSelectChanged();
+
+    assert.deepEqual(handled, ["compact"]);
+    assert.deepEqual(runs, []);
+    assert.equal(localStorage.getItem(localStorageKeys.selected_theme), null);
+});
+
+test("applyTheme shows a role's theme and falls back to the default for unknown ones", () => {
+    const { feature, state, els } = createHarness();
+    feature.populateThemeSelect(["default", "compact"]);
+
+    feature.applyTheme("compact");
+    assert.equal(state.selectedTheme, "compact");
+    assert.equal(els.themeSelect.value, "compact");
+
+    feature.applyTheme("gone");
+    assert.equal(state.selectedTheme, "default");
+});

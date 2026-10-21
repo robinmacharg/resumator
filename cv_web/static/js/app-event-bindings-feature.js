@@ -21,6 +21,10 @@
  * @property {any} providerModelFeature Provider/model feature API.
  * @property {any} [themeFeature] PDF theme feature API.
  * @property {any} [steeringFeature] Steering feature API.
+ * @property {any} [roleWorkspaceFeature] Role sidebar, CV source and role controls.
+ * @property {any} [roleRunsFeature] Role run-history picker.
+ * @property {any} [roleMergeFeature] Promote/pull/import merge view.
+ * @property {any} [cvHistoryFeature] CV version history dialog.
  */
 
 /**
@@ -40,6 +44,10 @@ export function createAppEventBindingsFeature(ctx) {
         providerModelFeature,
         themeFeature,
         steeringFeature,
+        roleWorkspaceFeature,
+        roleRunsFeature,
+        roleMergeFeature,
+        cvHistoryFeature,
     } = ctx;
 
     /**
@@ -157,6 +165,51 @@ export function createAppEventBindingsFeature(ctx) {
             if (els.steerCheckbox) {
                 els.steerCheckbox.addEventListener("change", steeringFeature.handleSteerCheckboxChanged);
             }
+        }
+        if (roleWorkspaceFeature) {
+            bindOptionalClick(els.newRoleBtn, roleWorkspaceFeature.openNewRoleDialog);
+            bindOptionalClick(els.deleteRoleBtn, roleWorkspaceFeature.deleteActiveRole);
+            bindOptionalClick(els.newRoleCancelBtn, () => els.newRoleDialog.close());
+            if (els.newRoleForm) {
+                els.newRoleForm.addEventListener("submit", (event) => {
+                    event.preventDefault();
+                    roleWorkspaceFeature.createRoleFromDialog();
+                });
+            }
+            if (els.roleStatusSelect) {
+                els.roleStatusSelect.addEventListener("change", roleWorkspaceFeature.handleStatusChanged);
+            }
+            if (els.cvSourceSelect) {
+                els.cvSourceSelect.addEventListener("change", roleWorkspaceFeature.handleCvSourceChanged);
+            }
+            bindOptionalClick(els.firstRunExampleBtn, () => roleWorkspaceFeature.chooseFirstRun("example"));
+            bindOptionalClick(els.firstRunBlankBtn, () => roleWorkspaceFeature.chooseFirstRun("blank"));
+            if (els.firstRunDialog) {
+                // Escape would leave a new install with no choice made; Chrome doesn't always let it be cancelled.
+                els.firstRunDialog.addEventListener("cancel", (event) => event.preventDefault());
+                els.firstRunDialog.addEventListener("close", roleWorkspaceFeature.handleFirstRunDialogClosed);
+            }
+        }
+        if (roleMergeFeature) {
+            bindOptionalClick(els.promoteCvBtn, () => roleMergeFeature.openMerge("promote"));
+            bindOptionalClick(els.pullCvBtn, () => roleMergeFeature.openMerge("pull"));
+            bindOptionalClick(els.importCvBtn, () => roleMergeFeature.openMerge("import"));
+            bindOptionalClick(els.mergeApplyBtn, roleMergeFeature.applyMerge);
+            bindOptionalClick(els.mergeCancelBtn, roleMergeFeature.closeMerge);
+            if (els.mergeDialog) {
+                els.mergeDialog.addEventListener("close", roleMergeFeature.closeMerge);
+            }
+        }
+        if (cvHistoryFeature) {
+            bindOptionalClick(els.cvHistoryBtn, cvHistoryFeature.openHistory);
+            bindOptionalClick(els.historyRestoreBtn, cvHistoryFeature.restoreSelected);
+            bindOptionalClick(els.historyCloseBtn, cvHistoryFeature.closeHistory);
+            if (els.historyDialog) {
+                els.historyDialog.addEventListener("close", cvHistoryFeature.closeHistory);
+            }
+        }
+        if (roleRunsFeature && els.runSelect) {
+            els.runSelect.addEventListener("change", roleRunsFeature.handleRunSelectChanged);
         }
     }
 

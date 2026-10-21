@@ -27,6 +27,9 @@ import { runWithStatusOperation } from "./async-workflow-utils.js";
  * @property {() => void} updatePreview Preview re-render callback.
  * @property {(running: boolean) => void} setRunning Running-state toggle callback.
  * @property {(message: string, isError?: boolean) => void} setStatus Status renderer.
+ * @property {{saveFile: (key: string) => Promise<boolean>, reloadFile: (key: string) => Promise<boolean>, refreshTailoredOutput: () => Promise<boolean>}} [roleFiles]
+ *   Role mode: handlers for the role-owned editors and the Tailored tab. Each returns false when not in role
+ *   mode (or not a role-owned key), and the file behaviour runs instead.
  */
 
 /**
@@ -50,6 +53,7 @@ export function createAppOperationsFeature(ctx) {
         updatePreview,
         setRunning,
         setStatus,
+        roleFiles,
     } = ctx;
 
     /**
@@ -59,6 +63,12 @@ export function createAppOperationsFeature(ctx) {
     async function refreshTailoredOutput() {
         if (!els.tailoredViewer) {
             return;
+        }
+        if (roleFiles && (await roleFiles.refreshTailoredOutput())) {
+            return;
+        }
+        if (els.tailoredTitle) {
+            els.tailoredTitle.textContent = "tailored.md (read-only)";
         }
 
         try {
@@ -77,6 +87,19 @@ export function createAppOperationsFeature(ctx) {
     async function saveSingleFile(fileKey) {
         if (!editableFiles[fileKey]) {
             return;
+        }
+
+        if (roleFiles) {
+            setRunning(true);
+            try {
+                if (await roleFiles.saveFile(fileKey)) {
+                    return;
+                }
+            } catch (_err) {
+                return; // already reported by the role feature
+            } finally {
+                setRunning(false);
+            }
         }
 
         const payload = { files: { [fileKey]: currentFiles()[fileKey] } };
@@ -110,6 +133,16 @@ export function createAppOperationsFeature(ctx) {
     async function loadSingleFile(fileKey) {
         if (!editableFiles[fileKey]) {
             return;
+        }
+        if (roleFiles) {
+            setRunning(true);
+            try {
+                if (await roleFiles.reloadFile(fileKey)) {
+                    return;
+                }
+            } finally {
+                setRunning(false);
+            }
         }
 
         setRunning(true);

@@ -1,0 +1,18 @@
+Lead iOS Engineer - Northwind Health (fictional example)
+
+Northwind Health builds a patient app used by 2 million people to book appointments, see test results and talk to
+clinicians. We're hiring a Lead iOS Engineer to lead a team of four.
+
+What you'll do
+- Lead the iOS team: planning, code review, pairing and hiring.
+- Own the release process and app quality (crash-free rate, accessibility, performance).
+- Work with product and design on new patient features, including offline access to records.
+
+What we're looking for
+- Strong Swift and SwiftUI; comfortable with UIKit in older screens.
+- Experience in a regulated sector (health, finance or similar).
+- A track record of improving CI/CD and release automation.
+- Care for accessibility (WCAG) and inclusive design.
+- Nice to have: some Android or React Native experience.
+
+Remote-first (UK), with a monthly team day in Bristol.

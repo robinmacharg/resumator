@@ -10,7 +10,7 @@ from urllib import error, request
 from urllib.parse import urlparse
 
 from backends.base import Backend, BackendStatus
-from provider_clients import AttemptResult, run_vscodebridge_attempt
+from provider_clients import AttemptResult, _write_attempt_log, attempt_log_path, run_vscodebridge_attempt
 
 DEFAULT_MODEL = "copilot-vscode"
 DEFAULT_FALLBACK_MODELS: list[str] = []
@@ -274,7 +274,7 @@ class VSCodeBridgeBackend(Backend):
         timeout_seconds: int,
         heartbeat_seconds: int,
         attempt_index: int,
-        debug_log_dir: Path,
+        debug_log_dir: Path | None,
         log_prefix: str,
         emit_live_output: bool,
         **extra_options: object,
@@ -284,24 +284,22 @@ class VSCodeBridgeBackend(Backend):
         if not ready:
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             safe_model = model_name.replace("/", "_")
-            log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log"
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-            log_path.write_text(
-                "\n".join(
-                    [
-                        "provider=vscodebridge",
-                        f"model={model_name}",
-                        f"attempt={attempt_index}",
-                        "return_code=503",
-                        "elapsed_seconds=0.00",
-                        "timed_out=False",
-                        "--- STDOUT ---",
-                        "",
-                        "--- STDERR ---",
-                        reason,
-                    ]
-                ),
-                encoding="utf-8",
+            log_name = f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log"
+            log_path = attempt_log_path(debug_log_dir, log_name)
+            _write_attempt_log(
+                log_path,
+                [
+                    "provider=vscodebridge",
+                    f"model={model_name}",
+                    f"attempt={attempt_index}",
+                    "return_code=503",
+                    "elapsed_seconds=0.00",
+                    "timed_out=False",
+                    "--- STDOUT ---",
+                    "",
+                    "--- STDERR ---",
+                    reason,
+                ],
             )
             return AttemptResult(
                 provider="vscodebridge",

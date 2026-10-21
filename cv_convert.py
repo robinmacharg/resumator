@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import argparse
+import atexit
 import io
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -323,28 +325,29 @@ def typst_theme_files(theme: str | None) -> list[Path]:
     return files
 
 
+def pdf_pandoc_args(font_name: str, theme: str | None) -> list[str]:
+    """Pandoc options for the themed Typst PDF, shared by the file and in-memory renders."""
+    theme_args: list[str] = []
+    for theme_file in typst_theme_files(theme):
+        theme_args.extend(["--include-before-body", str(theme_file)])
+    return [
+        "--pdf-engine=typst",
+        "--lua-filter",
+        str(STYLES_FILTER),
+        *theme_args,
+        "-V",
+        f"mainfont={font_name}",
+        "-V",
+        f"sansfont={font_name}",
+    ]
+
+
 def compile_pdf(markdown_file: Path, output_pdf: Path, font_name: str, theme: str | None = None) -> bool:
     """Compile markdown to PDF using Pandoc with Typst engine when available."""
     if shutil.which("pandoc") and shutil.which("typst"):
-        theme_args: list[str] = []
-        for theme_file in typst_theme_files(theme):
-            theme_args.extend(["--include-before-body", str(theme_file)])
         try:
             subprocess.run(
-                [
-                    "pandoc",
-                    str(markdown_file),
-                    "-o",
-                    str(output_pdf),
-                    "--pdf-engine=typst",
-                    "--lua-filter",
-                    str(STYLES_FILTER),
-                    *theme_args,
-                    "-V",
-                    f"mainfont={font_name}",
-                    "-V",
-                    f"sansfont={font_name}",
-                ],
+                ["pandoc", str(markdown_file), "-o", str(output_pdf), *pdf_pandoc_args(font_name, theme)],
                 check=True,
                 text=True,
             )
@@ -392,38 +395,40 @@ def build_docx_reference(reference_docx: Path) -> bool:
     return True
 
 
+def docx_pandoc_args(font_name: str, reference_docx: Path | None) -> list[str]:
+    """Pandoc options for the DOCX, shared by the file and in-memory renders."""
+    page_margin = "1.5cm"
+    reference_args = ["--reference-doc", str(reference_docx)] if reference_docx else []
+    return [
+        *reference_args,
+        "-V",
+        f"mainfont={font_name}",
+        "-V",
+        f"sansfont={font_name}",
+        "-V",
+        f"margin={page_margin}",
+        "-V",
+        f"margin-left={page_margin}",
+        "-V",
+        f"margin-right={page_margin}",
+        "-V",
+        f"margin-top={page_margin}",
+        "-V",
+        f"margin-bottom={page_margin}",
+    ]
+
+
 def compile_docx(markdown_file: Path, output_docx: Path, font_name: str) -> bool:
     """Compile markdown to DOCX using Pandoc and the themed reference document."""
     if not shutil.which("pandoc"):
         return False
 
-    page_margin = "1.5cm"
     reference_docx = output_docx.with_name("reference.docx")
-    reference_args = ["--reference-doc", str(reference_docx)] if build_docx_reference(reference_docx) else []
+    reference = reference_docx if build_docx_reference(reference_docx) else None
 
     try:
         subprocess.run(
-            [
-                "pandoc",
-                str(markdown_file),
-                "-o",
-                str(output_docx),
-                *reference_args,
-                "-V",
-                f"mainfont={font_name}",
-                "-V",
-                f"sansfont={font_name}",
-                "-V",
-                f"margin={page_margin}",
-                "-V",
-                f"margin-left={page_margin}",
-                "-V",
-                f"margin-right={page_margin}",
-                "-V",
-                f"margin-top={page_margin}",
-                "-V",
-                f"margin-bottom={page_margin}",
-            ],
+            ["pandoc", str(markdown_file), "-o", str(output_docx), *docx_pandoc_args(font_name, reference)],
             check=True,
             text=True,
         )
@@ -431,6 +436,113 @@ def compile_docx(markdown_file: Path, output_docx: Path, font_name: str) -> bool
     except subprocess.CalledProcessError as exc:
         print(f"Pandoc DOCX compilation failed: {exc}", file=sys.stderr)
         return False
+
+
+def preferred_font() -> str:
+    """The first installed font from CV_FONT_PRIORITY (default Calibri, Arial, Helvetica)."""
+    preferred_font_raw = os.environ.get("CV_FONT_PRIORITY", "Calibri,Arial,Helvetica")
+    preferred_fonts = [item.strip() for item in preferred_font_raw.split(",") if item.strip()]
+    if not preferred_fonts:
+        preferred_fonts = ["Calibri", "Arial", "Helvetica"]
+    return choose_font(preferred_fonts)
+
+
+def export_markdown(markdown_text: str) -> tuple[str, bool]:
+    """Tagged markdown → the semantic export text both outputs compile from (front matter stripped).
+
+    Returns the text and whether front matter was stripped.
+    """
+    export_text, stripped_frontmatter = strip_yaml_frontmatter(apply_semantic_tag_formatting(markdown_text))
+    return export_text + "\n", stripped_frontmatter
+
+
+def run_pandoc_to_bytes(args: list[str], export_text: str, label: str) -> bytes | None:
+    """Run pandoc with the export text on stdin and return stdout, or None (reported on stderr) on failure."""
+    try:
+        result = subprocess.run(
+            ["pandoc", *args],
+            input=export_text.encode("utf-8"),
+            stdout=subprocess.PIPE,
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        print(f"{label} render failed: {exc}", file=sys.stderr)
+        return None
+    return result.stdout or None
+
+
+def render_pdf_bytes(export_text: str, font_name: str, theme: str | None = None) -> bytes | None:
+    """Render export markdown to PDF bytes over pipes, with the same command as compile_pdf.
+
+    `-t pdf` is required with `-o -`; without it pandoc writes HTML. Falls back to plain pandoc like compile_pdf.
+    """
+    if not shutil.which("pandoc"):
+        return None
+    if shutil.which("typst"):
+        args = ["-t", "pdf", "-o", "-", *pdf_pandoc_args(font_name, theme)]
+        pdf = run_pandoc_to_bytes(args, export_text, "Pandoc+Typst PDF")
+        if pdf:
+            return pdf
+    return run_pandoc_to_bytes(["-t", "pdf", "-o", "-"], export_text, "Pandoc PDF")
+
+
+_docx_reference: Path | None = None
+
+
+def process_docx_reference() -> Path | None:
+    """The themed reference.docx, built once per process in a private temp folder removed on exit.
+
+    `--reference-doc` must be a path, so this is the one file the in-memory DOCX render needs.
+    """
+    global _docx_reference
+    if _docx_reference is None or not _docx_reference.is_file():
+        folder = Path(tempfile.mkdtemp(prefix="resumator-docx-"))
+        atexit.register(shutil.rmtree, folder, ignore_errors=True)
+        reference = folder / "reference.docx"
+        if not build_docx_reference(reference):
+            return None
+        _docx_reference = reference
+    return _docx_reference
+
+
+def render_docx_bytes(export_text: str, font_name: str) -> bytes | None:
+    """Render export markdown to DOCX bytes over pipes, with the same command as compile_docx."""
+    if not shutil.which("pandoc"):
+        return None
+    args = ["-t", "docx", "-o", "-", *docx_pandoc_args(font_name, process_docx_reference())]
+    return run_pandoc_to_bytes(args, export_text, "Pandoc DOCX")
+
+
+def render_cv(markdown_text: str, output_format: str = "pdf", theme: str | None = None) -> bytes | None:
+    """Render tagged markdown to PDF or DOCX bytes in memory: no input or output files.
+
+    `theme` names a PDF preset in themes/ (default: the CV_THEME env var, else the default theme); DOCX ignores
+    it. Returns None when the render fails (the reason goes to stderr).
+    """
+    if output_format not in ("pdf", "docx"):
+        raise ValueError(f"Unknown output format: {output_format!r}")
+    export_text, _ = export_markdown(markdown_text)
+    font_name = preferred_font()
+    if output_format == "docx":
+        return render_docx_bytes(export_text, font_name)
+    if theme is None:
+        theme = os.environ.get("CV_THEME")
+    return render_pdf_bytes(export_text, font_name, theme)
+
+
+def count_pdf_pages(data: bytes) -> int | None:
+    """Read the page count from the PDF's root page tree (/Type /Pages without /Parent).
+
+    Counting /Type /Page markers over-counts. Returns None when the tree is unreadable, for example
+    when it sits in a compressed object stream.
+    """
+    counts = []
+    for match in re.finditer(rb"<<((?:(?!>>).)*?/Type\s*/Pages\b(?:(?!>>).)*?)>>", data, re.DOTALL):
+        body = match.group(1)
+        count = re.search(rb"/Count\s+(\d+)", body)
+        if count and b"/Parent" not in body:
+            counts.append(int(count.group(1)))
+    return max(counts) if counts else None
 
 
 def convert_markdown_outputs(
@@ -450,23 +562,16 @@ def convert_markdown_outputs(
     if not markdown_path.exists():
         raise FileNotFoundError(f"Markdown file not found: {markdown_path}")
 
-    preferred_font_raw = os.environ.get("CV_FONT_PRIORITY", "Calibri,Arial,Helvetica")
-    preferred_fonts = [item.strip() for item in preferred_font_raw.split(",") if item.strip()]
-    if not preferred_fonts:
-        preferred_fonts = ["Calibri", "Arial", "Helvetica"]
-    chosen_font = choose_font(preferred_fonts)
+    chosen_font = preferred_font()
     if theme is None:
         theme = os.environ.get("CV_THEME")
 
-    markdown_text = markdown_path.read_text(encoding="utf-8")
-
-    semantic_text = apply_semantic_tag_formatting(markdown_text)
-    export_text, stripped_frontmatter = strip_yaml_frontmatter(semantic_text)
+    export_text, stripped_frontmatter = export_markdown(markdown_path.read_text(encoding="utf-8"))
     export_path = sanitized_markdown_path or markdown_path.with_suffix(".export.md")
     export_path.parent.mkdir(parents=True, exist_ok=True)
     output_pdf.parent.mkdir(parents=True, exist_ok=True)
     output_docx.parent.mkdir(parents=True, exist_ok=True)
-    export_path.write_text(export_text + "\n", encoding="utf-8")
+    export_path.write_text(export_text, encoding="utf-8")
 
     pdf_ok = compile_pdf(export_path, output_pdf, chosen_font, theme)
 

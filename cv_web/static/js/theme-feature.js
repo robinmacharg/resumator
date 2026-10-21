@@ -17,16 +17,18 @@ import { getStorageString, setStorageString } from "./storage-utils.js";
  * @property {{themeSelect?: HTMLSelectElement | null}} els DOM element registry subset.
  * @property {{selected_theme: string}} localStorageKeys Storage key for the theme selection.
  * @property {(kind: "full" | "format") => Promise<void>} runPipeline CV pipeline runner.
+ * @property {(theme: string) => boolean} [onThemeChanged] Role-mode handler; returns true when it took the change
+ *   (saved on the role, preview re-rendered), so there is no localStorage write or format run.
  */
 
 /**
  * Create the theme feature.
  *
  * @param {ThemeFeatureContext} ctx Feature dependencies.
- * @returns {{populateThemeSelect: (themes: string[] | null | undefined) => void, handleThemeSelectChanged: () => Promise<void>}} Public API.
+ * @returns {{populateThemeSelect: (themes: string[] | null | undefined) => void, applyTheme: (theme: string) => void, handleThemeSelectChanged: () => Promise<void>}} Public API.
  */
 export function createThemeFeature(ctx) {
-    const { state, els, localStorageKeys, runPipeline } = ctx;
+    const { state, els, localStorageKeys, runPipeline, onThemeChanged } = ctx;
     const DEFAULT_THEME = "default";
 
     /**
@@ -63,6 +65,19 @@ export function createThemeFeature(ctx) {
     }
 
     /**
+     * Show a role's theme (role mode). An unknown theme falls back to the default; nothing is persisted.
+     * @param {string} theme
+     * @returns {void}
+     */
+    function applyTheme(theme) {
+        const names = els.themeSelect ? Array.from(els.themeSelect.options, (opt) => opt.value) : [];
+        state.selectedTheme = names.includes(theme) ? theme : DEFAULT_THEME;
+        if (els.themeSelect) {
+            els.themeSelect.value = state.selectedTheme;
+        }
+    }
+
+    /**
      * Persist the new theme and re-run formatting only (no model call).
      * @returns {Promise<void>}
      */
@@ -71,6 +86,9 @@ export function createThemeFeature(ctx) {
             return;
         }
         state.selectedTheme = els.themeSelect.value || DEFAULT_THEME;
+        if (onThemeChanged && onThemeChanged(state.selectedTheme)) {
+            return;
+        }
         setStorageString(localStorageKeys.selected_theme, state.selectedTheme);
         if (!state.isRunning) {
             await runPipeline("format");
@@ -79,6 +97,7 @@ export function createThemeFeature(ctx) {
 
     return {
         populateThemeSelect,
+        applyTheme,
         handleThemeSelectChanged,
     };
 }

@@ -24,6 +24,10 @@ flowchart TD
     App --> ProviderModel[provider-model-feature.js]
     App --> Theme[theme-feature.js]
     App --> Steering[steering-feature.js]
+    App --> RoleWorkspace[role-workspace-feature.js]
+    App --> RoleRuns[role-runs-feature.js]
+    App --> RoleMerge[role-merge-feature.js]
+    App --> CvHistory[cv-history-feature.js]
     App --> Research[research-feature.js]
     App --> CVPipeline[cv-pipeline-feature.js]
     App --> Logs[logs-feature.js]
@@ -42,7 +46,12 @@ flowchart TD
     Research --> Utils
     Research --> ApiClient
 
+    RoleWorkspace --> RoleRuns
+    CVPipeline -. role mode hooks .-> RoleWorkspace
+    Research -. role mode hooks .-> RoleWorkspace
+
     Init --> ApiClient
+    Init --> RoleWorkspace
     Init --> Layout
     Init --> ProviderModel
     Init --> Research
@@ -102,11 +111,45 @@ flowchart TD
 
 - `theme-feature.js`
   - Fills the CV-tab PDF theme selector from `/api/state` `themes` (the `themes/*.typ` presets), persists the choice,
-    and re-runs formatting only when it changes.
+    and re-runs formatting only when it changes. In role mode `onThemeChanged` saves it on the role and re-renders
+    the preview instead (no format run); `applyTheme` shows a role's theme.
 
 - `steering-feature.js`
   - Keeps the Steering tab text and the "Steer CV generation" checkbox in localStorage and builds the `steering`
-    object (`{enabled, text}`) that full runs send.
+    object (`{enabled, text}`) that full runs send. In role mode `onSteeringChanged` (the role workspace) saves
+    edits on the role instead; `applySteering` shows a role's steering.
+
+- `role-workspace-feature.js` (multi-role plan steps 9 and 12)
+  - Role sidebar (list, **+** dialog, status select where `closed` = archive, delete) and role selection
+    (remembered in localStorage). Once the DB is set up (`state.workspace`) the app is in **role mode**
+    (`body.role-mode`; `[data-role-only]`/`[data-file-only]` elements show and hide). File mode is only a fallback
+    when the role API can't be reached.
+  - First run (step 12): `GET /api/setup` says when the choice is due; `#firstRunDialog` offers example data or a
+    blank master CV (`chooseFirstRun`) and can't be dismissed (Escape is cancelled, or it reopens on close).
+  - No roles yet (`isMasterOnly`, `body.no-role`): the master CV is open, `[data-needs-role]` controls (CV picker,
+    promote/pull, run picker, status/delete) hide, the job spec is read-only, CV and research runs are refused
+    (`isRoleRequired` in the run features), theme changes are only kept, and the preview says "No role yet".
+  - Owns the `cv` and `jobspec` editors in role mode (`getRoleOwnedKeys`): loads and saves them through the Role
+    API, with a Role CV / Master CV picker (the CV tab label says which). `draft-files-feature.js` keeps these keys
+    out of file payloads, browser drafts and file snapshots, so `input/` is never written with role content.
+  - Saves steering (debounced) and theme on the role; one-time copy of this browser's steering and theme into the
+    first role opened. `saveEditsBeforeRun` saves dirty role editors, steering and prompt files before role runs.
+
+- `role-runs-feature.js` (multi-role plan step 9)
+  - The active role's CV run picker. The picked run is previewed through `setCvRunSource` (PDF rendered on demand
+    in the selected theme, plus a DOCX link), and the Tailored tab shows its model JSON.
+
+- `role-merge-feature.js` (multi-role plan steps 10 and 11)
+  - **Promote to master** / **Pull from master** buttons beside the CV picker, and **Import CV.md** (shown only
+    while the master is open: `body.cv-master`, `[data-master-only]`), open the merge dialog: one checkbox
+    per changed entry (removals unticked), an inline diff, and keep / take / edit choices for conflicts, which must
+    all be answered. Refuses while the CV editor has unsaved edits; after saving it reloads the open CV
+    (`loadOpenCv` from the role workspace). A pull with nothing to merge still moves a stale base silently.
+
+- `cv-history-feature.js` (multi-role plan step 11)
+  - **History** opens the open CV's versions (role or master), newest marked current; picking one shows its text,
+    and **Restore as new version** saves it as a new version (refused while the CV editor has unsaved edits), then
+    reloads the open CV.
 
 - `app-operations-feature.js`
   - Handles file save/load/reload, tailored output refresh, and server restart flow.
@@ -146,7 +189,13 @@ This map identifies which frontend feature owns each backend/static endpoint int
 | `/api/research/stop` | `research-feature.js` | Request stop for active research run. |
 | `/api/research/format` | `research-feature.js` | Format research PDF output. |
 | `/api/research/reset-prompt` | `research-feature.js` | Restore default research prompt file. |
-| `/output/tailored.md` | `app-operations-feature.js` | Load tailored markdown output into viewer. |
+| `/api/setup` (status, choice) | `role-workspace-feature.js` | First-run choice: example data or a blank master CV. |
+| `/api/roles`, `/api/roles/<id>` (read, update, `/delete`), `/api/roles/<id>/cv`, `/api/master/cv` | `role-workspace-feature.js` | Role list, create/update/archive/delete, role and master CV read/save. Routes in [docs/architecture.md](../../docs/architecture.md) "Role API". |
+| `/api/roles/<id>/merge`, `/api/master/import` (view, save) | `role-merge-feature.js` | Promote/pull/import merge view and saving it. |
+| `…/cv/versions/<v>`, `…/cv/versions/<v>/restore` (role or master) | `cv-history-feature.js` | Version history and restore. |
+| `/api/roles/<id>/runs`, `…/runs/cv/<run>`, `…/runs/cv/<run>/cv.pdf\|docx` | `role-runs-feature.js` (documents via `pdf-preview-feature.js`) | Run history, run detail for the Tailored tab, on-demand PDF/DOCX. |
+| `/api/roles/<id>/runs/cv`, `…/runs/research` | `cv-pipeline-feature.js`, `research-feature.js` | Start role runs; progress on the shared `/api/run/status` and `/api/research/status`. |
+| `/output/tailored.md` | `app-operations-feature.js` | File mode only: load tailored markdown output into viewer (role mode shows the picked run's model JSON). |
 
 ## app.js Composition Walkthrough
 
@@ -176,6 +225,9 @@ These features expose callbacks needed by higher-level workflow modules.
 - `theme-feature.js`
 - `steering-feature.js`
 - `cv-pipeline-feature.js`
+
+`role-runs-feature.js`, `role-workspace-feature.js`, `role-merge-feature.js` and `cv-history-feature.js` are built just after the draft feature; the features they
+call back into (steering, theme) are reached through late-bound arrows, called only after composition.
 
 These modules orchestrate backend operations but do not query the DOM directly.
 

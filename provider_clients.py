@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import atexit
 import json
 import os
 import re
@@ -19,6 +20,32 @@ from typing import Any
 from urllib import error, request
 
 
+# Provider CLIs run in their own session (start_new_session) so a timeout can kill the whole group. That also keeps
+# them out of the terminal's Ctrl-C, so groups still running when the interpreter exits (Ctrl-C, or SIGTERM in pipe
+# mode, see pipe_io) are killed then.
+_LIVE_PROVIDER_GROUPS: set[int] = set()
+
+
+def track_provider_process(process: subprocess.Popen) -> None:
+    """Remember a provider process group until untrack_provider_process (call it once the process has exited)."""
+    _LIVE_PROVIDER_GROUPS.add(process.pid)
+
+
+def untrack_provider_process(process: subprocess.Popen) -> None:
+    _LIVE_PROVIDER_GROUPS.discard(process.pid)
+
+
+@atexit.register
+def kill_live_provider_groups() -> None:
+    """Kill provider process groups that are still tracked (an interrupted run)."""
+    for pid in list(_LIVE_PROVIDER_GROUPS):
+        try:
+            os.killpg(pid, signal.SIGKILL)
+        except OSError:
+            pass
+    _LIVE_PROVIDER_GROUPS.clear()
+
+
 @dataclass
 class AttemptResult:
     provider: str
@@ -27,7 +54,7 @@ class AttemptResult:
     stdout: str
     stderr: str
     elapsed_seconds: float
-    log_path: Path
+    log_path: Path | None
     timed_out: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -69,16 +96,25 @@ def is_hard_quota_exhausted_message(text: str) -> bool:
     )
 
 
-def _write_attempt_log(log_path: Path, lines: list[str]) -> None:
+def attempt_log_path(debug_log_dir: Path | None, name: str) -> Path | None:
+    """The per-attempt log file in debug_log_dir, or None (no file: the log goes to stderr) when it's None."""
+    return debug_log_dir / name if debug_log_dir is not None else None
+
+
+def _write_attempt_log(log_path: Path | None, lines: list[str]) -> None:
     """Purpose: Write attempt log to the target location.
     
     Inputs:
-    - log_path: Destination path for the per-attempt debug log file.
+    - log_path: Destination path for the per-attempt debug log file. None writes the log to stderr
+      instead (`--io json` runs keep no files; stderr becomes the run's log).
     - lines: Ordered log lines to persist to the debug log file.
     
     Returns:
     - None. This function performs side effects only.
     """
+    if log_path is None:
+        print("--- attempt log ---\n" + "\n".join(lines) + "\n--- end attempt log ---", file=sys.stderr, flush=True)
+        return
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text("\n".join(lines), encoding="utf-8")
 
@@ -91,7 +127,7 @@ def run_gemini_attempt(
     timeout_seconds: int,
     heartbeat_seconds: int,
     attempt_index: int,
-    debug_log_dir: Path,
+    debug_log_dir: Path | None,
     log_prefix: str = "attempt",
     max_429_lines_before_fallback: int = 0,
     rate_limit_grace_seconds: int = 0,
@@ -118,7 +154,7 @@ def run_gemini_attempt(
     - `AttemptResult` value representing the operation result.
     """
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{model_name}-{timestamp}.log"
+    log_path = attempt_log_path(debug_log_dir, f"{log_prefix}-{attempt_index:02d}-{model_name}-{timestamp}.log")
 
     command = [
         "gemini",
@@ -169,6 +205,7 @@ def run_gemini_attempt(
         env=env,
         start_new_session=True,
     )
+    track_provider_process(process)
 
     if process.stdout is None or process.stderr is None:
         raise RuntimeError("Failed to capture Gemini subprocess output pipes.")
@@ -338,6 +375,7 @@ def run_gemini_attempt(
             break
 
     return_code = process.wait()
+    untrack_provider_process(process)
     stdout_thread.join(timeout=2)
     stderr_thread.join(timeout=2)
 
@@ -516,7 +554,7 @@ def run_huggingface_attempt(
     timeout_seconds: int,
     heartbeat_seconds: int,
     attempt_index: int,
-    debug_log_dir: Path,
+    debug_log_dir: Path | None,
     log_prefix: str = "attempt",
     emit_live_output: bool = True,
 ) -> AttemptResult:
@@ -538,7 +576,7 @@ def run_huggingface_attempt(
     """
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     safe_model = model_name.replace("/", "_")
-    log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log"
+    log_path = attempt_log_path(debug_log_dir, f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log")
 
     token = (env.get("HF_API_TOKEN") or env.get("HUGGINGFACE_API_TOKEN") or "").strip()
     if not token:
@@ -803,7 +841,7 @@ def run_swiftlet_attempt(
     timeout_seconds: int,
     heartbeat_seconds: int,
     attempt_index: int,
-    debug_log_dir: Path,
+    debug_log_dir: Path | None,
     log_prefix: str = "attempt",
     emit_live_output: bool = True,
 ) -> AttemptResult:
@@ -825,7 +863,7 @@ def run_swiftlet_attempt(
     """
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     safe_model = model_name.replace("/", "_")
-    log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log"
+    log_path = attempt_log_path(debug_log_dir, f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log")
 
     api_url = (
         env.get("SWIFTLET_API_URL")
@@ -1111,7 +1149,7 @@ def run_openai_attempt(
     timeout_seconds: int,
     heartbeat_seconds: int,
     attempt_index: int,
-    debug_log_dir: Path,
+    debug_log_dir: Path | None,
     log_prefix: str = "attempt",
     emit_live_output: bool = True,
 ) -> AttemptResult:
@@ -1133,7 +1171,7 @@ def run_openai_attempt(
     """
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     safe_model = model_name.replace("/", "_")
-    log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log"
+    log_path = attempt_log_path(debug_log_dir, f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log")
 
     token = (env.get("OPENAI_API_KEY") or env.get("OPENAI_TOKEN") or "").strip()
     if not token:
@@ -1389,7 +1427,7 @@ def run_vscodebridge_attempt(
     timeout_seconds: int,
     heartbeat_seconds: int,
     attempt_index: int,
-    debug_log_dir: Path,
+    debug_log_dir: Path | None,
     log_prefix: str = "attempt",
     emit_live_output: bool = True,
 ) -> AttemptResult:
@@ -1411,7 +1449,7 @@ def run_vscodebridge_attempt(
     """
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     safe_model = model_name.replace("/", "_")
-    log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log"
+    log_path = attempt_log_path(debug_log_dir, f"{log_prefix}-{attempt_index:02d}-{safe_model}-{timestamp}.log")
 
     api_url = (env.get("VSCODE_BRIDGE_API_URL") or "http://127.0.0.1:8766/generate").strip()
     api_key = (env.get("VSCODE_BRIDGE_API_KEY") or "").strip()
@@ -1686,7 +1724,7 @@ def run_claudecode_attempt(
     timeout_seconds: int,
     heartbeat_seconds: int,
     attempt_index: int,
-    debug_log_dir: Path,
+    debug_log_dir: Path | None,
     log_prefix: str = "attempt",
     emit_live_output: bool = True,
 ) -> AttemptResult:
@@ -1710,7 +1748,7 @@ def run_claudecode_attempt(
     - `AttemptResult` with the model's text in `stdout`.
     """
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_path = debug_log_dir / f"{log_prefix}-{attempt_index:02d}-{model_name}-{timestamp}.log"
+    log_path = attempt_log_path(debug_log_dir, f"{log_prefix}-{attempt_index:02d}-{model_name}-{timestamp}.log")
     command = build_claudecode_command(model_name, env)
     start = time.monotonic()
 
@@ -1763,6 +1801,7 @@ def run_claudecode_attempt(
             cwd=neutral_cwd,
             start_new_session=True,
         )
+        track_provider_process(process)
         if process.stdin is None or process.stdout is None or process.stderr is None:
             raise RuntimeError("Failed to open claude subprocess pipes.")
 
@@ -1818,7 +1857,11 @@ def run_claudecode_attempt(
                 except OSError:
                     process.kill()
                 break
-            time.sleep(min(heartbeat_seconds, max(timeout_seconds - elapsed, 0.1)))
+            try:
+                # Returns as soon as claude exits, rather than sleeping out the heartbeat.
+                process.wait(timeout=min(heartbeat_seconds, max(timeout_seconds - elapsed, 0.1)))
+            except subprocess.TimeoutExpired:
+                pass
             if emit_live_output and process.poll() is None:
                 print(
                     f"Attempt {attempt_index}: waiting on claude model {model_name} "
@@ -1828,6 +1871,7 @@ def run_claudecode_attempt(
                 )
 
         return_code = process.wait()
+        untrack_provider_process(process)
         for thread in threads:
             thread.join(timeout=2)
 

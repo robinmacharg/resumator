@@ -135,3 +135,41 @@ test("research run success path refreshes state and completes status", async () 
     assert.ok(calls.api.some((item) => item.path === "/api/research/status"));
     assert.ok(calls.api.some((item) => item.path === "/api/research/state"));
 });
+
+test("research run in role mode starts a role run without sending files", async () => {
+    const posted = [];
+    const after = [];
+    const { ctx, calls } = createContext({
+        getActiveRoleId: () => 5,
+        saveRoleEditsBeforeRun: async () => posted.push("save"),
+        afterRoleResearchRun: async (roleId, run) => after.push([roleId, run.runId]),
+        api: async (path, options = {}) => {
+            if (path === "/api/roles/5/runs/research") {
+                posted.push(JSON.parse(options.body));
+                return { run: { elapsedSeconds: 0, success: null } };
+            }
+            if (path === "/api/research/status") {
+                return { running: false, run: { elapsedSeconds: 4, success: true, runId: 8 } };
+            }
+            throw new Error(`unexpected ${path}`);
+        },
+    });
+    ctx.els.researchCompanyInput.value = "";
+    const feature = createResearchFeature(ctx);
+
+    await feature.runResearch();
+
+    assert.deepEqual(posted, [
+        "save",
+        {
+            selectedProvider: "gemini",
+            selectedModel: "gemini-2.5-pro",
+            company: null,
+            urls: ["https://example.com"],
+            dryRun: false,
+        },
+    ]);
+    assert.deepEqual(after, [[5, 8]]);
+    assert.equal(calls.renderResearchState.length, 0);
+    assert.deepEqual(calls.setResearchStatus.at(-1), { message: "Research complete (4s).", isError: false });
+});
