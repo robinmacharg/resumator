@@ -10,7 +10,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 import cv_source
-from cv_convert import convert_markdown_outputs
+from cv_convert import convert_markdown_outputs, count_pdf_pages
 from backend_registry import get_backend_or_raise
 from provider_catalog import load_provider_catalog, provider_map
 from provider_clients import AttemptResult
@@ -368,23 +368,12 @@ def find_elision_leaks(elided: list[dict], rendered_markdown: str) -> list[str]:
     return leaks
 
 
-def count_pdf_pages(pdf_path: Path) -> int | None:
-    """Read the page count from the PDF's root page tree (/Type /Pages without /Parent).
-
-    Counting /Type /Page markers over-counts. Returns None when the tree is unreadable, for example
-    when it sits in a compressed object stream.
-    """
+def count_pdf_file_pages(pdf_path: Path) -> int | None:
+    """Page count of a PDF file (`cv_convert.count_pdf_pages`), or None when it can't be read."""
     try:
-        data = pdf_path.read_bytes()
+        return count_pdf_pages(pdf_path.read_bytes())
     except OSError:
         return None
-    counts = []
-    for match in re.finditer(rb"<<((?:(?!>>).)*?/Type\s*/Pages\b(?:(?!>>).)*?)>>", data, re.DOTALL):
-        body = match.group(1)
-        count = re.search(rb"/Count\s+(\d+)", body)
-        if count and b"/Parent" not in body:
-            counts.append(int(count.group(1)))
-    return max(counts) if counts else None
 
 
 def extract_json_payload(raw_text: str) -> str:
@@ -1226,7 +1215,7 @@ def main() -> None:
     pdf_ok = conversion_result.pdf_ok
     docx_ok = conversion_result.docx_ok
 
-    page_count = count_pdf_pages(OUTPUT_PDF) if pdf_ok else None
+    page_count = count_pdf_file_pages(OUTPUT_PDF) if pdf_ok else None
     if pdf_ok and page_count is None:
         run_warnings.append(f"could not read the page count from {OUTPUT_PDF}")
     elif page_count is not None and page_count > TARGET_PDF_PAGES:

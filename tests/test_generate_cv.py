@@ -11,7 +11,7 @@ from generate_cv import (
     build_prompt,
     build_run_facts,
     build_steering_section,
-    count_pdf_pages,
+    count_pdf_file_pages,
     earlier_career_span,
     find_elision_leaks,
     record_run_metadata,
@@ -378,24 +378,15 @@ class ElisionLeakTests(unittest.TestCase):
         self.assertEqual(find_elision_leaks([{"text": "Secret Project | Acme", "line": 1, "scope": "entry"}], markdown), [])
 
 
-class PdfPageCountTests(unittest.TestCase):
-    def count(self, data: bytes) -> int | None:
+class PdfFilePageCountTests(unittest.TestCase):
+    def test_reads_the_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "cv.pdf"
-            path.write_bytes(data)
-            return count_pdf_pages(path)
+            path.write_bytes(b"%PDF-1.7\n1 0 obj\n<</Type/Pages/Count 2/Kids[2 0 R 3 0 R]>>\nendobj\n")
+            self.assertEqual(count_pdf_file_pages(path), 2)
 
-    def test_reads_root_page_tree(self) -> None:
-        data = (
-            b"%PDF-1.7\n1 0 obj\n<</Type/Pages/Count 3/Kids[2 0 R 3 0 R]>>\nendobj\n"
-            b"2 0 obj\n<</Type /Pages /Parent 1 0 R /Count 2 /Kids[4 0 R 5 0 R]>>\nendobj\n"
-            b"4 0 obj\n<</Type/Page/Parent 2 0 R>>\nendobj\n"
-        )
-        self.assertEqual(self.count(data), 3)
-
-    def test_unreadable_tree(self) -> None:
-        self.assertIsNone(self.count(b"%PDF-1.7\n<</Type/ObjStm>>"))
-        self.assertIsNone(count_pdf_pages(Path("/nonexistent/cv.pdf")))
+    def test_missing_file(self) -> None:
+        self.assertIsNone(count_pdf_file_pages(Path("/nonexistent/cv.pdf")))
 
 
 class RecordRunMetadataTests(unittest.TestCase):

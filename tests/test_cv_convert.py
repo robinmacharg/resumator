@@ -1,4 +1,5 @@
 import io
+import os
 import re
 import shutil
 import tempfile
@@ -6,6 +7,7 @@ import unittest
 import zipfile
 from contextlib import redirect_stderr
 from pathlib import Path
+from unittest import mock
 
 import cv_convert
 from cv_convert import (
@@ -15,8 +17,15 @@ from cv_convert import (
     available_themes,
     build_docx_reference,
     convert_markdown_outputs,
+    count_pdf_pages,
+    export_markdown,
+    process_docx_reference,
+    render_cv,
     typst_theme_files,
 )
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+BASELINE_MARKDOWN = REPO_ROOT / "output" / "tailored.md"
 
 TAGGED = """---
 candidate:
@@ -229,6 +238,99 @@ class ConvertMarkdownOutputsTests(unittest.TestCase):
             self.assertFalse((root / "tailored.docx.export.md").exists())
             document = zipfile.ZipFile(root / "out.docx").read("word/document.xml").decode("utf-8")
             self.assertIn('w:pStyle w:val="candidate-name"', document)
+
+
+class CountPdfPagesTests(unittest.TestCase):
+    def test_reads_root_page_tree(self) -> None:
+        data = (
+            b"%PDF-1.7\n1 0 obj\n<</Type/Pages/Count 3/Kids[2 0 R 3 0 R]>>\nendobj\n"
+            b"2 0 obj\n<</Type /Pages /Parent 1 0 R /Count 2 /Kids[4 0 R 5 0 R]>>\nendobj\n"
+            b"4 0 obj\n<</Type/Page/Parent 2 0 R>>\nendobj\n"
+        )
+        self.assertEqual(count_pdf_pages(data), 3)
+
+    def test_unreadable_tree(self) -> None:
+        self.assertIsNone(count_pdf_pages(b"%PDF-1.7\n<</Type/ObjStm>>"))
+        self.assertIsNone(count_pdf_pages(b""))
+
+
+class ExportMarkdownTests(unittest.TestCase):
+    def test_strips_front_matter_after_tagging(self) -> None:
+        text, stripped = export_markdown(TAGGED)
+        self.assertTrue(stripped)
+        self.assertTrue(text.startswith(styled("candidate-name")))
+        self.assertTrue(text.endswith("\n"))
+
+    def test_without_front_matter(self) -> None:
+        text, stripped = export_markdown("[candidate_name] Ada\n")
+        self.assertFalse(stripped)
+        self.assertEqual(text, apply_semantic_tag_formatting("[candidate_name] Ada\n") + "\n")
+
+    def test_unknown_format_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            render_cv(TAGGED, output_format="html")
+
+
+@unittest.skipUnless(shutil.which("pandoc") and shutil.which("typst"), "pandoc and typst not installed")
+class RenderCvTests(unittest.TestCase):
+    def setUp(self) -> None:
+        patcher = mock.patch.object(cv_convert, "choose_font", lambda fonts: fonts[0])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.cwd = tempfile.TemporaryDirectory()
+        self.addCleanup(self.cwd.cleanup)
+        previous = os.getcwd()
+        os.chdir(self.cwd.name)
+        self.addCleanup(os.chdir, previous)
+
+    def test_pdf_bytes_without_files(self) -> None:
+        pdf = render_cv(TAGGED, "pdf", theme="compact")
+        self.assertIsNotNone(pdf)
+        self.assertTrue(pdf.startswith(b"%PDF"))
+        self.assertEqual(count_pdf_pages(pdf), 1)
+        self.assertEqual(os.listdir(self.cwd.name), [])
+
+    def test_docx_bytes_without_files(self) -> None:
+        docx = render_cv(TAGGED, "docx")
+        self.assertIsNotNone(docx)
+        document = zipfile.ZipFile(io.BytesIO(docx)).read("word/document.xml").decode("utf-8")
+        self.assertIn('w:pStyle w:val="candidate-name"', document)
+        self.assertEqual(os.listdir(self.cwd.name), [])
+
+    def test_reference_docx_is_built_once_in_a_private_folder(self) -> None:
+        first = process_docx_reference()
+        self.assertEqual(process_docx_reference(), first)
+        self.assertTrue(first.is_file())
+        self.assertNotEqual(first.parent.resolve(), REPO_ROOT / "output")
+
+    def test_theme_defaults_to_cv_theme_env(self) -> None:
+        with mock.patch.dict(os.environ, {"CV_THEME": "compact"}), mock.patch.object(
+            cv_convert, "render_pdf_bytes", return_value=b"%PDF"
+        ) as render:
+            render_cv(TAGGED)
+        self.assertEqual(render.call_args.args[2], "compact")
+
+
+@unittest.skipUnless(shutil.which("pandoc") and shutil.which("typst"), "pandoc and typst not installed")
+@unittest.skipUnless(BASELINE_MARKDOWN.is_file(), "no local output/tailored.md baseline")
+class RenderCvMatchesFileRouteTests(unittest.TestCase):
+    """The in-memory render matches the file route on the user's real tailored.md (read-only, not committed)."""
+
+    def test_same_pages_and_docx_body_as_file_route(self) -> None:
+        markdown_text = BASELINE_MARKDOWN.read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "tailored.md"
+            source.write_text(markdown_text, encoding="utf-8")
+            for theme in cv_convert.available_themes():
+                with self.subTest(theme=theme):
+                    convert_markdown_outputs(source, root / "out.pdf", root / "out.docx", theme=theme)
+                    file_pdf = (root / "out.pdf").read_bytes()
+                    memory_pdf = render_cv(markdown_text, "pdf", theme=theme)
+                    self.assertEqual(count_pdf_pages(memory_pdf), count_pdf_pages(file_pdf))
+            file_document = zipfile.ZipFile(root / "out.docx").read("word/document.xml")
+        memory_document = zipfile.ZipFile(io.BytesIO(render_cv(markdown_text, "docx"))).read("word/document.xml")
+        self.assertEqual(memory_document, file_document)
 
 
 if __name__ == "__main__":

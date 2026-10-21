@@ -5,8 +5,8 @@ research runs. A sidebar lists the roles, with a **+** to create one, and a new 
 canonical master CV. Storage moves to a small database. Only agent-returned text is stored; PDFs are rendered on
 demand.
 
-**Status:** IN PROGRESS. Design agreed (R1–R20). S1 steps 1–3 done (spike, `cv_web/store.py`, `cv_merge.py`). Next: step 4,
-in-memory render in `cv_convert`.
+**Status:** IN PROGRESS. Design agreed (R1–R21). S1 steps 1–4 done (spike, `cv_web/store.py`, `cv_merge.py`,
+`cv_convert.render_cv`). Next: step 5, `--io json` pipe mode.
 Work happens on branch `feature/20261021-multi-role` (from `develop`).
 
 ## Decisions
@@ -314,7 +314,7 @@ Each stage ends with the app working and tests passing. One-shot CLI behaviour i
 | 1 | Spike: `pandoc` → `typst` over stdin/stdout with a theme (`--root`), PDF bytes and page count, and timing; SQLite JSON functions over the current `tailored.model.json`. Confirm or adjust R14/R16 | Spike notes in the log | done |
 | 2 | `store.py`: connect, migrations (`schema_version`), CRUD for role, cv_version, prompt_version, cv_run, research_run, setting; `backup` (R18). Tests on a temp DB | Data layer | done |
 | 3 | `cv_merge.py`: entry-level three-way merge on `cv_source` parses (R11), rebuilding the CV text. Tests | Merge engine (not wired yet) | done |
-| 4 | In-memory render function in `cv_convert` (markdown + theme → PDF/DOCX bytes) | Render without files | todo |
+| 4 | In-memory render function in `cv_convert` (markdown + theme → PDF/DOCX bytes) | Render without files | done |
 | 5 | `--io json` mode for `generate_cv` and `research_role` (R14). Contract tests: request in, result out, nothing written to `input/` or `output/` | Pipe mode | todo |
 
 **S2 — Usable roles** (side-by-side applications)
@@ -341,6 +341,21 @@ Each stage ends with the app working and tests passing. One-shot CLI behaviour i
 | 13 | Role-mode CLI: `python3 -m resumator --role … --action cv|research|render|list|create|backup` | CLI | todo |
 | 14 | Docs: architecture, cv-format, AGENTS.md, gaps; retire the single-file assumptions | Docs in sync | todo |
 
+**S5 — Token efficiency** (follow-up; measure first, then act on what the numbers show)
+
+Rough per-run split today (about 4 characters per token, unmeasured): instructions about 2.4k and master CV about 6k
+(both stable), job spec, run facts and steering about 1–1.5k (vary), and output JSON about 3.5–4k (costs about 5× input).
+`build_prompt` already puts the stable parts first. Ruled out: resuming a saved model session with the CV preloaded. It
+still bills the whole history as cached input (the same saving as caching), risks leaking one role into another,
+expires, and breaks stateless pipe runs (R14).
+
+| # | Step | Output | Status |
+|---|---|---|---|
+| 15 | Record token usage per run: input, cached input, output (the `claude -p` JSON has `usage`; the OpenAI/Gemini APIs return it too). New `store.MIGRATIONS` entry (`usage_json` on `cv_run` and `research_run`) and a field in the `--io json` result; shown with the run | Real numbers | todo |
+| 16 | Prompt caching: send the instructions and master CV as their own cacheable block (Anthropic: a `cache_control` block, or the system prompt for `claude -p`) and the job spec, facts and steering after it. Confirm OpenAI and Gemini prefix caching hits by using step 15. Check provider docs for TTL and minimum sizes first | Cheaper re-runs (estimate 25–30%) | todo |
+| 17 | Send less: drop elided and `omit` entries and roles past the cutoff before sending (check what's already dropped), and condense earlier-career roles to one line | Smaller input | todo |
+| 18 | Smaller output (contract change: prompt, validator, `render_tagged_markdown`, `cv_convert` together): mostly-copied sections (education, earlier career, skills) come back as references to master entries, and the tool fills in the text. Optionally a "regenerate these sections only" run for steering-only changes | Smaller output, the biggest saving | todo |
+
 ## Between steps: stay or start a new session
 
 At the end of every step, the agent updates the step's status, the Log and the Handoff, then tells the user one of
@@ -353,7 +368,7 @@ the following, with a one-line reason:
   wrote, so reloading them would cost more than keeping them.
 
 Expected pairs where staying usually pays: 4 → 5 (the render function feeds pipe mode) and 10 → 11 (same merge
-view). Start fresh at every stage boundary (after steps 5, 9, 11) and after the step 1 spike.
+view). Start fresh at every stage boundary (after steps 5, 9, 11, 14) and after the step 1 spike.
 
 Paste this to start or continue either way:
 
@@ -371,21 +386,29 @@ in-memory rendering is too slow; the fallback is a private temp directory per re
 
 ## Handoff
 
-For the next session: the design is agreed (R1–R21). Work on branch `feature/20261021-multi-role`. Steps 1 (spike),
-2 (`cv_web/store.py`, `tests/test_store.py`) and 3 (`cv_merge.py`, `tests/test_cv_merge.py`) are done; the Schema
-section above is what's built. Nothing is committed yet. Next is step 4: a function in `cv_convert` that takes tagged
-markdown and a theme and returns PDF or DOCX bytes over pipes (see "Run I/O" and the step 1 spike Log line for the
-exact pandoc command, `-t pdf -o -`, and the `--reference-doc` temp-folder exception), plus `count_pdf_pages` on
-bytes. It needs `cv_convert.py`, `tests/test_cv_convert.py` and docs/cv-format.md, not the store or merge code.
+For the next session: the design is agreed (R1–R21). Work on branch `feature/20261021-multi-role`. Steps 1–3 are
+committed (9761e0d); step 4 is done but not committed. The Schema section above is what's built. `input/jobspec.txt`
+has an unrelated uncommitted change of the user's: leave it out of commits.
+Step 4 gave `cv_convert.render_cv(markdown_text, "pdf"|"docx", theme)` → bytes or None (reason on stderr), and
+`cv_convert.count_pdf_pages(data: bytes)`. `generate_cv.count_pdf_file_pages(path)` is the file wrapper. See
+docs/cv-format.md §5 "In memory".
+S5 (steps 15–18, token efficiency) was added as a follow-up after S4; it doesn't change S1–S4. Step 5's result
+shape should leave room for a `usage` field (step 15).
+Next is step 5: `--io json` for `generate_cv.py` and `research_role.py` (see "Run I/O" for the request and result
+shapes). In that mode, render with `render_cv` and return `page_count` plus `pdf_base64`, write nothing to `input/` or
+`output/`, and send provider attempt logs to stderr. The contract tests should run each script with a temp cwd and
+check that nothing was written.
 Baseline test material (user's suggestion): `input/CV.md` and the current outputs `output/tailored.md`,
 `tailored.model.json`, `tailored_dev.pdf` and `tailored_dev.docx` (21 Oct; `tailored.pdf`/`.docx` from July are stale).
 Use them read-only for local checks, and in tests only with a skip when they're absent (`output/` is gitignored and the
-CV is real), without copying their content into committed fixtures. For step 4, compare in-memory renders against them.
+CV is real), without copying their content into committed fixtures. `tailored_dev.pdf` was rendered with the
+`compact` theme.
 For step 10: `cv_merge.merge(base, ours, theirs, accept, resolutions)`; promote is ours = master, theirs = role,
 pull is ours = role, theirs = master, base = the role's `base_master_id` version. Archiving is `status = closed` (R21),
 so step 8 needs no schema change for it.
-Schema changes go in a new `store.MIGRATIONS` entry; never edit migration 1. Keep the diagram and SQL in step. Each stage should leave the app working. The related work is in
-[cv-format-revamp.md](cv-format-revamp.md) (steering D11/D23, theme picker, run metadata).
+Schema changes go in a new `store.MIGRATIONS` entry; never edit migration 1. Keep the diagram and SQL in step. Each
+stage should leave the app working. The related work is in [cv-format-revamp.md](cv-format-revamp.md) (steering
+D11/D23, theme picker, run metadata).
 
 ## Log
 
@@ -443,3 +466,17 @@ Schema changes go in a new `store.MIGRATIONS` entry; never edit migration 1. Kee
 
 - 2026-10-21 · Note · The user suggested their real CV and current PDF/DOCX outputs as baseline test material. Recorded
   in the Handoff with the current files and how to use them (read-only, skip when absent, no copied fixtures).
+- 2026-10-21 · Step 4 render · Done. `cv_convert.render_cv(text, "pdf"|"docx", theme)` returns bytes over pipes, with no
+  input or output files. `export_markdown` is shared with the file route, and so are `pdf_pandoc_args` and
+  `docx_pandoc_args`, so both routes run the same pandoc options. The plain-pandoc PDF fallback is kept. The DOCX
+  reference is built once per process in a private temp folder, removed at exit. Differed from the plan:
+  `count_pdf_pages` moved from `generate_cv` to `cv_convert` and now takes bytes; `generate_cv.count_pdf_file_pages`
+  wraps it for the file route. Checked against the baselines: the compact theme gives 2 pages, the same size
+  (133,181 bytes) as `tailored_dev.pdf` but not byte-identical; default gives 3 pages; each render takes about
+  0.2 s. The DOCX `document.xml` is identical to `tailored_dev.docx`. 10 new tests, including a parity test on the
+  local `tailored.md` that skips when the file is absent; the full suite (196) passes. cv-format.md §5 and
+  architecture.md are updated. Not committed.
+- 2026-10-21 · Plan · Added stage S5, token efficiency (steps 15–18), as a follow-up at the user's request: measure
+  usage per run, prompt caching (instructions and CV as a cacheable block), send less CV, and smaller output by
+  referencing master entries. Resuming a saved model session was considered and ruled out (it saves no more than
+  caching and breaks R14).

@@ -57,7 +57,7 @@ After rendering, `main` collects run warnings (D17), prints them, and records th
 |---|---|
 | Rule breaches | `validation_warnings` from `parse_and_validate_json_output`: selected roles before `role_cutoff` (from RUN FACTS), over 8 earlier-career items, over 5 skill groups |
 | Elided text in the output | `find_elision_leaks`: whole entries, bullets and field values matched word for word after markup is stripped; phrases only from 3 words up. Rewordings are not caught |
-| Over two pages | `count_pdf_pages` reads the root `/Type /Pages` `/Count` (counting `/Page` markers over-counts) |
+| Over two pages | `cv_convert.count_pdf_pages` (PDF bytes) reads the root `/Type /Pages` `/Count` (counting `/Page` markers over-counts) |
 
 ## 4. Tagged markdown (`output/tailored.md`, `render_tagged_markdown`)
 
@@ -106,5 +106,11 @@ Section order and headings are hard-coded here. Reordering or renaming sections 
 - PDF: `pandoc --pdf-engine=typst --lua-filter themes/styles.lua --include-before-body themes/<theme>.typ` (plain
   `pandoc` fallback, unstyled). DOCX: `pandoc --reference-doc`. The font is the first installed font from
   `CV_FONT_PRIORITY` (default `Calibri,Arial,Helvetica`).
+- **In memory:** `render_cv(markdown_text, "pdf"|"docx", theme)` returns bytes (or None, reason on stderr) with no
+  input or output files: `export_markdown` builds the export text, piped to the same pandoc options
+  (`pdf_pandoc_args`, `docx_pandoc_args`) with `-t pdf -o -` / `-t docx -o -` (`-t pdf` is required, otherwise pandoc
+  writes HTML). `--reference-doc` needs a path, so `process_docx_reference` builds it once per process in a private
+  temp folder removed on exit. Pandoc's own Typst temp folder is the only other disk use. One-shot runs still write
+  `output/` files via `convert_markdown_outputs`.
 - Checking a look change: render with `pandoc … -t typst -s` (same filter and theme), then
   `typst compile x.typ "x-{p}.png"` and `compare -metric AE` (ImageMagick) against a previous render.
