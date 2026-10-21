@@ -8,6 +8,7 @@
 | `cv_source.py` | Master CV source format: parse → dict, comment-stripped prompt text, elided phrases, linter CLI ([cv-source-format.md](cv-source-format.md)). Not yet wired into the pipeline |
 | `cv_convert.py` | Tagged markdown → semantic markdown → PDF (pandoc + typst) and DOCX (pandoc). Looks come from `themes/` ([cv-format.md §5](cv-format.md#5-conversion-cv_convertpy)). Also a standalone CLI (the "format only" run). `render_cv` does the same in memory (bytes out, no files) for role runs; `count_pdf_pages` reads PDF bytes |
 | `research_role.py` | Research pipeline CLI: research prompt + company + URLs + CV + job spec → backend → `research_output.md/.json` |
+| `pipe_io.py` | `--io json` harness for both pipelines (`run_json_io`): one JSON request on stdin, progress on stderr, one JSON result on stdout, no data files. fd 1 points at stderr while the run works, so stray prints can't corrupt the result. Not yet used by the server ([plan](plans/multi-role.md), "Run I/O") |
 | `research_format.py` | Normalises research markdown → `research_output.formatted.{md,pdf}` |
 | `backend_registry.py` | Discovers `backends/*/module.py`, interrogates each, exposes catalog and lookup ([backends.md](backends.md)) |
 | `provider_catalog.py` | Frontend-shaped provider catalog. Uses the registry first, falls back to static `model_providers.json` |
@@ -55,6 +56,9 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 - `output/` holds generated files (gitignored). Every run overwrites them; there is no per-application history.
 - `output/gemini_debug_logs/` holds one log per attempt for all providers, despite the name. File names are
   `{cv-attempt|research-attempt}-NN-<model>-<ts>.log`.
+- `--io json` (both pipelines) touches none of this: inputs come in the request, attempt logs go to stderr, and the
+  CV result carries the PDF as `pdf_base64` (`cv_convert.render_cv`). Shapes: `run_cv` / `new_cv_result` in
+  `generate_cv.py`, `handle_json_request` in `research_role.py`.
 - `.env` sits at the repo root. Its values override OS env (`backend_registry.runtime_env`).
 
 ## Web wrapper (`cv_web/`)

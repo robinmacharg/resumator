@@ -5,8 +5,8 @@ research runs. A sidebar lists the roles, with a **+** to create one, and a new 
 canonical master CV. Storage moves to a small database. Only agent-returned text is stored; PDFs are rendered on
 demand.
 
-**Status:** IN PROGRESS. Design agreed (R1–R21). S1 steps 1–4 done (spike, `cv_web/store.py`, `cv_merge.py`,
-`cv_convert.render_cv`). Next: step 5, `--io json` pipe mode.
+**Status:** IN PROGRESS. Design agreed (R1–R21). Stage S1 (steps 1–5) done: spike, `cv_web/store.py`, `cv_merge.py`,
+`cv_convert.render_cv`, `--io json` pipe mode. Next: step 6, `role_runner.py` (S2).
 Work happens on branch `feature/20261021-multi-role` (from `develop`).
 
 ## Decisions
@@ -232,10 +232,10 @@ Both scripts gain one flag, `--io json`. Without it they behave exactly as today
 
 | Channel | Content |
 |---|---|
-| stdin | One JSON request. CV: `{cv, jobspec, steering, prompt, theme, provider, model}`. Research: `{cv, prompt, company, urls, provider, model, dry_run}` |
+| stdin | One JSON request. CV: `{cv, jobspec, steering, prompt, theme, provider, model}`. Research: `{cv, jobspec, prompt, company, urls, provider, model, dry_run}` |
 | stderr | Progress lines, streamed live to the UI as today |
-| stdout | One JSON result, written at the end. CV: `{success, provider, model, raw_output, model_json, warnings, page_count, pdf_base64, error}`. Research: `{success, provider, model, output_json, output_md, error}` |
-| exit code | 0 on success; non-zero still writes a result with `error` when it can |
+| stdout | One JSON result, written at the end. CV: `{success, provider, model, raw_output, model_json, warnings, page_count, pdf_base64, error}`. Research: `{success, provider, model, output_json, output_md, error}`. A bad request gives `{success: false, error: "invalid request: …"}` |
+| exit code | 0 on success; non-zero still writes a result with `error` (always, as built) |
 
 - **`role_runner.py`** (new, beside the server) is the one place that builds a request from the DB, runs the
   script, streams its stderr, parses the result and saves the run row. The server and the role CLI both call it.
@@ -315,7 +315,7 @@ Each stage ends with the app working and tests passing. One-shot CLI behaviour i
 | 2 | `store.py`: connect, migrations (`schema_version`), CRUD for role, cv_version, prompt_version, cv_run, research_run, setting; `backup` (R18). Tests on a temp DB | Data layer | done |
 | 3 | `cv_merge.py`: entry-level three-way merge on `cv_source` parses (R11), rebuilding the CV text. Tests | Merge engine (not wired yet) | done |
 | 4 | In-memory render function in `cv_convert` (markdown + theme → PDF/DOCX bytes) | Render without files | done |
-| 5 | `--io json` mode for `generate_cv` and `research_role` (R14). Contract tests: request in, result out, nothing written to `input/` or `output/` | Pipe mode | todo |
+| 5 | `--io json` mode for `generate_cv` and `research_role` (R14). Contract tests: request in, result out, nothing written to `input/` or `output/` | Pipe mode | done |
 
 **S2 — Usable roles** (side-by-side applications)
 
@@ -386,18 +386,22 @@ in-memory rendering is too slow; the fallback is a private temp directory per re
 
 ## Handoff
 
-For the next session: the design is agreed (R1–R21). Work on branch `feature/20261021-multi-role`. Steps 1–3 are
-committed (9761e0d); step 4 is done but not committed. The Schema section above is what's built. `input/jobspec.txt`
-has an unrelated uncommitted change of the user's: leave it out of commits.
-Step 4 gave `cv_convert.render_cv(markdown_text, "pdf"|"docx", theme)` → bytes or None (reason on stderr), and
-`cv_convert.count_pdf_pages(data: bytes)`. `generate_cv.count_pdf_file_pages(path)` is the file wrapper. See
-docs/cv-format.md §5 "In memory".
-S5 (steps 15–18, token efficiency) was added as a follow-up after S4; it doesn't change S1–S4. Step 5's result
-shape should leave room for a `usage` field (step 15).
-Next is step 5: `--io json` for `generate_cv.py` and `research_role.py` (see "Run I/O" for the request and result
-shapes). In that mode, render with `render_cv` and return `page_count` plus `pdf_base64`, write nothing to `input/` or
-`output/`, and send provider attempt logs to stderr. The contract tests should run each script with a temp cwd and
-check that nothing was written.
+For the next session: the design is agreed (R1–R21) and stage S1 is done. Work on branch `feature/20261021-multi-role`.
+Steps 1–5 are committed (4 in 1678104, 5 in the "multi-role step 5" commit). The Schema section above is what's built.
+`input/jobspec.txt` has an unrelated uncommitted change of the user's: leave it out of commits.
+Step 5 gave `python3 generate_cv.py --io json` and `python3 research_role.py --io json` ("Run I/O" has the exact
+shapes, and `generate_cv.new_cv_result` is the CV result). Both share `pipe_io.run_json_io` (fd 1 → stderr during the
+run). The pipelines are now `generate_cv.run_cv(request, files=…)` and `research_role.run_research(request, files=…)`,
+and one-shot mode builds the same request from `input/`. `debug_log_dir=None` sends provider attempt logs to stderr.
+Contract tests are in `tests/test_io_json.py`: real subprocesses from an empty temp cwd, with a fake `claude` on PATH.
+Next is step 6: `role_runner.py` beside the server (`cv_web/`). It builds the request from the store (the role's
+current CV version, job spec, steering, theme, and the prompt text from `input/prompt.md` or
+`input/research_prompt.md`, saved via `store` prompt_version, R15). It then runs the script with `--io json` from the
+repo root, streams stderr into the run's `log`, parses the one stdout line, and saves a `cv_run`/`research_run` row.
+Mapping: `raw_output`, `model_json`, `warnings` → `warnings_json`, `page_count`, `error`; failed runs can't be
+current. `pdf_base64` isn't stored (R6): hand it to the caller for the step 8 cache. It needs `cv_web/store.py`,
+`tests/test_store.py` (temp DB helpers) and the Run I/O section, not the scripts' internals. Leave room for a
+`usage` field (S5 step 15).
 Baseline test material (user's suggestion): `input/CV.md` and the current outputs `output/tailored.md`,
 `tailored.model.json`, `tailored_dev.pdf` and `tailored_dev.docx` (21 Oct; `tailored.pdf`/`.docx` from July are stale).
 Use them read-only for local checks, and in tests only with a skip when they're absent (`output/` is gitignored and the
@@ -407,8 +411,8 @@ For step 10: `cv_merge.merge(base, ours, theirs, accept, resolutions)`; promote 
 pull is ours = role, theirs = master, base = the role's `base_master_id` version. Archiving is `status = closed` (R21),
 so step 8 needs no schema change for it.
 Schema changes go in a new `store.MIGRATIONS` entry; never edit migration 1. Keep the diagram and SQL in step. Each
-stage should leave the app working. The related work is in [cv-format-revamp.md](cv-format-revamp.md) (steering
-D11/D23, theme picker, run metadata).
+stage should leave the app working. S5 (steps 15–18, token efficiency) is a follow-up after S4. The related work is in
+[cv-format-revamp.md](cv-format-revamp.md) (steering D11/D23, theme picker, run metadata).
 
 ## Log
 
@@ -480,3 +484,17 @@ D11/D23, theme picker, run metadata).
   usage per run, prompt caching (instructions and CV as a cacheable block), send less CV, and smaller output by
   referencing master entries. Resuming a saved model session was considered and ruled out (it saves no more than
   caching and breaks R14).
+- 2026-10-21 · Process · Committed step 4 and the S5 plan addition (1678104) at the user's request.
+- 2026-10-21 · Step 5 pipe mode · Done; stage S1 is complete. `generate_cv.py` and `research_role.py` take
+  `--io json`. Their `main` bodies became `run_cv` and `run_research` with `files=True|False`. One-shot mode builds the
+  same request from `input/` and writes the same files (smoke-checked in a scratch folder with a fake `claude`). The
+  new `pipe_io.py` holds the shared harness: fd 1 points at stderr during the run, and the result goes to a copy of the
+  original stdout. Bad requests and exceptions still give one JSON result. In JSON mode the PDF is rendered by
+  `render_cv` into `pdf_base64`, and no DOCX is made (on demand later). `debug_log_dir` may now be None, and
+  `provider_clients.attempt_log_path` / `_write_attempt_log` then log to stderr; this touched every backend's
+  signature and vscodebridge's own log write. Differed from the plan: the research request also needs `jobspec` (its
+  prompt uses it). `record_run_metadata` was split into a pure `cv_run_metadata`. Also fixed in passing:
+  `run_claudecode_attempt` slept out the whole 15 s heartbeat even after `claude` exited, which added up to 15 s per
+  real Claude run (the contract tests went from 47 s to under 5 s). 7 contract tests in `tests/test_io_json.py`; the
+  full suite (203) and the frontend tests (50) pass. architecture.md, backends.md and AGENTS.md are updated.
+  Committed at the user's request.

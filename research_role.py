@@ -8,11 +8,13 @@ import subprocess
 import sys
 import threading
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 from backend_registry import get_backend_or_raise
 from provider_catalog import load_provider_catalog, provider_map
+from pipe_io import RequestError, optional_text, require_text, run_json_io
 from provider_clients import AttemptResult
 
 INPUT_DIR = Path("input")
@@ -744,74 +746,46 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Do not persist company name and URL list to disk",
     )
+    parser.add_argument(
+        "--io",
+        choices=["files", "json"],
+        default="files",
+        help="files: read input/, write output/ (default). json: one request on stdin, one result on stdout, "
+        "progress on stderr, no files (multi-role runs)",
+    )
     return parser.parse_args()
 
 
-def main() -> None:
-    """Purpose: Execute main for this module's workflow.
-    
-    Inputs:
-    - None.
-    
-    Returns:
-    - None. This function performs side effects only.
+@dataclass
+class ResearchOutcome:
+    """What a research run produced: the JSON envelope (None when it stopped before one), the stamped markdown
+    (success only), the exit code and, on failure, a short error."""
+
+    envelope: dict[str, object] | None
+    markdown: str | None
+    exit_code: int
+    error: str | None = None
+
+
+def run_research(request: dict, *, files: bool) -> ResearchOutcome:
+    """Run the research pipeline on request = {cv, jobspec, prompt, company, urls, provider, model, dry_run}.
+
+    files=True is the one-shot mode: it saves the built prompt and per-attempt logs under output/ (the caller writes
+    the outputs). files=False (`--io json`) writes nothing: attempt logs go to stderr.
     """
-    args = parse_args()
-
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    DEBUG_LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-    cv_path = Path(args.cv)
-    jobspec_path = Path(args.jobspec)
-    prompt_path = Path(args.prompt)
-    prompt_default_path = Path(args.prompt_default)
-    urls_file = Path(args.urls_file)
-    company_file = Path(args.company_file)
-    output_md = Path(args.output_md)
-    output_json = Path(args.output_json)
-
-    if args.reset_prompt:
-        try:
-            reset_prompt_file(prompt_default_path, prompt_path)
-        except FileNotFoundError as exc:
-            print(str(exc), file=sys.stderr)
-            sys.exit(1)
-        print(f"Reset prompt from {prompt_default_path} to {prompt_path}")
-        return
-
-    if not prompt_path.exists() and prompt_default_path.exists():
-        reset_prompt_file(prompt_default_path, prompt_path)
-        print(f"Prompt file missing; restored from default: {prompt_default_path}")
-
-    missing = [str(path) for path in [cv_path, jobspec_path, prompt_path] if not path.exists()]
-    if missing:
-        print(f"Missing required file(s): {', '.join(missing)}", file=sys.stderr)
-        sys.exit(1)
-
-    company_name = args.company_name.strip() or read_company_name(company_file)
-    if not company_name:
-        print("Company name is required. Provide --company-name or set company file.", file=sys.stderr)
-        sys.exit(1)
-
-    cv_content = cv_path.read_text(encoding="utf-8")
-    jobspec_content = jobspec_path.read_text(encoding="utf-8")
-    prompt_template = prompt_path.read_text(encoding="utf-8").strip()
-    if not prompt_template:
-        print(f"Prompt file is empty: {prompt_path}", file=sys.stderr)
-        sys.exit(1)
-
-    urls = read_urls(urls_file, args.url)
-    if not args.no_persist_inputs and not args.dry_run:
-        persist_inputs(company_file, company_name, urls_file, urls)
-
+    company_name = request["company"]
+    urls = request["urls"]
     print("Building research prompt...", flush=True)
-    prompt_text = build_prompt(prompt_template, company_name, cv_content, jobspec_content, urls)
-    OUTPUT_PROMPT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_PROMPT.write_text(prompt_text, encoding="utf-8")
-    print(
-        f"Prepared prompt for '{company_name}' with {len(urls)} URL(s). Saved to: {OUTPUT_PROMPT.resolve()}",
-        flush=True,
-    )
+    prompt_text = build_prompt(request["prompt"], company_name, request["cv"], request["jobspec"], urls)
+    if files:
+        OUTPUT_PROMPT.parent.mkdir(parents=True, exist_ok=True)
+        OUTPUT_PROMPT.write_text(prompt_text, encoding="utf-8")
+        print(
+            f"Prepared prompt for '{company_name}' with {len(urls)} URL(s). Saved to: {OUTPUT_PROMPT.resolve()}",
+            flush=True,
+        )
+    else:
+        print(f"Prepared prompt for '{company_name}' with {len(urls)} URL(s).", flush=True)
 
     process_env = os.environ.copy()
     process_env.update(load_dotenv_file(ENV_FILE))
@@ -819,15 +793,16 @@ def main() -> None:
     catalog = load_provider_catalog(Path("model_providers.json"))
     providers = provider_map(catalog)
     default_provider = str(catalog.get("defaultProvider") or "gemini").strip() or "gemini"
-    selected_provider = (args.provider or process_env.get("MODEL_PROVIDER") or default_provider).strip().lower()
+    requested_provider = request.get("provider") or ""
+    selected_provider = (requested_provider or process_env.get("MODEL_PROVIDER") or default_provider).strip().lower()
     if selected_provider not in providers:
         print(f"Unsupported provider: {selected_provider}", file=sys.stderr)
-        sys.exit(1)
+        return ResearchOutcome(None, None, 1, f"unsupported provider '{selected_provider}'")
     selected_backend = get_backend_or_raise(selected_provider, process_env)
     if not selected_backend.status.enabled:
         reason = selected_backend.status.reason or "provider is disabled"
         print(f"Provider '{selected_provider}' is disabled: {reason}", file=sys.stderr)
-        sys.exit(1)
+        return ResearchOutcome(None, None, 1, f"provider '{selected_provider}' is disabled: {reason}")
 
     timeout_seconds = parse_positive_int(
         process_env,
@@ -859,7 +834,7 @@ def main() -> None:
         "RESEARCH_GEMINI_MAX_CONSECUTIVE_HARD_QUOTA_MODELS",
         RESEARCH_MAX_CONSECUTIVE_HARD_QUOTA_MODELS,
     )
-    model_sequence = build_model_sequence(process_env, selected_provider, explicit_model=args.model)
+    model_sequence = build_model_sequence(process_env, selected_provider, explicit_model=request.get("model") or "")
 
     envelope: dict[str, object] = {
         "companyName": company_name,
@@ -867,23 +842,22 @@ def main() -> None:
         "model": model_sequence[0] if model_sequence else DEFAULT_MODEL,
         "urls": urls,
         "generatedAt": utc_now_iso(),
-        "dryRun": bool(args.dry_run),
+        "dryRun": bool(request.get("dry_run")),
         "output": "",
     }
 
-    if args.dry_run:
+    if request.get("dry_run"):
         envelope["output"] = "[dry-run] prompt built successfully"
         envelope["promptPreview"] = prompt_text[:6000]
         envelope["modelAttempts"] = []
-        output_json.parent.mkdir(parents=True, exist_ok=True)
-        output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
-        print(f"Dry run complete. JSON written to: {output_json.resolve()}")
-        return
+        return ResearchOutcome(envelope, None, 0)
 
-    print(
-        f"Diagnostics enabled. Per-attempt logs at: {DEBUG_LOG_DIR.resolve()}",
-        flush=True,
-    )
+    debug_log_dir = DEBUG_LOG_DIR if files else None
+    if debug_log_dir:
+        print(
+            f"Diagnostics enabled. Per-attempt logs at: {debug_log_dir.resolve()}",
+            flush=True,
+        )
     print(f"Selected provider: {selected_provider}", flush=True)
     print(
         f"Research Gemini timeout: {timeout_seconds}s (heartbeat every {heartbeat_seconds}s)",
@@ -925,17 +899,15 @@ def main() -> None:
                 timeout_seconds=int(getattr(selected_backend.backend, "timeout_seconds", timeout_seconds)),
                 heartbeat_seconds=heartbeat_seconds,
                 attempt_index=idx,
-                debug_log_dir=DEBUG_LOG_DIR,
+                debug_log_dir=debug_log_dir,
                 log_prefix="research-attempt",
                 emit_live_output=True,
                 max_429_lines_before_fallback=max_429_lines_before_fallback,
                 rate_limit_grace_seconds=rate_limit_grace_seconds,
                 max_retry_after_seconds_before_fallback=max_retry_after_seconds_before_fallback,
             )
-            print(
-                f"Attempt {idx} completed in {proc.elapsed_seconds:.1f}s. Debug log: {proc.log_path}",
-                flush=True,
-            )
+            log_text = f" Debug log: {proc.log_path}" if proc.log_path else ""
+            print(f"Attempt {idx} completed in {proc.elapsed_seconds:.1f}s.{log_text}", flush=True)
         except Exception as exc:
             excerpt = str(exc)[:500]
             model_attempts.append(
@@ -958,10 +930,8 @@ def main() -> None:
             envelope["modelAttempts"] = model_attempts
             envelope["output"] = ""
             envelope["stderr"] = "Model attempt failed unexpectedly. See per-attempt debug log."
-            output_json.parent.mkdir(parents=True, exist_ok=True)
-            output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
             print_attempt_summary(attempt_results, sys.stderr)
-            sys.exit(1)
+            return ResearchOutcome(envelope, None, 1, f"model attempt failed unexpectedly: {excerpt}")
 
         stderr_text = (proc.stderr or "").strip()
         stdout_text = (proc.stdout or "").strip()
@@ -1004,10 +974,8 @@ def main() -> None:
                     "Aborted remaining model attempts after consecutive hard quota failures. "
                     "Check billing/quota, then retry later."
                 )
-                output_json.parent.mkdir(parents=True, exist_ok=True)
-                output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
                 print_attempt_summary(attempt_results, sys.stderr)
-                sys.exit(1)
+                return ResearchOutcome(envelope, None, 1, "stopped after consecutive hard quota failures")
             continue
 
         attempt_results.append((model_name, "fatal error"))
@@ -1033,10 +1001,8 @@ def main() -> None:
             envelope["fatalReportPath"] = report_path
         if report_content:
             envelope["fatalReportContent"] = report_content
-        output_json.parent.mkdir(parents=True, exist_ok=True)
-        output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
         print_attempt_summary(attempt_results, sys.stderr)
-        sys.exit(proc.returncode)
+        return ResearchOutcome(envelope, None, proc.returncode, f"provider call failed on model {model_name}")
 
     if proc is None or proc.returncode != 0:
         print("Gemini API failed across all configured models due to load/quota limits.", file=sys.stderr)
@@ -1044,10 +1010,8 @@ def main() -> None:
         envelope["modelAttempts"] = model_attempts
         envelope["output"] = ""
         envelope["stderr"] = "All model attempts failed. See modelAttempts for details."
-        output_json.parent.mkdir(parents=True, exist_ok=True)
-        output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
         print_attempt_summary(attempt_results, sys.stderr)
-        sys.exit(1)
+        return ResearchOutcome(envelope, None, 1, "all model attempts failed")
 
     output_text = (proc.stdout or "").strip()
     if not output_text:
@@ -1055,22 +1019,120 @@ def main() -> None:
         envelope["model"] = selected_model or model_sequence[0]
         envelope["modelAttempts"] = model_attempts
         envelope["output"] = ""
-        output_json.parent.mkdir(parents=True, exist_ok=True)
-        output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
-        sys.exit(1)
+        return ResearchOutcome(envelope, None, 1, "the model returned empty output")
 
     print("Gemini completed. Writing research outputs...", flush=True)
     generated_at = local_now_to_second()
     stamped_output = f"Generated At: {generated_at}\n\n{output_text.strip()}\n"
-    output_md.parent.mkdir(parents=True, exist_ok=True)
-    output_md.write_text(stamped_output, encoding="utf-8")
     envelope["model"] = selected_model or model_sequence[0]
     envelope["modelAttempts"] = model_attempts
     envelope["output"] = output_text
     envelope["generatedAt"] = generated_at
-    output_json.parent.mkdir(parents=True, exist_ok=True)
-    output_json.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
+    return ResearchOutcome(envelope, stamped_output, 0)
 
+
+def handle_json_request(request: dict) -> dict:
+    """`--io json`: check the request's fields, run research without files, and shape the result."""
+    urls = request.get("urls") or []
+    if not isinstance(urls, list) or not all(isinstance(url, str) for url in urls):
+        raise RequestError("request field 'urls' must be a list of strings")
+    checked = {
+        "cv": require_text(request, "cv"),
+        "jobspec": optional_text(request, "jobspec"),
+        "prompt": require_text(request, "prompt").strip(),
+        "company": require_text(request, "company").strip(),
+        "urls": dedupe_keep_order(urls),
+        "provider": optional_text(request, "provider"),
+        "model": optional_text(request, "model"),
+        "dry_run": bool(request.get("dry_run")),
+    }
+    outcome = run_research(checked, files=False)
+    envelope = outcome.envelope or {}
+    return {
+        "success": outcome.exit_code == 0,
+        "provider": envelope.get("provider", ""),
+        "model": envelope.get("model", ""),
+        "output_json": outcome.envelope,
+        "output_md": outcome.markdown,
+        "error": outcome.error,
+    }
+
+
+def main() -> None:
+    """Run one research job: one-shot from input/ to output/, or `--io json` over pipes (no files)."""
+    args = parse_args()
+    if args.io == "json":
+        sys.exit(run_json_io(handle_json_request))
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    DEBUG_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+    cv_path = Path(args.cv)
+    jobspec_path = Path(args.jobspec)
+    prompt_path = Path(args.prompt)
+    prompt_default_path = Path(args.prompt_default)
+    urls_file = Path(args.urls_file)
+    company_file = Path(args.company_file)
+    output_md = Path(args.output_md)
+    output_json = Path(args.output_json)
+
+    if args.reset_prompt:
+        try:
+            reset_prompt_file(prompt_default_path, prompt_path)
+        except FileNotFoundError as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(1)
+        print(f"Reset prompt from {prompt_default_path} to {prompt_path}")
+        return
+
+    if not prompt_path.exists() and prompt_default_path.exists():
+        reset_prompt_file(prompt_default_path, prompt_path)
+        print(f"Prompt file missing; restored from default: {prompt_default_path}")
+
+    missing = [str(path) for path in [cv_path, jobspec_path, prompt_path] if not path.exists()]
+    if missing:
+        print(f"Missing required file(s): {', '.join(missing)}", file=sys.stderr)
+        sys.exit(1)
+
+    company_name = args.company_name.strip() or read_company_name(company_file)
+    if not company_name:
+        print("Company name is required. Provide --company-name or set company file.", file=sys.stderr)
+        sys.exit(1)
+
+    prompt_template = prompt_path.read_text(encoding="utf-8").strip()
+    if not prompt_template:
+        print(f"Prompt file is empty: {prompt_path}", file=sys.stderr)
+        sys.exit(1)
+
+    urls = read_urls(urls_file, args.url)
+    if not args.no_persist_inputs and not args.dry_run:
+        persist_inputs(company_file, company_name, urls_file, urls)
+
+    outcome = run_research(
+        {
+            "cv": cv_path.read_text(encoding="utf-8"),
+            "jobspec": jobspec_path.read_text(encoding="utf-8"),
+            "prompt": prompt_template,
+            "company": company_name,
+            "urls": urls,
+            "provider": args.provider,
+            "model": args.model,
+            "dry_run": args.dry_run,
+        },
+        files=True,
+    )
+    if outcome.markdown is not None:
+        output_md.parent.mkdir(parents=True, exist_ok=True)
+        output_md.write_text(outcome.markdown, encoding="utf-8")
+    if outcome.envelope is not None:
+        output_json.parent.mkdir(parents=True, exist_ok=True)
+        output_json.write_text(json.dumps(outcome.envelope, indent=2) + "\n", encoding="utf-8")
+    if outcome.exit_code != 0:
+        sys.exit(outcome.exit_code)
+
+    if args.dry_run:
+        print(f"Dry run complete. JSON written to: {output_json.resolve()}")
+        return
     print(f"Research markdown written to: {output_md.resolve()}")
     print(f"Research metadata written to: {output_json.resolve()}")
 
