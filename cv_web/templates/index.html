@@ -349,9 +349,15 @@
                                     <button id="runResearchBtn" class="btn btn-primary">
                                         Run Research
                                     </button>
-                                    <button id="formatResearchBtn" class="btn btn-outline-secondary">
+                                    <button id="formatResearchBtn" class="btn btn-outline-secondary" data-file-only>
                                         Format Research PDF
                                     </button>
+                                    <label class="model-picker research-run-picker" for="researchRunSelect" data-role-only data-needs-role>
+                                        <span>Run</span>
+                                        <select class="form-select" id="researchRunSelect" aria-label="Research run to show">
+                                            <option value="">No runs yet</option>
+                                        </select>
+                                    </label>
                                     <button id="resetResearchPromptBtn" class="btn btn-outline-secondary">
                                         Reset Prompt to Default
                                     </button>

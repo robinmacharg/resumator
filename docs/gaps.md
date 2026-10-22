@@ -56,9 +56,6 @@ Suggested shape:
   Skills). Truncate per section (for example oldest roles first) or raise the limit.
 - **No output history (file mode)**: each file-mode run overwrites `output/tailored*`. Role mode keeps every run
   per role, with its steering ([plan](plans/multi-role.md)).
-- **Role research isn't shown**: role research runs are stored (`research_run`), but the Research tab only shows
-  the live log; past runs, the formatted output and the research PDF still come from `output/` files. Needs a
-  run list in the tab and a research render route (like the CV run PDF).
 - **Past run logs aren't shown**: each role run saves its log and raw output, but the UI only shows the live Run
   Log and the picked run's model JSON. A failed run's details need the API (`…/runs/cv/<run>`).
 - **Merge limits (promote/pull)**: entry-level only (R11). A renamed heading shows as a removal plus an addition;

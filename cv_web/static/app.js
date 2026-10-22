@@ -66,6 +66,7 @@ const state = {
     cvSource: "role",
     cvRuns: [],
     selectedCvRunId: null,
+    researchRuns: [],
 };
 
 // Phase 2: stable DOM registry collected once and injected into features.
@@ -110,6 +111,7 @@ const els = {
     mergeApplyBtn: document.getElementById("mergeApplyBtn"),
     mergeCancelBtn: document.getElementById("mergeCancelBtn"),
     runSelect: document.getElementById("runSelect"),
+    researchRunSelect: document.getElementById("researchRunSelect"),
     providerSelect: document.getElementById("providerSelect"),
     modelSelect: document.getElementById("modelSelect"),
     themeSelect: document.getElementById("themeSelect"),
@@ -272,6 +274,7 @@ const previewBindings = {
     applyCvOutputState: previewFeature.applyCvOutputState,
     applyResearchPreviewState: previewFeature.applyResearchOutputState,
     setCvRunSource: previewFeature.setCvRunSource,
+    setResearchRunSource: previewFeature.setResearchRunSource,
     updatePreview: previewFeature.updatePreview,
 };
 
@@ -292,6 +295,7 @@ const {
     setDebugLogOutput,
     setResearchStatus,
     setResearchOutput,
+    setResearchBuiltQueryOutput,
     setResearchCommandOutput,
     summarizeRun,
     summarizeResearchOutput,
@@ -364,6 +368,8 @@ const roleWorkspaceFeature = createRoleWorkspaceFeature({
     applySteering: (steering) => steeringFeature.applySteering(steering),
     applyTheme: (theme) => themeFeature.applyTheme(theme),
     roleRunsFeature,
+    // Late-bound: researchFeature is created further down.
+    loadRoleResearch: (roleId) => researchFeature.loadRoleResearch(roleId),
     // settingsFeature is created further down; this only runs after a first-run choice.
     openSettingsStep: () => settingsFeature.openFirstRun(),
 });
@@ -439,9 +445,12 @@ const researchFeature = createResearchFeature({
     updatePreviewCacheBuster: previewWorkflowDeps.updatePreviewCacheBuster,
     setResearchStatus,
     setResearchOutput,
+    setResearchBuiltQueryOutput,
     setResearchCommandOutput,
     renderResearchState,
     summarizeResearchOutput,
+    setResearchRunSource: previewBindings.setResearchRunSource,
+    formatDateTime: (value) => formatPreviewDateTime(value, "?"),
     ...roleRunDeps,
     afterRoleResearchRun: () => roleWorkspaceFeature.refreshRoles(),
 });

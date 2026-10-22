@@ -70,6 +70,7 @@ export function createRunStateFeature(ctx) {
             els.restartServerBtn,
             els.roleSidebarControls,
             els.runSelect,
+            els.researchRunSelect,
             els.cvSourceSelect,
             els.promoteCvBtn,
             els.pullCvBtn,

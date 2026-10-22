@@ -31,9 +31,6 @@
 - UI: Move primary tabs to top alongside title
 - Token optimisation
     - bulk generate
-- Research: PDF generated on the fly
-- Research: Research tab preview and Run Log still show `output/` files and the last file-mode run, during the
-  first-run choice and in role mode generally (CV preview fixed in a5053b1; see gaps.md "Role research isn't shown")
 - Scaling it up:
     - External hosting
     - multi-user

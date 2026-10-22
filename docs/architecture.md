@@ -4,8 +4,8 @@ Two ways to run, sharing the same pipeline scripts:
 
 - **Role mode** (the web UI and `python3 -m resumator`): roles, master and role CVs (versioned) and every run live
   in SQLite (`cv_web/resumator.db`). Runs go through `cv_web/role_runner.py`, which talks to the scripts over pipes
-  (`--io json`), so no `input/` or `output/` data files are read or written (except the Research tab's formatted
-  output and PDF, still file-based: [gaps](gaps.md)). PDFs are rendered on demand, never stored
+  (`--io json`), so no `input/` or `output/` data files are read or written. CV and research PDFs are rendered on
+  demand, never stored
   ([plan](plans/multi-role.md), design R1–R21).
 - **One-shot file mode** (`generate_cv.py`, `research_role.py`, `cv_convert.py`): reads `input/`, writes `output/`,
   no database. The web UI falls back to it only when the role API can't be reached.
@@ -19,10 +19,10 @@ Database schema and ER diagram: [db-schema.md](db-schema.md).
 | `generate_cv.py` | CV pipeline CLI: read inputs → build prompt → backend attempts with model fallback → extract and validate JSON → render tagged markdown → call `cv_convert` |
 | `cv_source.py` | Master CV source format: parse → dict, comment-stripped prompt text, elided phrases, linter CLI ([cv-source-format.md](cv-source-format.md)). `generate_cv` refuses a CV with lint errors and sends `prompt_text` |
 | `cv_convert.py` | Tagged markdown → semantic markdown → PDF (pandoc + typst) and DOCX (pandoc). Looks come from `themes/` ([cv-format.md §5](cv-format.md#5-conversion-cv_convertpy)). Also a standalone CLI (the "format only" run). `render_cv` does the same in memory (bytes out, no files) for role runs; `count_pdf_pages` reads PDF bytes |
-| `resumator.py` | Role-mode CLI (R5), `python3 -m resumator --action …`: `list`, `create` (CV seeded from the master), `cv` and `research` (through `role_runner`, log on stderr, `--out` writes the run's PDF), `render` (current or `--run` CV run → PDF/DOCX, default `output/<slug>-run<id>.<format>`), `backup`, `setup` (first run) and `migrate-single-role` (wraps `cv_web.migrate_single_role`). `--provider`, `--model`, `--theme`, `--no-steering`/`--steering-file` override the role for one run; `--db` picks the DB. Ctrl-C stops the run (exit 130, nothing saved). Never writes `input/` |
+| `resumator.py` | Role-mode CLI (R5), `python3 -m resumator --action …`: `list`, `create` (CV seeded from the master), `cv` and `research` (through `role_runner`, log on stderr, `--out` writes the run's PDF), `render` (current or `--run` CV run → PDF/DOCX, default `output/<slug>-run<id>.<format>`; `--kind research`: a research run's PDF, default `output/<slug>-research<id>.pdf`), `backup`, `setup` (first run) and `migrate-single-role` (wraps `cv_web.migrate_single_role`). `--provider`, `--model`, `--theme`, `--no-steering`/`--steering-file` override the role for one run; `--db` picks the DB. Ctrl-C stops the run (exit 130, nothing saved). Never writes `input/` |
 | `research_role.py` | Research pipeline CLI: research prompt + company + URLs + CV + job spec → backend → `research_output.md/.json` |
 | `pipe_io.py` | `--io json` harness for both pipelines (`run_json_io`): one JSON request on stdin, progress on stderr, one JSON result on stdout, no data files. fd 1 points at stderr while the run works, so stray prints can't corrupt the result. SIGTERM exits through Python, so the result is still written and tracked provider groups are killed. Used by `role_runner` ([plan](plans/multi-role.md), "Run I/O") |
-| `research_format.py` | Normalises research markdown → `research_output.formatted.{md,pdf}` |
+| `research_format.py` | Normalises research markdown → `research_output.formatted.{md,pdf}` (CLI, the file-mode Format button). `format_markdown` / `render_research_pdf` do the same in memory (bytes out, no files) for role research runs |
 | `settings_catalog.py` | Declares every config key (globals plus each backend's `settings()`), groups them for the Settings page, `catalog_keys()`, provider connection tests ([backends.md](backends.md)) |
 | `backend_registry.py` | Discovers `backends/*/module.py`, interrogates each, exposes catalog and lookup ([backends.md](backends.md)) |
 | `provider_catalog.py` | Frontend-shaped provider catalog. From the registry only (`model_providers.json` removed) |
@@ -76,6 +76,12 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 `input/research_company.txt` and `input/research_urls.txt`. "Reset prompt" copies `research_prompt.default.md` over
 `research_prompt.md`. `--dry-run` only builds the prompt.
 
+Role mode (plan [role-research](plans/role-research/index.md), RR1–RR6): runs go through `role_runner.run_research`
+and are stored as `research_run` rows; the Research tab shows the role's current run (picker: make current, reload;
+company and URLs prefilled from it) and its PDF from `…/runs/research/<run>/research.pdf`, formatted on demand by
+`render_research_pdf`. The CLI writes the same PDF (`research --out`, `render --kind research`). Format is file mode
+only.
+
 ## File contract
 
 - `cv_web/resumator.db` (gitignored) holds role mode's data: roles, CV versions, prompt versions, runs, settings
@@ -115,8 +121,8 @@ The UI is in "role mode" once the DB is set up (`role-workspace-feature.js` and 
 [static/ARCHITECTURE.md](../cv_web/static/ARCHITECTURE.md)). A new install first picks example data or a blank master
 CV (`/api/setup`); with no roles yet only the master CV is open and runs wait for a role. The file-based endpoints
 above are unchanged, and the UI falls back to them only when the role API can't be reached. In role mode the CV and
-job spec editors never reach them, so `input/CV.md` isn't overwritten; the prompt editors stay file-based; settings are edited in the Settings pop-over (header cog, `/api/settings`). Role research runs are stored, but the UI doesn't list or render
-them yet (see [gaps.md](gaps.md)).
+job spec editors never reach them, so `input/CV.md` isn't overwritten; the prompt editors stay file-based; settings are edited in the Settings pop-over (header cog, `/api/settings`). The Research tab shows the role's
+stored research runs, never `output/research_output.*`.
 
 | Route | What |
 |---|---|
@@ -141,11 +147,12 @@ them yet (see [gaps.md](gaps.md)).
 | `POST /api/roles/<id>/runs/<cv\|research>/<run>/current` | Make a successful run current |
 | `POST /api/roles/<id>/runs/cv` | Start `{selectedProvider, selectedModel, theme, steering}` (null/absent = the role's). Progress on `/api/run/status` (`kind: role-cv`, `roleId`, then `runId`, `error`) |
 | `POST /api/roles/<id>/runs/research` | Start `{selectedProvider, selectedModel, company, urls, dryRun}`. Progress on `/api/research/status`; `/api/research/stop` stops it |
+| `GET /api/roles/<id>/runs/research/<run>/research.pdf` | The run's `output_md` formatted (`render_research_pdf`, heading "Research Notes"), cached like CV renders under the `research-pdf` format. 409 for a failed run or blank output (dry runs), 500 when rendering fails |
 | `GET /api/roles/<id>/runs/cv/<run>/cv.<pdf\|docx>[?theme=]` | Rendered from the run's `raw_output` (validated as on its run day, with its CV version's directives). No `theme` = the run's; `theme=` = default. Cached in memory by (run, theme, format), 32 entries, lost on restart; a finished run warms its own PDF (R16) |
 
 ## Tests
 
-- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_merge`, `store` (temp DBs), `role_merge` (temp DB), `role_runner` (real scripts on a temp DB with a fake `claude`), `first_run` (temp DB; the `examples/` files), the role CLI `resumator` (temp DB; runs patched), `server_roles` (temp DB; rendering and runs patched), `migrate_single_role` (fixture files), `cv_convert` (render tests skip
+- `tests/`: unittest coverage for the server helpers, `env_utils`, `cv_source`, `cv_merge`, `store` (temp DBs), `role_merge` (temp DB), `role_runner` (real scripts on a temp DB with a fake `claude`), `first_run` (temp DB; the `examples/` files), the role CLI `resumator` (temp DB; runs patched), `server_roles` (temp DB; rendering and runs patched), `research_format` (render test skips without pandoc), `migrate_single_role` (fixture files), `cv_convert` (render tests skip
   without pandoc/typst; the in-memory vs file-route parity test also skips without a local `output/tailored.md`) and the `claudecode` backend (with a fake `claude` on PATH). Nothing covers `generate_cv` or
   the other backends.
 - `cv_web/static/js/__tests__/`: `node --test` coverage of the frontend feature modules.

@@ -93,7 +93,7 @@ const PREVIEW_CONFIG = {
  * Purpose: centralize CV/Research preview rendering with shared behavior.
  *
  * @param {PdfPreviewFeatureContext} ctx Feature dependencies.
- * @returns {{applyCvOutputState: (payload: any) => void, applyResearchOutputState: (payload: any) => void, setCvRunSource: (source: any) => void, updatePreview: () => void}} Public preview API.
+ * @returns {{applyCvOutputState: (payload: any) => void, applyResearchOutputState: (payload: any) => void, setCvRunSource: (source: any) => void, setResearchRunSource: (source: any) => void, updatePreview: () => void}} Public preview API.
  */
 export function createPdfPreviewFeature(ctx) {
     const { els, getActivePreviewKind } = ctx;
@@ -103,8 +103,8 @@ export function createPdfPreviewFeature(ctx) {
         research: { exists: false, mtime: null, sourceGeneratedAt: null, steering: "" },
     };
 
-    // Role mode: the CV preview shows a stored run, rendered on demand by the Role API (null = file mode).
-    let cvRunSource = null;
+    // Role mode: each preview shows a stored run, rendered on demand by the Role API (null = file mode).
+    const runSources = { cv: null, research: null };
 
     /**
      * Use a role run as the CV preview, or go back to `output/` files with null.
@@ -112,7 +112,16 @@ export function createPdfPreviewFeature(ctx) {
      * @returns {void}
      */
     function setCvRunSource(source) {
-        cvRunSource = source;
+        runSources.cv = source;
+    }
+
+    /**
+     * Use a role research run as the Research preview, or go back to `output/` files with null.
+     * @param {{url: string | null, label: string, generatedAt: string | null, placeholder?: string} | null} source
+     * @returns {void}
+     */
+    function setResearchRunSource(source) {
+        runSources.research = source;
     }
 
     /**
@@ -131,15 +140,16 @@ export function createPdfPreviewFeature(ctx) {
     }
 
     /**
-     * Render the CV preview for a role run.
+     * Render the preview for a role run.
+     * @param {"cv" | "research"} kind Preview kind.
      * @returns {void}
      */
-    function renderRunPreview() {
-        const source = cvRunSource;
+    function renderRunPreview(kind) {
+        const source = runSources[kind];
         if (els.pdfPreviewTitle) {
             const steeringPrefix = source.steering ? `${STEERING_INDICATOR} ` : "";
             els.pdfPreviewTitle.textContent =
-                `${steeringPrefix}PDF Preview (CV, ${source.label}, ` +
+                `${steeringPrefix}PDF Preview (${PREVIEW_CONFIG[kind].label}, ${source.label}, ` +
                 `Generated: ${formatSourceGeneratedForPreview(source.generatedAt)})`;
             els.pdfPreviewTitle.title = source.steering ? `Steered: ${source.steering}` : "";
         }
@@ -148,7 +158,7 @@ export function createPdfPreviewFeature(ctx) {
             els.pdfPreviewOpenLink.style.pointerEvents = source.url ? "auto" : "none";
             els.pdfPreviewOpenLink.style.opacity = source.url ? "1" : "0.45";
         }
-        setDocxLink(source.docxUrl);
+        setDocxLink(source.docxUrl || null);
         if (source.url) {
             els.pdfPreview.classList.remove("hidden");
             if (els.pdfPlaceholder) {
@@ -234,8 +244,8 @@ export function createPdfPreviewFeature(ctx) {
      */
     function updatePreview() {
         const kind = getActivePreviewKind() === "research" ? "research" : "cv";
-        if (kind === "cv" && cvRunSource) {
-            renderRunPreview();
+        if (runSources[kind]) {
+            renderRunPreview(kind);
             return;
         }
         setDocxLink(null);
@@ -279,6 +289,7 @@ export function createPdfPreviewFeature(ctx) {
         applyCvOutputState,
         applyResearchOutputState,
         setCvRunSource,
+        setResearchRunSource,
         updatePreview,
     };
 }

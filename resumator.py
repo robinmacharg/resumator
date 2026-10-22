@@ -7,8 +7,8 @@ Run from the repo root: `python3 -m resumator --action list` (or `python3 resuma
 | `list` | Roles: id, slug, name, company, status, last updated and last run (🧭 = current CV run was steered) |
 | `create` | New role (`--role NAME`), its CV seeded from the master (R1) |
 | `cv` | Generate a CV for a role through `role_runner` (R14) and save the run; `--out` also writes its PDF |
-| `research` | Research the role's company and save the run |
-| `render` | PDF or DOCX of a role's current (or `--run`) CV run, rendered on demand (R6) |
+| `research` | Research the role's company and save the run; `--out` also writes its PDF (RR6) |
+| `render` | PDF or DOCX of a role's current (or `--run`) CV run (R6); `--kind research`: a research run's PDF |
 | `backup` | Timestamped copy of the DB (R18) |
 | `setup` | First-run choice on an empty DB: `--choice example` or `blank` (R3) |
 | `settings-import` | Import `--env-file F` (or `--from-environment`) into the settings DB: merge, `--replace`, `--dry-run`, `--delete-after` (D7, D11) |
@@ -39,6 +39,7 @@ import settings_env
 import settings_io
 import startup_audit
 from env_utils import parse_dotenv_text
+from research_format import render_research_pdf
 from cv_web import first_run, migrate_single_role, role_runner, store
 
 OUTPUT_DIR = Path("output")
@@ -70,9 +71,10 @@ def build_parser() -> argparse.ArgumentParser:
     steering = cv.add_mutually_exclusive_group()
     steering.add_argument("--no-steering", action="store_true", help="cv: send no steering this run")
     steering.add_argument("--steering-file", type=Path, help="cv: steering text for this run instead of the role's")
-    cv.add_argument("--out", type=Path, help="cv: also write the run's PDF here; render: output path "
-                    "(default: output/<slug>-run<id>.<format>)")
-    cv.add_argument("--run", type=int, help="render: run id (default: the role's current CV run)")
+    cv.add_argument("--out", type=Path, help="cv and research: also write the run's PDF here; render: output path "
+                    "(default: output/<slug>-run<id>.<format>, or output/<slug>-research<id>.pdf)")
+    cv.add_argument("--kind", choices=("cv", "research"), default="cv", help="render: which kind of run")
+    cv.add_argument("--run", type=int, help="render: run id (default: the role's current run of that kind)")
     cv.add_argument("--format", choices=("pdf", "docx"), default="pdf", help="render: output format")
 
     research = parser.add_argument_group("research")
@@ -206,11 +208,15 @@ def _research(conn: sqlite3.Connection, args: argparse.Namespace) -> int:
         print(f"error: research run {outcome.run_id} failed: {outcome.error or 'see its log'}", file=sys.stderr)
         return 1
     print(f"Research run {outcome.run_id} saved" + ("" if args.no_current else ", now current") + ".")
+    if args.out:
+        _write(args.out, _research_pdf(conn, store.get_research_run(conn, outcome.run_id)))
     return 0
 
 
 def _render(conn: sqlite3.Connection, args: argparse.Namespace) -> int:
     role = _require_role(conn, args.role)
+    if args.kind == "research":
+        return _render_research(conn, role, args)
     theme = _theme(args.theme)
     if args.run is None:
         run = store.current_cv_run(conn, role["id"])
@@ -226,6 +232,21 @@ def _render(conn: sqlite3.Connection, args: argparse.Namespace) -> int:
         raise CliError(f"rendering CV run {run['id']} as {args.format} failed (see the messages above)")
     suffix = f"-{theme}" if theme and args.format == "pdf" else ""
     _write(args.out or OUTPUT_DIR / f"{role['slug']}-run{run['id']}{suffix}.{args.format}", data)
+    return 0
+
+
+def _render_research(conn: sqlite3.Connection, role: dict[str, Any], args: argparse.Namespace) -> int:
+    if args.format != "pdf" or args.theme is not None:
+        raise CliError("research renders are PDF only, without --format docx or --theme")
+    if args.run is None:
+        run = store.current_research_run(conn, role["id"])
+        if run is None:
+            raise CliError(f"role {role['name']!r} has no current research run")
+    else:
+        run = store.get_research_run(conn, args.run)
+        if run is None or run["role_id"] != role["id"]:
+            raise CliError(f"role {role['name']!r} has no research run {args.run}")
+    _write(args.out or OUTPUT_DIR / f"{role['slug']}-research{run['id']}.pdf", _research_pdf(conn, run))
     return 0
 
 
@@ -359,6 +380,17 @@ def _read_text(path: Path) -> str:
         return path.read_text(encoding="utf-8")
     except OSError as exc:
         raise CliError(f"can't read {path}: {exc}") from exc
+
+
+def _research_pdf(conn: sqlite3.Connection, run: dict[str, Any]) -> bytes:
+    """A research run's PDF, formatted as in the UI (RR1); refuses a run with no output (failed or dry run)."""
+    if not run["success"] or not (run["output_md"] or "").strip():
+        raise CliError(f"research run {run['id']} has no output to render" +
+                       (" (dry run)" if run["dry_run"] else ""))
+    try:
+        return render_research_pdf(run["output_md"], env=settings_env.effective_env(conn))
+    except RuntimeError as exc:
+        raise CliError(f"rendering research run {run['id']} failed: {exc}") from exc
 
 
 def _write(path: Path, data: bytes) -> None:

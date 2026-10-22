@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Mapping
 
@@ -110,6 +111,51 @@ def compile_pdf(markdown_file: Path, output_pdf: Path, font_name: str) -> None:
         raise RuntimeError(f"PDF generation failed: {message}")
 
 
+DEFAULT_HEADING = "Research Notes"
+
+
+def format_markdown(text: str, heading: str = DEFAULT_HEADING) -> str:
+    """Purpose: Normalise research markdown for the PDF: blank lines, a top heading, no `---` rules.
+
+    Inputs:
+    - text: Raw research markdown (a run's `output_md` or `research_output.md`).
+    - heading: Heading title to enforce at the top of formatted markdown.
+
+    Returns:
+    - `str` formatted markdown, without a trailing newline.
+    """
+    processed = normalize_markdown(text)
+    processed = ensure_heading(processed, heading)
+
+    # Avoid accidental markdown horizontal-rules from standalone --- separators.
+    processed = re.sub(r"(?m)^---+$", "", processed)
+    return normalize_markdown(processed)
+
+
+def render_research_pdf(
+    text: str, heading: str = DEFAULT_HEADING, env: Mapping[str, str] | None = None
+) -> bytes:
+    """Purpose: Format research markdown and render it to PDF bytes in memory (no `output/` files).
+
+    Inputs:
+    - text: Raw research markdown.
+    - heading: Heading title to enforce at the top of formatted markdown.
+    - env: Settings environment holding CV_FONT_PRIORITY (default `os.environ`).
+
+    Returns:
+    - `bytes` of the PDF. Raises `RuntimeError` for empty input or a failed pandoc run.
+    """
+    if not text.strip():
+        raise RuntimeError("Research markdown is empty")
+    font_name = resolve_research_pdf_font(env)
+    with tempfile.TemporaryDirectory(prefix="research-pdf-") as tmp:
+        markdown_file = Path(tmp) / "research.md"
+        output_pdf = Path(tmp) / "research.pdf"
+        markdown_file.write_text(format_markdown(text, heading) + "\n", encoding="utf-8")
+        compile_pdf(markdown_file, output_pdf, font_name)
+        return output_pdf.read_bytes()
+
+
 def run(
     input_md: Path, output_md: Path, output_pdf: Path, heading: str, env: Mapping[str, str] | None = None
 ) -> int:
@@ -133,12 +179,7 @@ def run(
         print("Input markdown is empty. Run research first.")
         return 1
 
-    processed = normalize_markdown(source_text)
-    processed = ensure_heading(processed, heading)
-
-    # Avoid accidental markdown horizontal-rules from standalone --- separators.
-    processed = re.sub(r"(?m)^---+$", "", processed)
-    processed = normalize_markdown(processed)
+    processed = format_markdown(source_text, heading)
 
     output_md.parent.mkdir(parents=True, exist_ok=True)
     output_pdf.parent.mkdir(parents=True, exist_ok=True)
@@ -186,7 +227,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--title",
-        default="Research Notes",
+        default=DEFAULT_HEADING,
         help="Heading to add when input markdown does not start with one",
     )
     return parser.parse_args()
