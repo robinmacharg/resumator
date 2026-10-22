@@ -29,6 +29,7 @@ const RESEARCH_SPLITTER_MIN_SECTION_PX = 140;
  * @property {() => void} onLogsTabActivated Callback when logs top tab is activated.
  * @property {() => void} onPreviewUpdate Callback to refresh preview on top-tab changes.
  * @property {() => void} onTailoredTabActivated Callback when CV tailored tab is activated.
+ * @property {() => void} [onSettingsTabActivated] Callback when the Settings sub-tab is activated.
  * @property {() => void} onTabsChanged Callback for tab changes that should trigger extra UI sync.
  */
 
@@ -47,6 +48,7 @@ export function createUiLayoutFeature(ctx) {
         onLogsTabActivated,
         onPreviewUpdate,
         onTailoredTabActivated,
+        onSettingsTabActivated,
         onTabsChanged,
     } = ctx;
 
@@ -164,6 +166,9 @@ export function createUiLayoutFeature(ctx) {
 
         if (tabName === "tailored") {
             onTailoredTabActivated();
+        }
+        if (tabName === "settings" && onSettingsTabActivated) {
+            onSettingsTabActivated();
         }
     }
 

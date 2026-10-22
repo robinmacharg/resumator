@@ -9,12 +9,15 @@ Architecture role:
 Design notes (docs/plans/settings-in-db/design.md "API", D2, D3):
 - Secrets come back masked with `isSet`; only `POST /api/settings/reveal` returns one in plain text. A masked
   placeholder sent back unchanged (on save or as a test override) is ignored.
+- Backend groups carry `status` `{enabled, reason}` computed from the stored settings. `GET /api/settings/sample`
+  returns the fictional sample `.env` text for the first-run and import screens.
 - Bad requests raise `store.StoreError` (400).
 """
 
 from __future__ import annotations
 
 import sqlite3
+from pathlib import Path
 from typing import Any
 
 import backend_registry
@@ -22,6 +25,9 @@ import settings_catalog
 import settings_io
 from cv_web import store
 from settings_env import resolve_env
+
+
+SAMPLE_PATH = Path(__file__).resolve().parent.parent / "examples" / "settings.example.env"
 
 
 def _spec_json(spec, stored: dict[str, str], specs: dict[str, Any]) -> dict[str, Any]:
@@ -45,12 +51,16 @@ def settings_payload(conn: sqlite3.Connection) -> dict[str, Any]:
     stored = store.env_settings(conn)
     groups = settings_catalog.catalog(stored)
     specs = settings_io.declared_specs(groups)
-    return {
-        "groups": [
-            {"id": group.id, "label": group.label, "settings": [_spec_json(s, stored, specs) for s in group.specs]}
-            for group in groups
-        ]
-    }
+    env = resolve_env(stored)
+    backends = {backend.id: backend for backend in backend_registry.load_backend_objects()}
+    result = []
+    for group in groups:
+        entry = {"id": group.id, "label": group.label, "settings": [_spec_json(s, stored, specs) for s in group.specs]}
+        if group.id in backends:
+            status = backend_registry._safe_status(backends[group.id], env)
+            entry["status"] = {"enabled": bool(status.enabled), "reason": status.reason or ""}
+        result.append(entry)
+    return {"groups": result}
 
 
 def _string_map(value: Any, name: str) -> dict[str, str]:
@@ -98,6 +108,13 @@ def reveal_setting(conn, role, params, query, payload, deps):
 
 def get_env_text(conn, role, params, query, payload, deps):
     return {"text": settings_io.env_export(conn, reveal=query.get("reveal") == "1")}
+
+
+def get_sample(conn, role, params, query, payload, deps):
+    try:
+        return {"text": SAMPLE_PATH.read_text(encoding="utf-8")}
+    except OSError as exc:
+        raise store.StoreError(f"can't read the sample settings: {exc}") from exc
 
 
 def import_settings(conn, role, params, query, payload, deps):

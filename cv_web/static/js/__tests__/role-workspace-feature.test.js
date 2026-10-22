@@ -84,7 +84,7 @@ function createHarness({
         onCreate: () => {},
     };
     const state = { workspace: false, activeRoleId: null, roles: [], cvSource: "role", diskFiles: {} };
-    const editors = { cv: "", jobspec: "", prompt: "p", research_prompt: "rp", env: "" };
+    const editors = { cv: "", jobspec: "", prompt: "p", research_prompt: "rp" };
     const els = {
         body: fakeElement("body"),
         roleList: fakeElement("ul"),

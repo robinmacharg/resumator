@@ -361,6 +361,7 @@ _GET_ROUTES = [
     (re.compile(r"/api/setup"), "get_setup"),
     (re.compile(r"/api/settings"), "get_settings"),
     (re.compile(r"/api/settings/env"), "get_env_text"),
+    (re.compile(r"/api/settings/sample"), "get_sample"),
 ]
 _PUT_ROUTES = [
     (re.compile(r"/api/settings"), "put_settings"),
@@ -589,6 +590,7 @@ _HANDLERS = {
     "put_settings": server_settings.put_settings,
     "reveal_setting": server_settings.reveal_setting,
     "get_env_text": server_settings.get_env_text,
+    "get_sample": server_settings.get_sample,
     "import_settings": server_settings.import_settings,
     "test_provider": server_settings.test_provider,
 }

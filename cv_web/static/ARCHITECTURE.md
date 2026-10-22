@@ -24,6 +24,9 @@ flowchart TD
     App --> ProviderModel[provider-model-feature.js]
     App --> Theme[theme-feature.js]
     App --> Steering[steering-feature.js]
+    App --> Settings[settings-feature.js]
+    Settings --> SettingsModel[settings-model.js]
+    Settings --> ApiClient
     App --> RoleWorkspace[role-workspace-feature.js]
     App --> RoleRuns[role-runs-feature.js]
     App --> RoleMerge[role-merge-feature.js]
@@ -119,6 +122,15 @@ flowchart TD
     object (`{enabled, text}`) that full runs send. In role mode `onSteeringChanged` (the role workspace) saves
     edits on the role instead; `applySteering` shows a role's steering.
 
+- `settings-feature.js` + `settings-model.js` (settings-in-db task 7)
+  - The **Settings** CV sub-tab (replaces the Env tab). Loads `/api/settings` when the tab opens and renders Global
+    (Advanced collapsed), one collapsible card per provider (status badge, fields, Reveal, Test, Save; cards for
+    unconfigured providers start closed, which is how a provider is added) and Other (key/value rows).
+  - Import (paste or file, merge or replace, Preview = dry run, Apply), Load sample, and View as `.env` (masked,
+    Reveal, Copy, Download).
+  - `settings-model.js` is pure: `diffFields`/`diffOtherRows` build the `{set, delete}` body (a blank secret field
+    means unchanged), plus summaries of import diffs and test results. Secrets reach the page only through Reveal.
+
 - `role-workspace-feature.js` (multi-role plan steps 9 and 12)
   - Role sidebar (list, **+** dialog, status select where `closed` = archive, delete) and role selection
     (remembered in localStorage). Once the DB is set up (`state.workspace`) the app is in **role mode**
@@ -189,7 +201,7 @@ This map identifies which frontend feature owns each backend/static endpoint int
 | `/api/research/stop` | `research-feature.js` | Request stop for active research run. |
 | `/api/research/format` | `research-feature.js` | Format research PDF output. |
 | `/api/research/reset-prompt` | `research-feature.js` | Restore default research prompt file. |
-| `/api/settings`, `/api/settings/{reveal,env,import,test}` | *(task 7: Settings panel)* | Settings API; no frontend caller yet. |
+| `/api/settings`, `/api/settings/{reveal,env,sample,import,test}` | `settings-feature.js` | Settings sub-tab: catalog and saves, reveal, `.env` view, import, sample, provider test. |
 | `/api/setup` (status, choice) | `role-workspace-feature.js` | First-run choice: example data or a blank master CV. |
 | `/api/roles`, `/api/roles/<id>` (read, update, `/delete`), `/api/roles/<id>/cv`, `/api/master/cv` | `role-workspace-feature.js` | Role list, create/update/archive/delete, role and master CV read/save. Routes in [docs/architecture.md](../../docs/architecture.md) "Role API". |
 | `/api/roles/<id>/merge`, `/api/master/import` (view, save) | `role-merge-feature.js` | Promote/pull/import merge view and saving it. |

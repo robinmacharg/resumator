@@ -40,7 +40,6 @@ function createContext(overrides = {}) {
             prompt: "prompt",
             research_prompt: "rp",
             jobspec: "job",
-            env: "",
         }),
         writeDraftToLocalStorage: () => {
             calls.writeDraftToLocalStorage += 1;

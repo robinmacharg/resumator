@@ -119,8 +119,8 @@ class NoDotenvReadTests(unittest.TestCase):
             for path in sources
             if not path.name.startswith("gemini-code") and path.name != "startup_audit.py" and pattern.search(path.read_text(encoding="utf-8"))
         ]
-        # startup_audit.py names these files to detect them. cv_web/server.py's raw "env" editor goes in task 7 (the Settings UI).
-        self.assertEqual(sorted(offenders), ["server.py"])
+        # startup_audit.py names these files to detect them; nothing else may.
+        self.assertEqual(sorted(offenders), [])
 
 
 if __name__ == "__main__":

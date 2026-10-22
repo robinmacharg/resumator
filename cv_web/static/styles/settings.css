@@ -1,0 +1,111 @@
+/* Settings sub-tab (settings-in-db task 7): global fields, provider cards, other keys, import/export tools. */
+
+/* Scrolls the form area under the toolbar and tool panels. */
+.settings-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 1rem;
+}
+
+/* Frames Global, Providers and Other. */
+.settings-block h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+}
+
+/* Lays labels, inputs and per-field buttons on one row. */
+.settings-field {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) 1fr auto;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  margin-bottom: 0.4rem;
+}
+
+/* Puts a field's help text under its input. */
+.settings-help {
+  grid-column: 2 / -1;
+  display: block;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+/* Rows of the Other editor: name, value, remove. */
+.settings-other-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+/* Provider card: collapsible, with a status badge in its summary. */
+.settings-card {
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: var(--panel);
+  padding: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.settings-card summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+
+/* Enabled / not configured pill. */
+.settings-badge {
+  font-size: 0.72rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+
+.settings-badge-on {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+
+.settings-badge-off {
+  color: var(--muted);
+}
+
+/* Button row under a block or tool. */
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* Import and .env view panels above the form. */
+.settings-tool {
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  padding: 0.6rem;
+  margin-bottom: 0.75rem;
+  background: var(--panel);
+}
+
+.settings-tool textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, monospace;
+}
+
+.settings-status,
+.settings-test-result {
+  margin: 0.25rem 0;
+  min-height: 1.1em;
+  font-size: 0.85rem;
+}
+
+.settings-error {
+  color: var(--danger);
+}

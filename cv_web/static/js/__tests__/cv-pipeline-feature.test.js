@@ -26,7 +26,6 @@ function createContext(overrides = {}) {
             prompt: "prompt",
             research_prompt: "",
             jobspec: "job",
-            env: "",
         }),
         writeDraftToLocalStorage: () => {},
         state: { selectedProvider: "gemini", selectedModel: "model-x" },

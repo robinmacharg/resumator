@@ -61,6 +61,20 @@ class ReadTests(SettingsApiCase):
         unset = self.find(body, "CV_FAST_MODE")
         self.assertEqual((unset["isSet"], unset["value"]), (False, ""))
 
+    def test_backend_groups_carry_status(self) -> None:
+        body = self.call("GET", "/api/settings")
+        openai = next(g for g in body["groups"] if g["id"] == "openai")
+        self.assertEqual(openai["status"]["enabled"], False)
+        self.assertTrue(openai["status"]["reason"])
+        self.assertNotIn("status", body["groups"][0])
+        store.set_env_setting(self.conn, "OPENAI_API_KEY", SECRET)
+        openai = next(g for g in self.call("GET", "/api/settings")["groups"] if g["id"] == "openai")
+        self.assertTrue(openai["status"]["enabled"])
+
+    def test_sample(self) -> None:
+        text = self.call("GET", "/api/settings/sample")["text"]
+        self.assertIn("OPENAI_API_KEY=", text)
+
     def test_reveal(self) -> None:
         store.set_env_setting(self.conn, "OPENAI_API_KEY", SECRET)
         self.assertEqual(self.call("POST", "/api/settings/reveal", {"key": "OPENAI_API_KEY"})["value"], SECRET)

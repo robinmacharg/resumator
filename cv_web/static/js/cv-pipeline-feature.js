@@ -16,7 +16,7 @@ import { pollUntilDone } from "./async-workflow-utils.js";
  *
  * @typedef {Object} CvPipelineFeatureContext
  * @property {(path: string, options?: RequestInit) => Promise<any>} api JSON API request helper.
- * @property {() => {cv: string, prompt: string, research_prompt: string, jobspec: string, env: string}} currentFiles Current editor payload.
+ * @property {() => {cv: string, prompt: string, research_prompt: string, jobspec: string}} currentFiles Current editor payload.
  * @property {() => void} writeDraftToLocalStorage Persist current draft before runs.
  * @property {{selectedProvider: string, selectedModel: string, selectedTheme?: string}} state Shared app state subset.
  * @property {(running: boolean) => void} setRunning Toggle global running state.

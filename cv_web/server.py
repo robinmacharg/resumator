@@ -111,7 +111,6 @@ EDITOR_FILES = {
     "prompt": INPUT_DIR / "prompt.md",
     "research_prompt": INPUT_DIR / "research_prompt.md",
     "jobspec": INPUT_DIR / "jobspec.txt",
-    "env": ROOT_DIR / ".env",
 }
 
 ALLOWED_OUTPUT_FILES = {

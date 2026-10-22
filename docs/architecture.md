@@ -114,16 +114,16 @@ The UI is in "role mode" once the DB is set up (`role-workspace-feature.js` and 
 [static/ARCHITECTURE.md](../cv_web/static/ARCHITECTURE.md)). A new install first picks example data or a blank master
 CV (`/api/setup`); with no roles yet only the master CV is open and runs wait for a role. The file-based endpoints
 above are unchanged, and the UI falls back to them only when the role API can't be reached. In role mode the CV and
-job spec editors never reach them, so `input/CV.md` isn't overwritten; the prompt and `.env` editors stay file-based. Role research runs are stored, but the UI doesn't list or render
+job spec editors never reach them, so `input/CV.md` isn't overwritten; the prompt editors stay file-based; settings are edited in the Settings sub-tab (`/api/settings`). Role research runs are stored, but the UI doesn't list or render
 them yet (see [gaps.md](gaps.md)).
 
 | Route | What |
 |---|---|
 | `GET /api/setup` | First-run status: `{needed, done, hasMaster, roleCount}` (`done` = the choice made, or null) |
 | `POST /api/setup` | `{choice: "example" \| "blank"}` → `{choice, masterVersionId, roleId, runId}` (null role and run for blank). 400 for another choice, 409 once done or when the DB already has data |
-| `GET`/`PUT /api/settings` | Settings catalog grouped (Global, one per backend, Other) with values; secrets masked with `isSet`. PUT `{set, delete}` in one transaction, unchanged masked placeholders ignored (`server_settings.py`) |
+| `GET`/`PUT /api/settings` | Settings catalog grouped (Global, one per backend with `status {enabled, reason}`, Other) with values; secrets masked with `isSet`. PUT `{set, delete}` in one transaction, unchanged masked placeholders ignored (`server_settings.py`) |
 | `POST /api/settings/reveal`, `GET /api/settings/env[?reveal=1]` | One secret in plain text `{key}`; the settings as commented `.env` text |
-| `POST /api/settings/import`, `POST /api/settings/test` | `{text, mode, dry_run}` → diff of key lists; `{provider, overrides?}` → one real model call `{ok, message, elapsedSeconds, model}` |
+| `GET /api/settings/sample`, `POST /api/settings/import`, `POST /api/settings/test` | Fictional sample `{text}`; `{text, mode, dry_run}` → diff of key lists; `{provider, overrides?}` → one real model call `{ok, message, elapsedSeconds, model}` |
 | `GET /api/roles[?status=]` | Role list (R20): role fields plus `lastRunAt`, `currentSteered` |
 | `POST /api/roles` | Create `{name, company, jobspec, status, theme, steeringText, steeringEnabled, slug}`; seeds its CV from the master (409 without one) |
 | `GET`/`POST /api/roles/<id>` | Read / update the same fields. Archive = `{status: "closed"}` (R21); `theme: ""` = default |
