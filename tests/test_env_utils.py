@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from env_utils import parse_dotenv_file
+from env_utils import parse_dotenv_file, parse_dotenv_text
 
 
 class EnvUtilsTests(unittest.TestCase):
@@ -30,6 +30,10 @@ class EnvUtilsTests(unittest.TestCase):
             self.assertEqual(parsed["QUX"], "double quoted")
             self.assertEqual(parsed["EMPTY"], "")
             self.assertNotIn("INVALID_LINE", parsed)
+
+    def test_parse_dotenv_text_matches_file_parser(self) -> None:
+        parsed = parse_dotenv_text("export A=1\nB = 'two words'\n# c\nbad\nA=3")
+        self.assertEqual(parsed, {"A": "3", "B": "two words"})
 
 
 if __name__ == "__main__":

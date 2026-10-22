@@ -11,6 +11,10 @@ Run from the repo root: `python3 -m resumator --action list` (or `python3 resuma
 | `render` | PDF or DOCX of a role's current (or `--run`) CV run, rendered on demand (R6) |
 | `backup` | Timestamped copy of the DB (R18) |
 | `setup` | First-run choice on an empty DB: `--choice example` or `blank` (R3) |
+| `settings-import` | Import `--env-file F` (or `--from-environment`) into the settings DB: merge, `--replace`, `--dry-run`, `--delete-after` (D7, D11) |
+| `settings-export` | Print the stored settings as commented `.env` text; secrets masked unless `--reveal` |
+| `settings-set` | Set `--key K`; the value comes from `getpass` for secrets (D9), else stdin |
+| `settings-test` | One real model call against `--provider P` with the stored settings (D3) |
 | `migrate-single-role` | One-time import of `input/`/`output/` files as a role (R4, `cv_web.migrate_single_role`) |
 
 The one-shot, file-based scripts (`generate_cv.py`, `research_role.py`) are unchanged; this CLI never reads or
@@ -21,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import getpass
 import sqlite3
 import subprocess
 import sys
@@ -28,11 +33,17 @@ from pathlib import Path
 from typing import Any
 
 from cv_convert import available_themes, render_cv
+import backend_registry
+import settings_catalog
+import settings_env
+import settings_io
 import startup_audit
+from env_utils import parse_dotenv_text
 from cv_web import first_run, migrate_single_role, role_runner, store
 
 OUTPUT_DIR = Path("output")
-ACTIONS = ("list", "create", "cv", "research", "render", "backup", "setup", "migrate-single-role")
+ACTIONS = ("list", "create", "cv", "research", "render", "backup", "setup",
+           "settings-import", "settings-export", "settings-set", "settings-test", "migrate-single-role")
 NEEDS_ROLE = ("create", "cv", "research", "render", "migrate-single-role")
 
 
@@ -77,6 +88,17 @@ def build_parser() -> argparse.ArgumentParser:
     other.add_argument("--archive", action="append", default=[], metavar="DIR",
                        help="migrate-single-role: folder with an older CV run; repeatable")
     other.add_argument("--no-research", action="store_true", help="migrate-single-role: skip research output")
+
+    settings = parser.add_argument_group("settings-import, settings-export, settings-set, settings-test")
+    settings.add_argument("--env-file", type=Path, help="settings-import: .env-style file to import")
+    settings.add_argument("--from-environment", action="store_true",
+                          help="settings-import: import the catalogued keys set in the current shell")
+    settings.add_argument("--replace", action="store_true",
+                          help="settings-import: make the stored settings exactly the imported ones")
+    settings.add_argument("--delete-after", action="store_true",
+                          help="settings-import: delete --env-file once imported")
+    settings.add_argument("--reveal", action="store_true", help="settings-export: show secrets in plain text")
+    settings.add_argument("--key", help="settings-set: the setting name, e.g. OPENAI_API_KEY")
     return parser
 
 
@@ -87,6 +109,12 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"--action {args.action} needs --role")
     if args.action == "setup" and not args.choice:
         parser.error("--action setup needs --choice example or blank")
+    if args.action == "settings-import" and bool(args.env_file) == args.from_environment:
+        parser.error("--action settings-import needs exactly one of --env-file or --from-environment")
+    if args.action == "settings-set" and not (args.key or "").strip():
+        parser.error("--action settings-set needs --key")
+    if args.action == "settings-test" and not args.provider:
+        parser.error("--action settings-test needs --provider")
     startup_audit.audit_or_exit(allow={"dotenv"} if args.action == "settings-import" else ())
     if args.action == "migrate-single-role":
         return _migrate(args)
@@ -218,6 +246,67 @@ def _setup(conn: sqlite3.Connection, args: argparse.Namespace) -> int:
     return 0
 
 
+def _settings_import(conn: sqlite3.Connection, args: argparse.Namespace) -> int:
+    if args.from_environment:
+        values = settings_io.env_from_environment()
+        source = "the current environment"
+    else:
+        values = parse_dotenv_text(_read_text(args.env_file))
+        source = str(args.env_file)
+    try:
+        diff = settings_io.env_import_values(conn, values, "replace" if args.replace else "merge", args.dry_run)
+    except ValueError as exc:
+        raise CliError(str(exc)) from exc
+    print(("Dry run, nothing written. " if args.dry_run else "") + f"From {source}:")
+    for label in ("added", "changed", "unchanged", "removed"):
+        keys = diff[label]
+        print(f"  {label}: {len(keys)}" + (f" ({', '.join(keys)})" if keys else ""))
+    if args.delete_after and not args.dry_run and args.env_file:
+        try:
+            args.env_file.unlink()
+        except OSError as exc:
+            raise CliError(f"imported, but couldn't delete {args.env_file}: {exc}") from exc
+        print(f"Deleted {args.env_file}.")
+    return 0
+
+
+def _settings_export(conn: sqlite3.Connection, args: argparse.Namespace) -> int:
+    text = settings_io.env_export(conn, reveal=args.reveal)
+    print(text if text else "# No settings stored.", end="" if text else "\n")
+    return 0
+
+
+def _settings_set(conn: sqlite3.Connection, args: argparse.Namespace) -> int:
+    key = args.key.strip()
+    if not settings_io.KEY_RE.match(key):
+        raise CliError(f"invalid setting name {key!r}")
+    if settings_io.is_secret(key):
+        value = getpass.getpass(f"Value for {key} (hidden): ")
+    else:
+        value = sys.stdin.read()
+    value = value.strip()
+    if not value:
+        raise CliError(f"no value given for {key}")
+    store.set_env_setting(conn, key, value)
+    print(f"Saved {key}.")
+    return 0
+
+
+def _settings_test(conn: sqlite3.Connection, args: argparse.Namespace) -> int:
+    backend = next((b for b in backend_registry.load_backend_objects() if b.id == args.provider), None)
+    if backend is None:
+        ids = ", ".join(b.id for b in backend_registry.load_backend_objects())
+        raise CliError(f"unknown provider {args.provider!r}; choose from {ids}")
+    print(f"Testing {backend.label} (one real model call)…", file=sys.stderr)
+    result = settings_catalog.test_connection(backend, settings_env.effective_env(conn))
+    detail = f" ({result.model}, {result.elapsed_seconds:.1f}s)" if result.model else ""
+    if result.ok:
+        print(f"OK{detail}")
+        return 0
+    print(f"error: test failed{detail}: {result.message}", file=sys.stderr)
+    return 1
+
+
 def _migrate(args: argparse.Namespace) -> int:
     argv = ["--name", args.role, "--db", args.db]
     if args.company:
@@ -237,6 +326,10 @@ ACTION_HANDLERS = {
     "render": _render,
     "backup": _backup,
     "setup": _setup,
+    "settings-import": _settings_import,
+    "settings-export": _settings_export,
+    "settings-set": _settings_set,
+    "settings-test": _settings_test,
 }
 
 

@@ -48,7 +48,7 @@ python3 cv_convert.py [--theme compact]             # re-render output/tailored.
 python3 research_role.py --company-name "X" [--url U ...] [--dry-run]
 python3 generate_cv.py --io json < request.json     # also research_role.py: JSON request in, JSON result out, no files
 python3 research_format.py
-python3 -m resumator --action list|create|cv|research|render|backup|setup|migrate-single-role [--role R] [--db F]  # role-mode CLI (DB)
+python3 -m resumator --action list|create|cv|research|render|backup|setup|settings-import|settings-export|settings-set|settings-test|migrate-single-role [--role R] [--db F]  # role-mode CLI (DB)
 python3 -m cv_web.migrate_single_role --name "Role" [--archive DIR]  # one-time: this install's files → first role in the DB
 python3 cv_source.py --lint [path]                  # lint a CV source file (default input/CV.md)
 python3 -m unittest discover -s tests -v            # Python tests (server helpers, env_utils, cv_source, cv_merge, store, role_merge, role_runner, server_roles, migrate_single_role, first_run, resumator CLI, contract, backends, --io json)

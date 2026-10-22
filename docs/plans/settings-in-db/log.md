@@ -24,3 +24,4 @@ not instructions.
   `model_providers.json` reads removed from the server, runner, scripts, `cv_convert`, `research_format` and
   `provider_catalog`; `env` threaded through rendering. Env tab left for task 7. 319 tests pass on 3.13.
 - 2026-10-22 · Task 4 · `startup_audit.py` (dotenv error; model_providers.json, ~/.gemini/.env, shell-shadow warnings) wired into the server, role CLI and one-shot scripts; `--io json` skipped. 13 new tests; 332 pass on 3.13. The repo's real `.env` now blocks startup until imported (task 5).
+- 2026-10-22 · Task 5 · `env_utils.parse_dotenv_text`; `settings_io.py` (import merge/replace/dry-run diffs of key lists, `env_from_environment`, masked or revealed `env_export`); `examples/settings.example.env`; role CLI actions `settings-import`/`-export`/`-set`/`-test`. 20 new tests; 352 pass on 3.13.
