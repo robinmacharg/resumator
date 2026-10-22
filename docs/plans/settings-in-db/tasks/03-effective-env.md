@@ -1,6 +1,6 @@
 # Task 3: effective environment; `.env` reads removed
 
-**Status:** todo. **Read:** [design § Effective environment](../design.md#effective-environment), D4, D6, D8, D9,
+**Status:** done. **Read:** [design § Effective environment](../design.md#effective-environment), D4, D6, D8, D9,
 D10, D11.
 
 ## Do
@@ -22,4 +22,20 @@ passes env; one-shot without a key fails cleanly when not a TTY; no code path op
 
 ## Handover
 
-(fill in at the end of the task)
+- `settings_env.py`: `effective_env(conn, base)`, `resolve_env(stored, base)`, `shadowed_keys` (for task 4's warning),
+  `one_shot_env(db_path, provider, overrides)`, `ensure_provider_secret` (D9; raises `SettingsError`).
+- Wired: `backend_registry.runtime_env(stored)`; `provider_catalog.load_provider_catalog(env)`; server
+  `load_catalog` reads the DB via `server_roles.settings_env()`; `role_runner.run_cv/run_research` default `env` to
+  `effective_env(conn)`; `render_cv` / `convert_markdown_outputs` / `preferred_font` take `env`
+  (`server_roles.render_run` passes it; `cv_convert` and `research_format` CLIs read the DB);
+  `generate_cv.run_cv` / `research_role.run_research` take `env`; one-shot mains resolve it (`--db`, `--fast`,
+  `--font-priority` on generate_cv). `--io json` uses its process env as is.
+- Removed: `load_dotenv_file` (both scripts), `ENV_FILE`, `model_providers.json`, `MODEL_CATALOG_PATH`, the file
+  fallback in `provider_catalog`, the `runtime_env` `.env` read. `env_utils.parse_dotenv_file` stays for import (task 5).
+- Left for task 7: `EDITOR_FILES["env"]` and the UI Env tab still read/write `.env` as a plain text file. Nothing
+  else reads it. `tests/test_settings_env.py` greps that only `server.py` still mentions it.
+- **Until task 9 migrates this install, the real `.env` keys are not used by anything.** Import (task 5) is how
+  they get into the DB.
+- Not done: `--font-priority`/`--fast` on `research_role`/`cv_convert` (no use there yet); docs still describe `.env` in
+  README and the backend env table (task 10).
+- Tests: 319 pass on 3.13 (`test_settings_env.py` 12, role_runner default-env test).

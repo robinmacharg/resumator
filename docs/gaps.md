@@ -83,7 +83,6 @@ Suggested shape:
 - `research_role.py` keeps its own `DEFAULT_*_MODEL` and fallback lists that duplicate the backend modules. It should
   rely on `backend.model_sequence`.
 - `_split_csv` and `_dedupe` are copied into each backend module. Move them to `backends/base.py` or a shared helper.
-- `model_providers.json` defaults have drifted from the module defaults (gemini: `3.5-flash-lite` vs `2.5-flash`).
 - `backend_registry` re-imports and re-interrogates every backend on each call (including the bridge health check).
   Consider a short TTL cache.
 - Tests: nothing covers the backends except `claudecode`.

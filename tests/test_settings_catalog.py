@@ -10,7 +10,7 @@ from provider_clients import AttemptResult
 ROOT = Path(__file__).resolve().parent.parent
 KEY = r"([A-Z][A-Z0-9_]{3,})"
 READ_PATTERNS = [
-    re.compile(rf'(?:env|process_env|os\.environ)\.get\(\s*"{KEY}"'),
+    re.compile(rf'(?:env|process_env|os\.environ|\))\.get\(\s*"{KEY}"'),
     re.compile(rf'parse_positive_int\(\s*\w+,\s*"{KEY}"'),
 ]
 SOURCES = [

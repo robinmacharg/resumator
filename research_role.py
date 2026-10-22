@@ -14,6 +14,7 @@ from pathlib import Path
 
 from backend_registry import get_backend_or_raise
 from provider_catalog import load_provider_catalog, provider_map
+from settings_env import SettingsError, one_shot_env
 from pipe_io import RequestError, optional_text, require_text, run_json_io
 from provider_clients import AttemptResult, track_provider_process, untrack_provider_process
 
@@ -24,7 +25,6 @@ CV_FILE = INPUT_DIR / "CV.md"
 JOBSPEC_FILE = INPUT_DIR / "jobspec.txt"
 PROMPT_FILE = INPUT_DIR / "research_prompt.md"
 PROMPT_DEFAULT_FILE = INPUT_DIR / "research_prompt.default.md"
-ENV_FILE = Path(".env")
 URLS_FILE = INPUT_DIR / "research_urls.txt"
 COMPANY_FILE = INPUT_DIR / "research_company.txt"
 OUTPUT_MD = OUTPUT_DIR / "research_output.md"
@@ -208,7 +208,7 @@ def parse_positive_int(process_env: dict[str, str], key: str, default: int) -> i
     """Purpose: Parse and validate positive int for downstream use.
     
     Inputs:
-    - process_env: Runtime environment dictionary (OS env plus dotenv overrides).
+    - process_env: Runtime environment dictionary (the resolved settings environment).
     - key: Environment variable key to read and parse.
     - default: Default integer returned when the configured value is missing/invalid.
     
@@ -497,7 +497,7 @@ def build_model_sequence(
     """Purpose: Build model sequence from current inputs and state.
     
     Inputs:
-    - process_env: Runtime environment dictionary (OS env plus dotenv overrides).
+    - process_env: Runtime environment dictionary (the resolved settings environment).
     - provider: Selected provider backend identifier.
     - explicit_model: Optional explicit model override to prioritize in sequence building.
     
@@ -506,44 +506,6 @@ def build_model_sequence(
     """
     backend = get_backend_or_raise(provider, process_env)
     return backend.backend.model_sequence(process_env, explicit_model or "")
-
-
-def load_dotenv_file(path: Path) -> dict[str, str]:
-    """Purpose: Load dotenv file from configured source(s).
-    
-    Inputs:
-    - path: Filesystem path to the dotenv file to parse.
-    
-    Returns:
-    - `dict[str, str]` value representing the operation result.
-    """
-    env_vars: dict[str, str] = {}
-    if not path.exists():
-        return env_vars
-
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-
-        if line.startswith("export "):
-            line = line[len("export ") :].strip()
-
-        if "=" not in line:
-            continue
-
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip()
-        if not key:
-            continue
-
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
-            value = value[1:-1]
-
-        env_vars[key] = value
-
-    return env_vars
 
 
 def dedupe_keep_order(items: list[str]) -> list[str]:
@@ -748,6 +710,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Do not persist company name and URL list to disk",
     )
+    parser.add_argument("--db", default=None, help="Settings DB (default: cv_web/resumator.db)")
     parser.add_argument(
         "--io",
         choices=["files", "json"],
@@ -769,11 +732,13 @@ class ResearchOutcome:
     error: str | None = None
 
 
-def run_research(request: dict, *, files: bool) -> ResearchOutcome:
+def run_research(request: dict, *, files: bool, env: dict | None = None) -> ResearchOutcome:
     """Run the research pipeline on request = {cv, jobspec, prompt, company, urls, provider, model, dry_run}.
 
     files=True is the one-shot mode: it saves the built prompt and per-attempt logs under output/ (the caller writes
     the outputs). files=False (`--io json`) writes nothing: attempt logs go to stderr.
+
+    env is the process environment for the run (default `os.environ`); no `.env` file is read.
     """
     company_name = request["company"]
     urls = request["urls"]
@@ -789,10 +754,9 @@ def run_research(request: dict, *, files: bool) -> ResearchOutcome:
     else:
         print(f"Prepared prompt for '{company_name}' with {len(urls)} URL(s).", flush=True)
 
-    process_env = os.environ.copy()
-    process_env.update(load_dotenv_file(ENV_FILE))
+    process_env = dict(os.environ if env is None else env)
     process_env.setdefault("GEMINI_CLI_TRUST_WORKSPACE", "true")
-    catalog = load_provider_catalog(Path("model_providers.json"))
+    catalog = load_provider_catalog(process_env)
     providers = provider_map(catalog)
     default_provider = str(catalog.get("defaultProvider") or "gemini").strip() or "gemini"
     requested_provider = request.get("provider") or ""
@@ -1110,6 +1074,11 @@ def main() -> None:
     if not args.no_persist_inputs and not args.dry_run:
         persist_inputs(company_file, company_name, urls_file, urls)
 
+    try:
+        env = one_shot_env(args.db, "" if args.dry_run else args.provider)
+    except SettingsError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
     outcome = run_research(
         {
             "cv": cv_path.read_text(encoding="utf-8"),
@@ -1122,6 +1091,7 @@ def main() -> None:
             "dry_run": args.dry_run,
         },
         files=True,
+        env=env,
     )
     if outcome.markdown is not None:
         output_md.parent.mkdir(parents=True, exist_ok=True)

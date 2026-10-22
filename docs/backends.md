@@ -6,7 +6,7 @@ Every backend lives in `backends/<id>/module.py`. The module exposes `get_backen
 
 | Member | Purpose |
 |---|---|
-| `id`, `label` | Provider id (used in `--provider`, `.env MODEL_PROVIDER`, UI) and display name |
+| `id`, `label` | Provider id (used in `--provider`, the `MODEL_PROVIDER` setting, UI) and display name |
 | `timeout_seconds` | Per-attempt timeout used by the pipelines |
 | `interrogate(env) -> BackendStatus` | `enabled`, `reason` (shown when disabled), `models`, `default_model`. Must be cheap |
 | `model_sequence(env, explicit_model) -> list[str]` | Attempt order. An explicit model means try only that one |
@@ -25,9 +25,10 @@ log_path, timed_out`. `stdout` is the model's text. `log_path` is None when no l
   the first one wins.
 - `load_backend_objects()` instantiates the backends without interrogating them (used by `settings_catalog`, so
   listing settings never health-checks or autostarts the bridge).
-- Default provider = the first enabled backend, alphabetically. `.env MODEL_PROVIDER` and `--provider` override it.
-- `provider_catalog.load_provider_catalog` uses the registry and only falls back to `model_providers.json` when no
-  backends are found. That JSON is stale relative to the modules, so treat it as a fallback only.
+- Default provider = the first enabled backend, alphabetically. The `MODEL_PROVIDER` setting and `--provider` override it.
+- `provider_catalog.load_provider_catalog(env)` is the registry's catalog; `model_providers.json` is gone (D10).
+- Config comes from the DB, never `.env`: `settings_env.effective_env(conn)` is the process environment minus every
+  catalogued key plus the stored settings (D8). `runtime_env(stored)` is the same rule for discovery.
 
 ## How pipelines use a backend
 
@@ -49,7 +50,7 @@ optional `VSCODE_BRIDGE_SYSTEM_PROMPT`).
 | `vscodebridge` | HTTP `POST {prompt, systemPrompt?}` to the VS Code extension (`VSCODE_BRIDGE_API_URL`, default `127.0.0.1:8766/generate`), which calls Copilot via `vscode.lm` | `BACKEND_VSCODEBRIDGE_ENABLED` ≠ false, and either `/health` reports `modelReady` or autostart is on | `VSCODE_BRIDGE_MODEL` (label only; the extension picks the Copilot model) | `VSCODE_BRIDGE_API_KEY` (`x-api-key`), `_AUTOSTART` (default true, runs `VSCodeExtension/start_isolated_bridge.sh` or `_STARTUP_CMD`), `_STARTUP_TIMEOUT_SECONDS`, `_MAX_RETRIES`, `_INITIAL_BACKOFF_SECONDS`, `_SYSTEM_PROMPT` |
 
 Note: the default provider is the first enabled backend alphabetically, which is now `claudecode` whenever `claude`
-is installed. Set `MODEL_PROVIDER` in `.env` to choose a different default.
+is installed. Set the `MODEL_PROVIDER` setting to choose a different default.
 
 The HTTP clients send `temperature: 0.2`, retry with exponential backoff on retryable statuses, and write a debug log
 for every attempt.
@@ -62,7 +63,7 @@ for every attempt.
 2. Put the transport in `provider_clients.py` as `run_<id>_attempt(...)`. Follow an existing HTTP runner for
    retry, backoff, log and `AttemptResult` handling.
 3. Declare its env keys in `settings()` (secrets flagged). In `interrogate`, disable the backend with a clear `reason` when credentials or config are missing.
-4. Document its env vars in the table above. Optionally add it to `model_providers.json`.
+4. Document its env vars in the table above.
 5. No registry, server or UI changes are needed; it appears in the provider dropdown automatically.
 
 Duplication to be aware of: `_split_csv` and `_dedupe` are copied into each module, and `research_role.py` keeps its

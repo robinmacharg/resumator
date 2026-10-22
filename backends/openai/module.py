@@ -64,7 +64,7 @@ class OpenAIBackend(Backend):
         if not token:
             return BackendStatus(
                 enabled=False,
-                reason="OPENAI_API_KEY missing in .env",
+                reason="OPENAI_API_KEY is not set (add it in Settings)",
                 models=models,
                 default_model=models[0] if models else "",
             )

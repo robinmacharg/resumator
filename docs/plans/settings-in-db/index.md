@@ -6,7 +6,7 @@ files left are fictional samples under `examples/`. A Settings UI covers adding 
 options, and viewing the settings as a `.env`. Scope is config only; content files (`input/prompt.md`, CVs) are a
 separate TODO item.
 
-**Status:** IN PROGRESS. Design agreed (D1–D11). Tasks 1–2 done. Branch `feature/20261022-settings-db` (from `develop`).
+**Status:** IN PROGRESS. Design agreed (D1–D11). Tasks 1–3 done. Branch `feature/20261022-settings-db` (from `develop`).
 
 **Files** (layout per [../README.md](../README.md)): this index (read every session), [design.md](design.md) (read
 only the sections your task links), one file per task under `tasks/`, and [log.md](log.md) (append one entry per
@@ -18,7 +18,7 @@ task; read only the last few).
 |---|---|---|
 | 1 | [Store: `env_setting` table and functions](tasks/01-store.md) | done |
 | 2 | [Settings catalog and backend contract](tasks/02-catalog.md) | done |
-| 3 | [Effective environment; `.env` reads removed](tasks/03-effective-env.md) | todo |
+| 3 | [Effective environment; `.env` reads removed](tasks/03-effective-env.md) | done |
 | 4 | [Startup audit](tasks/04-startup-audit.md) | todo |
 | 5 | [Import/export core and role CLI](tasks/05-import-export-cli.md) | todo |
 | 6 | [Settings API](tasks/06-api.md) | todo |
@@ -32,7 +32,7 @@ fresh after 3, 5 and 8, and before 9 (it touches real data).
 
 ## Handoff
 
-Tasks 1–2 are done; task 2 is uncommitted. Next is task 3 (stay: it uses `settings_catalog` and `backend_registry` just written). Run Python tests with Python 3.11+ (`python3.13 -m unittest
+Tasks 1–3 are done and committed. Next is task 4, in a new session. Until task 9, nothing reads the real `.env`: the app has no keys until they're imported (task 5). Run Python tests with Python 3.11+ (`python3.13 -m unittest
 discover -s tests`): system `python3` and `.venv` are 3.9.6 and fail 19 pre-existing tests (a `.venv` rebuild is
 being handled separately).
 

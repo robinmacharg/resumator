@@ -2,6 +2,7 @@
 
 Architecture role:
 - Layer: orchestration between `cv_web/store.py` and the `--io json` scripts (`generate_cv.py`, `research_role.py`).
+- The scripts get `effective_env(conn)` (the DB's settings) as their process environment unless `env` is given.
 - Responsibility: the one place that turns a role into a run. The server (step 8) and the role CLI (step 13) both
   call `run_cv` / `run_research`; the scripts never see the DB.
 
@@ -26,6 +27,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from cv_web import store
+from settings_env import effective_env
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CV_SCRIPT = ROOT_DIR / "generate_cv.py"
@@ -240,7 +242,9 @@ def run_cv(
     )
     prompt_hash = store.save_prompt(conn, "cv", request["prompt"])
     started_at = store.now_iso()
-    _, result, log = run_script(CV_SCRIPT, request, on_log=on_log, on_start=on_start, env=env)
+    _, result, log = run_script(
+        CV_SCRIPT, request, on_log=on_log, on_start=on_start, env=effective_env(conn) if env is None else env
+    )
     success = bool(result.get("success"))
     error = result.get("error")
     # S5 step 15 adds token usage here: result["usage"] → a usage_json column.
@@ -307,7 +311,9 @@ def run_research(
     )
     prompt_hash = store.save_prompt(conn, "research", request["prompt"])
     started_at = store.now_iso()
-    _, result, log = run_script(RESEARCH_SCRIPT, request, on_log=on_log, on_start=on_start, env=env)
+    _, result, log = run_script(
+        RESEARCH_SCRIPT, request, on_log=on_log, on_start=on_start, env=effective_env(conn) if env is None else env
+    )
     success = bool(result.get("success"))
     error = result.get("error")
     run_id = store.add_research_run(

@@ -20,3 +20,6 @@ not instructions.
   `settings_catalog.py` (globals, `catalog`, `catalog_keys`, default and dispatching provider test);
   `backend_registry.load_backend_objects` (no interrogation). 12 new tests incl. a source grep that every key read
   is declared; 306 pass on 3.13.
+- 2026-10-22 · Task 3 · `settings_env.py` (effective env, one-shot env with `getpass` prompt per D9). All `.env` and
+  `model_providers.json` reads removed from the server, runner, scripts, `cv_convert`, `research_format` and
+  `provider_catalog`; `env` threaded through rendering. Env tab left for task 7. 319 tests pass on 3.13.

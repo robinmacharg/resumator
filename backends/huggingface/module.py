@@ -63,7 +63,7 @@ class HuggingFaceBackend(Backend):
         if not token:
             return BackendStatus(
                 enabled=False,
-                reason="HF_API_TOKEN missing in .env",
+                reason="HF_API_TOKEN is not set (add it in Settings)",
                 models=models,
                 default_model=models[0] if models else "",
             )

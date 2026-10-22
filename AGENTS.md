@@ -43,7 +43,7 @@ and `output/` files. Second pipeline: company/role research notes. Python stdlib
 
 ```bash
 python3 -m cv_web                                   # UI at http://127.0.0.1:8765
-python3 generate_cv.py [--provider ID] [--model M] [--cv PATH] [--theme T] [--steering-file F | --no-steering]  # CV pipeline (steering default: input/steering.md)
+python3 generate_cv.py [--provider ID] [--model M] [--cv PATH] [--theme T] [--fast] [--font-priority F] [--db F] [--steering-file F | --no-steering]  # CV pipeline (steering default: input/steering.md; settings from the DB)
 python3 cv_convert.py [--theme compact]             # re-render output/tailored.md only (looks: themes/)
 python3 research_role.py --company-name "X" [--url U ...] [--dry-run]
 python3 generate_cv.py --io json < request.json     # also research_role.py: JSON request in, JSON result out, no files

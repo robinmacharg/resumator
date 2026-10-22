@@ -19,7 +19,6 @@ from provider_catalog import load_provider_catalog, provider_map
 
 APP_DIR = Path(__file__).resolve().parent
 ROOT_DIR = APP_DIR.parent
-MODEL_CATALOG_PATH = ROOT_DIR / "model_providers.json"
 
 
 @dataclass(frozen=True)
@@ -58,8 +57,10 @@ def dedupe_keep_order(items: list[str]) -> list[str]:
 
 
 def load_catalog() -> dict[str, Any]:
-    """Load provider catalog from configured runtime catalog source."""
-    return load_provider_catalog(MODEL_CATALOG_PATH)
+    """Provider catalog, interrogated with the settings stored in the DB (so a saved change applies at once)."""
+    from cv_web import server_roles  # late: server_roles imports this package's helpers
+
+    return load_provider_catalog(server_roles.settings_env())
 
 
 def build_provider_options() -> list[dict[str, str]]:

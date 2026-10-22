@@ -33,6 +33,7 @@ from cv_web import first_run, role_merge, role_runner, store
 from cv_web import server_runtime_state as runtime
 from cv_web.server_request_parsing import parse_selected_model, parse_selected_provider, parse_url_list
 from cv_web.server_run_helpers import _build_research_run_state, _build_run_state
+from settings_env import effective_env
 
 DB_PATH = store.DB_PATH
 EXAMPLES_DIR = first_run.EXAMPLES_DIR
@@ -117,7 +118,7 @@ def render_run(conn: sqlite3.Connection, run: dict[str, Any], theme: str, output
     key = cache_key(run["id"], theme, output_format)
     data = RENDER_CACHE.get(key)
     if data is None:
-        data = render_cv(run_markdown(conn, run), output_format, key[1] or None)
+        data = render_cv(run_markdown(conn, run), output_format, key[1] or None, env=effective_env(conn))
         if data is None:
             raise ApiError(f"Rendering CV run {run['id']} as {output_format} failed (see the server log)", 500)
         RENDER_CACHE.put(key, data)
@@ -138,6 +139,12 @@ def camel(row: dict[str, Any] | None) -> dict[str, Any] | None:
 
 def connect() -> sqlite3.Connection:
     return store.connect(DB_PATH)
+
+
+def settings_env() -> dict[str, str]:
+    """The environment runs and provider checks see: process env minus catalogued keys, plus the DB's settings."""
+    with closing(connect()) as conn:
+        return effective_env(conn)
 
 
 def _require_role(conn: sqlite3.Connection, role_id: int) -> dict[str, Any]:

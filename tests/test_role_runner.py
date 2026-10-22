@@ -125,6 +125,26 @@ class BuildRequestTests(RoleRunnerTestCase):
             role_runner.build_research_request(self.conn, bare, prompt=RESEARCH_PROMPT)
 
 
+class DefaultEnvTests(RoleRunnerTestCase):
+    def test_runs_get_the_db_settings_as_their_environment(self) -> None:
+        store.set_env_setting(self.conn, "OPENAI_MODEL", "from-db")
+        seen: list[dict] = []
+
+        def fake_run_script(script, request, **kwargs):
+            seen.append(kwargs["env"])
+            return 1, {"success": False, "error": "stub"}, ""
+
+        with mock.patch.object(role_runner, "run_script", fake_run_script), mock.patch.dict(
+            os.environ, {"OPENAI_MODEL": "from-shell", "RESUMATOR_PLAIN": "1"}
+        ):
+            role_runner.run_cv(self.conn, self.role_id, prompt=CV_PROMPT)
+            role_runner.run_research(self.conn, self.role_id, prompt=RESEARCH_PROMPT)
+        self.assertEqual(len(seen), 2)
+        for env in seen:
+            self.assertEqual(env["OPENAI_MODEL"], "from-db")
+            self.assertEqual(env["RESUMATOR_PLAIN"], "1")
+
+
 class RunCvTests(RoleRunnerTestCase):
     def test_success_saves_a_current_run(self) -> None:
         reply = json.dumps(valid_payload())

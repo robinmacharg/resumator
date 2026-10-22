@@ -23,9 +23,10 @@ Two ways to run, sharing the same pipeline scripts:
 | `research_format.py` | Normalises research markdown → `research_output.formatted.{md,pdf}` |
 | `settings_catalog.py` | Declares every config key (globals plus each backend's `settings()`), groups them for the Settings page, `catalog_keys()`, provider connection tests ([backends.md](backends.md)) |
 | `backend_registry.py` | Discovers `backends/*/module.py`, interrogates each, exposes catalog and lookup ([backends.md](backends.md)) |
-| `provider_catalog.py` | Frontend-shaped provider catalog. Uses the registry first, falls back to static `model_providers.json` |
+| `provider_catalog.py` | Frontend-shaped provider catalog. From the registry only (`model_providers.json` removed) |
 | `provider_clients.py` | Transport per provider (`run_<provider>_attempt`) → `AttemptResult`; writes per-attempt logs. Provider CLIs start in their own session (so a timeout kills the group); live groups are tracked (`track_provider_process`) and killed at interpreter exit, so Ctrl-C or a stop doesn't leave `claude`/`gemini` running |
-| `env_utils.py` | `.env` parser |
+| `env_utils.py` | `.env` text parser, kept for settings import only |
+| `settings_env.py` | `effective_env(conn)`: `os.environ` minus catalogued keys plus the DB's `env_setting` rows; `one_shot_env` for the scripts (DB, flag overrides, `getpass` for a missing provider secret) |
 | `cv_web/` | stdlib `http.server` UI wrapper. Runs the CLIs as subprocesses and streams their output |
 | `cv_merge.py` | Entry-level three-way merge of CV source text (`split_units`, `compare`, `merge`) for promote/pull between master and role CVs. Pure functions, used by `cv_web/role_merge.py` |
 | `cv_web/store.py` | SQLite data layer for the multi-role workspace (`cv_web/resumator.db`, gitignored): migrations, roles, master/role CV versions, prompt versions, CV and research runs, settings, `backup`. Used by `server_roles`, `role_runner` and `migrate_single_role` ([plan](plans/multi-role.md)) |
@@ -86,7 +87,7 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 - `--io json` (both pipelines) touches none of this: inputs come in the request, attempt logs go to stderr, and the
   CV result carries the PDF as `pdf_base64` (`cv_convert.render_cv`). Shapes: `run_cv` / `new_cv_result` in
   `generate_cv.py`, `handle_json_request` in `research_role.py`.
-- `.env` sits at the repo root. Its values override OS env (`backend_registry.runtime_env`).
+- No `.env` is read. Config is the `env_setting` table; the server, `role_runner` (as the scripts' process env) and the one-shot scripts all resolve it with `settings_env`. Shell values for catalogued keys are ignored.
 
 ## Web wrapper (`cv_web/`)
 
