@@ -12,7 +12,7 @@ via a VS Code bridge.
 
 ## Prerequisites
 
-- Python 3.10+ (standard library only, so `pip install` is not needed)
+- Python 3.11+ (standard library only, so `pip install` is not needed)
 - `pandoc` and `typst` for PDF/DOCX output: `brew install pandoc typst`
 - At least one backend, configured in `.env` (see [docs/backends.md](docs/backends.md)):
   - Claude Code: the `claude` CLI, logged in (`claude auth`)

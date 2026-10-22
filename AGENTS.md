@@ -25,8 +25,8 @@ and `output/` files. Second pipeline: company/role research notes. Python stdlib
 
 ## Invariants
 
-- No third-party Python deps (`requirements.txt` is empty by design). External tools only via subprocess
-  (`gemini`, `pandoc`, `typst`).
+- Python 3.11+ (tests use `unittest` `enterContext`). No third-party Python deps (`requirements.txt` is empty by
+  design). External tools only via subprocess (`gemini`, `pandoc`, `typst`).
 - Scripts use cwd-relative `input/` and `output/`: run them from the repo root.
 - `input/CV.md` is the user's real CV and `.env` holds real keys. Don't rewrite their content unless asked, and never echo
   `.env` values. `cv_web/resumator.db` holds the user's real roles and CVs: don't write to it in checks. Copy it
