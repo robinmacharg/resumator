@@ -77,9 +77,8 @@
 
             <main class="layout">
                 <section class="editor-pane">
-                    <div class="status-row">
-                        <strong id="activeRoleLabel" data-role-only></strong>
-                        <span id="statusText">Loading...</span>
+                    <div class="role-title-row" data-role-only>
+                        <strong id="activeRoleLabel"></strong>
                     </div>
 
                     <div class="tabbar top-tabbar" role="tablist" aria-label="Top-level tabs">
@@ -629,6 +628,10 @@
                 </aside>
             </main>
         </div>
+
+        <footer class="status-bar" role="status" aria-live="polite">
+            <span id="statusText">Loading...</span>
+        </footer>
 
         <dialog id="newRoleDialog" class="role-dialog">
             <form id="newRoleForm" class="role-dialog-form">

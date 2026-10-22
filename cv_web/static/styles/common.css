@@ -249,14 +249,26 @@ body {
   flex-direction: column;
 }
 
-/* Styles the status row shown above tab navigation. */
-.status-row {
+/* Styles the active role title row shown above tab navigation. */
+.role-title-row {
   display: flex;
   justify-content: flex-start;
   align-items: center;
   padding: 0.65rem 0.9rem;
   border-bottom: 1px solid var(--line);
   font-size: 0.9rem;
+}
+
+/* Styles the full-width status bar pinned beneath the workspace. */
+.status-bar {
+  flex: none;
+  padding: 0.4rem 1.25rem;
+  border-top: 1px solid var(--line);
+  background: rgba(255, 250, 243, 0.9);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Styles the primary tab bar strip shared by top-level tabs. */
