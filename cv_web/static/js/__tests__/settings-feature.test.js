@@ -12,7 +12,16 @@ class FakeElement {
         this.value = "";
         this.hidden = false;
         this.textContent = "";
-        this.classList = { toggle() {}, add() {}, remove() {} };
+        this.classes = new Set();
+        this.dataset = {};
+        this.open = false;
+        const classes = this.classes;
+        this.classList = {
+            toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)),
+            add: (name) => classes.add(name),
+            remove: (name) => classes.delete(name),
+        };
+        this.attrs = {};
     }
     appendChild(child) {
         this.children.push(child);
@@ -24,6 +33,16 @@ class FakeElement {
     }
     removeChild(child) {
         this.children.splice(this.children.indexOf(child), 1);
+    }
+    setAttribute(name, value) {
+        this.attrs[name] = value;
+    }
+    showModal() {
+        this.open = true;
+    }
+    close() {
+        this.open = false;
+        this.listeners.close && this.listeners.close();
     }
     addEventListener(name, handler) {
         this.listeners[name] = handler;
@@ -74,7 +93,7 @@ const GROUPS = [
 ];
 
 const ELEMENT_IDS = [
-    "settingsBody", "settingsStatus", "settingsImportBtn", "settingsSampleBtn", "settingsEnvBtn", "settingsImportPanel",
+    "settingsDialog", "settingsOpenBtn", "settingsCloseBtn", "settingsStatus", "settingsImportBtn", "settingsSampleBtn", "settingsEnvBtn", "settingsImportPanel",
     "settingsImportText", "settingsImportFile", "settingsImportMode", "settingsImportPreviewBtn", "settingsImportApplyBtn",
     "settingsImportCloseBtn", "settingsImportResult", "settingsEnvPanel", "settingsEnvText", "settingsEnvRevealBtn",
     "settingsEnvCopyBtn", "settingsEnvDownloadBtn", "settingsEnvCloseBtn",
@@ -83,6 +102,13 @@ const ELEMENT_IDS = [
 function harness(handlers = {}) {
     const els = Object.fromEntries(ELEMENT_IDS.map((id) => [id, new FakeElement("div")]));
     els.settingsImportMode.value = "merge";
+    els.settingsTabButtons = ["global", "providers", "other"].map((name) => {
+        const tab = new FakeElement("button");
+        tab.dataset.settingsTab = name;
+        return tab;
+    });
+    els.settingsPanels = { global: new FakeElement("div"), providers: new FakeElement("div"), other: new FakeElement("div") };
+    els.settingsBody = new FakeElement("div"); // test convenience: the three panels' content, gathered in `body()`
     els.settingsImportPanel.hidden = true;
     els.settingsEnvPanel.hidden = true;
     const calls = [];
@@ -101,6 +127,7 @@ function harness(handlers = {}) {
     let changed = 0;
     const feature = createSettingsFeature({ els, apiClient, doc: fakeDoc, onSettingsChanged: () => changed++ });
     feature.bind();
+    els.settingsBody.find = (predicate) => Object.values(els.settingsPanels).flatMap((panel) => panel.find(predicate));
     return { els, calls, feature, changed: () => changed };
 }
 
@@ -111,7 +138,8 @@ test("load renders global, provider cards (collapsed when not configured) and ot
     const { els, feature } = harness();
     await feature.load();
     const body = els.settingsBody;
-    assert.equal(byTag(body, "h3").map((n) => n.textContent).join(","), "Global,Providers,Other");
+    assert.equal(byTag(els.settingsPanels.global, "section").length, 1);
+    assert.equal(byTag(els.settingsPanels.other, "input").length, 2);
     const [card] = byTag(body, "details").filter((n) => n.className === "settings-card");
     assert.equal(card.open, false);
     assert.match(byTag(card, "span").find((n) => /settings-badge/.test(n.className)).textContent, /not configured/);
@@ -210,4 +238,25 @@ test("a server error is shown in the status line", async () => {
     byTag(card, "input")[0].value = "k";
     await button(card, "Save").click();
     assert.equal(els.settingsStatus.textContent, "invalid setting name(s): x");
+});
+
+test("cog opens the modal and loads; X, backdrop click and tab buttons work", async () => {
+    const { els, calls } = harness();
+    await els.settingsOpenBtn.click();
+    assert.equal(els.settingsDialog.open, true);
+    assert.equal(calls.some((c) => c.path === "/api/settings"), true);
+
+    els.settingsTabButtons[1].click();
+    assert.equal(els.settingsPanels.providers.classes.has("active"), true);
+    assert.equal(els.settingsPanels.global.classes.has("active"), false);
+    assert.equal(els.settingsTabButtons[1].attrs["aria-selected"], "true");
+
+    els.settingsDialog.listeners.click({ target: els.settingsBody }); // a click inside does nothing
+    assert.equal(els.settingsDialog.open, true);
+    els.settingsDialog.listeners.click({ target: els.settingsDialog }); // backdrop
+    assert.equal(els.settingsDialog.open, false);
+
+    await els.settingsOpenBtn.click();
+    els.settingsCloseBtn.click();
+    assert.equal(els.settingsDialog.open, false);
 });

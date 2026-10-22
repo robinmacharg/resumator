@@ -12,7 +12,7 @@ import {
 
 /**
  * Architecture role:
- * - Layer: domain feature for the Settings sub-tab (settings-in-db task 7).
+ * - Layer: domain feature for the Settings pop-over (cog button in the header).
  * - Responsibility: render the settings catalog (Global, provider cards, Other), save changes, reveal secrets,
  *   test providers, import `.env` text with a diff preview, and view the settings as `.env` text.
  *
@@ -23,7 +23,8 @@ import {
 
 /**
  * @typedef {Object} SettingsFeatureContext
- * @property {any} els DOM registry subset: settingsBody, settingsStatus, settingsImportBtn, settingsSampleBtn,
+ * @property {any} els DOM registry subset: settingsDialog, settingsOpenBtn, settingsCloseBtn, settingsTabButtons,
+ *   settingsPanels {global, providers, other}, settingsStatus, settingsImportBtn, settingsSampleBtn,
  *   settingsEnvBtn, settingsImportPanel, settingsImportText, settingsImportFile, settingsImportMode,
  *   settingsImportPreviewBtn, settingsImportApplyBtn, settingsImportCloseBtn, settingsImportResult,
  *   settingsEnvPanel, settingsEnvText, settingsEnvRevealBtn, settingsEnvCopyBtn, settingsEnvDownloadBtn,
@@ -35,7 +36,7 @@ import {
 
 /**
  * @param {SettingsFeatureContext} ctx
- * @returns {{bind: () => void, load: () => Promise<void>}}
+ * @returns {{bind: () => void, load: () => Promise<void>, open: () => Promise<void>, close: () => void, setTab: (name: string) => void}}
  */
 export function createSettingsFeature(ctx) {
     const { els } = ctx;
@@ -184,7 +185,6 @@ export function createSettingsFeature(ctx) {
         const save_ = h("button", { type: "button", className: "btn btn-primary", textContent: "Save" });
         save_.addEventListener("click", () => save(fields.collect(), "Global settings saved."));
         return h("section", { className: "settings-block" }, [
-            h("h3", { textContent: "Global" }),
             fields.element,
             h("div", { className: "settings-actions" }, [save_]),
         ]);
@@ -267,7 +267,6 @@ export function createSettingsFeature(ctx) {
             save(diff, "Other settings saved.");
         });
         return h("section", { className: "settings-block" }, [
-            h("h3", { textContent: "Other" }),
             h("small", {
                 className: "settings-help",
                 textContent: "Keys no provider declares. They are kept and passed to runs as they are.",
@@ -279,21 +278,49 @@ export function createSettingsFeature(ctx) {
 
     function render() {
         const parts = splitGroups(groups);
-        const body = els.settingsBody;
-        body.textContent = "";
+        const { global, providers, other } = els.settingsPanels;
+        [global, providers, other].forEach((panel) => {
+            panel.textContent = "";
+        });
         if (parts.global) {
-            body.appendChild(buildGlobal(parts.global));
+            global.appendChild(buildGlobal(parts.global));
         }
-        const providers = h("section", { className: "settings-block" }, [
-            h("h3", { textContent: "Providers" }),
+        providers.appendChild(
             h("small", {
                 className: "settings-help",
                 textContent: "Open a provider that isn't configured, fill in its fields and Save to add it.",
             }),
-            ...parts.providers.map(buildProvider),
-        ]);
-        body.appendChild(providers);
-        body.appendChild(buildOther(parts.other));
+        );
+        parts.providers.forEach((group) => providers.appendChild(buildProvider(group)));
+        other.appendChild(buildOther(parts.other));
+    }
+
+    /** @param {string} name global | providers | other */
+    function setTab(name) {
+        els.settingsTabButtons.forEach((button) => {
+            const active = button.dataset.settingsTab === name;
+            button.classList.toggle("active", active);
+            button.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        Object.entries(els.settingsPanels).forEach(([panelName, panel]) => {
+            panel.classList.toggle("active", panelName === name);
+        });
+    }
+
+    async function open() {
+        if (!els.settingsDialog.open) {
+            els.settingsDialog.showModal();
+        }
+        await load();
+    }
+
+    function close() {
+        els.settingsImportPanel.hidden = true;
+        els.settingsEnvPanel.hidden = true;
+        els.settingsEnvText.value = "";
+        if (els.settingsDialog.open) {
+            els.settingsDialog.close();
+        }
     }
 
     async function load() {
@@ -364,6 +391,20 @@ export function createSettingsFeature(ctx) {
     }
 
     function bind() {
+        els.settingsOpenBtn.addEventListener("click", open);
+        els.settingsCloseBtn.addEventListener("click", close);
+        // A click on the backdrop lands on the <dialog> itself (the inner wrapper fills the rest).
+        els.settingsDialog.addEventListener("click", (event) => {
+            if (event.target === els.settingsDialog) {
+                close();
+            }
+        });
+        els.settingsDialog.addEventListener("close", () => {
+            els.settingsEnvText.value = "";
+        });
+        els.settingsTabButtons.forEach((button) => {
+            button.addEventListener("click", () => setTab(button.dataset.settingsTab));
+        });
         els.settingsImportBtn.addEventListener("click", () => showImport());
         els.settingsSampleBtn.addEventListener("click", async () => {
             try {
@@ -403,5 +444,5 @@ export function createSettingsFeature(ctx) {
         els.settingsEnvDownloadBtn.addEventListener("click", download);
     }
 
-    return { bind, load };
+    return { bind, load, open, close, setTab };
 }

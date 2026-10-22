@@ -130,7 +130,15 @@ const els = {
     researchCommandOutput: document.getElementById("researchCommandOutput"),
     researchAutoscrollIndicator: document.getElementById("researchAutoscrollIndicator"),
     jobspecEditor: document.getElementById("jobspecEditor"),
-    settingsBody: document.getElementById("settingsBody"),
+    settingsDialog: document.getElementById("settingsDialog"),
+    settingsOpenBtn: document.getElementById("settingsOpenBtn"),
+    settingsCloseBtn: document.getElementById("settingsCloseBtn"),
+    settingsTabButtons: Array.from(document.querySelectorAll(".settings-tab-btn")),
+    settingsPanels: {
+        global: document.getElementById("settingsPanelGlobal"),
+        providers: document.getElementById("settingsPanelProviders"),
+        other: document.getElementById("settingsPanelOther"),
+    },
     settingsStatus: document.getElementById("settingsStatus"),
     settingsImportBtn: document.getElementById("settingsImportBtn"),
     settingsSampleBtn: document.getElementById("settingsSampleBtn"),
@@ -183,7 +191,6 @@ const els = {
         prompt: document.getElementById("tab-prompt"),
         jobspec: document.getElementById("tab-jobspec"),
         steering: document.getElementById("tab-steering"),
-        settings: document.getElementById("tab-settings"),
         tailored: document.getElementById("tab-tailored"),
     },
     researchInputPanels: {
@@ -451,7 +458,6 @@ const uiLayoutFeature = createUiLayoutFeature({
     onLogsTabActivated: logsFeature.refreshLogs,
     onPreviewUpdate: previewBindings.updatePreview,
     onTailoredTabActivated: refreshTailoredOutput,
-    onSettingsTabActivated: settingsFeature.load,
     onTabsChanged: updateAutoScrollIndicators,
 });
 

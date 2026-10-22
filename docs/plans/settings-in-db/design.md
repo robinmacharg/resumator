@@ -125,7 +125,7 @@ and no fallback. A real call each time (D3).
 
 ### UI
 
-A **Settings** panel (`cv_web/static/js/settings-feature.js`) replaces the Env tab:
+A **Settings** pop-over (`cv_web/static/js/settings-feature.js`; cog button in the header, almost full screen, tabs Global / Providers / Other values) replaces the Env tab:
 
 - **Global:** default provider, fast mode, theme, font priority; an Advanced section that starts collapsed.
 - **Providers:** one card per backend showing enabled/disabled with its `reason`, its declared fields (secrets as

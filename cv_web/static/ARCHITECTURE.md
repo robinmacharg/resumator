@@ -123,9 +123,11 @@ flowchart TD
     edits on the role instead; `applySteering` shows a role's steering.
 
 - `settings-feature.js` + `settings-model.js` (settings-in-db task 7)
-  - The **Settings** CV sub-tab (replaces the Env tab). Loads `/api/settings` when the tab opens and renders Global
-    (Advanced collapsed), one collapsible card per provider (status badge, fields, Reveal, Test, Save; cards for
-    unconfigured providers start closed, which is how a provider is added) and Other (key/value rows).
+  - The **Settings** pop-over (replaces the Env tab): a cog button right of "Restart Server" opens an
+    almost-full-screen modal `<dialog>` (`#settingsDialog`) that closes with the X, Escape or a click on the
+    backdrop, scrolls, and has Global / Providers / Other values tabs. `/api/settings` loads each time it opens.
+    Global (Advanced collapsed); one collapsible card per provider (status badge, fields, Reveal, Test, Save; cards
+    for unconfigured providers start closed, which is how a provider is added); Other values (key/value rows).
   - Import (paste or file, merge or replace, Preview = dry run, Apply), Load sample, and View as `.env` (masked,
     Reveal, Copy, Download).
   - `settings-model.js` is pure: `diffFields`/`diffOtherRows` build the `{set, delete}` body (a blank secret field
@@ -201,7 +203,7 @@ This map identifies which frontend feature owns each backend/static endpoint int
 | `/api/research/stop` | `research-feature.js` | Request stop for active research run. |
 | `/api/research/format` | `research-feature.js` | Format research PDF output. |
 | `/api/research/reset-prompt` | `research-feature.js` | Restore default research prompt file. |
-| `/api/settings`, `/api/settings/{reveal,env,sample,import,test}` | `settings-feature.js` | Settings sub-tab: catalog and saves, reveal, `.env` view, import, sample, provider test. |
+| `/api/settings`, `/api/settings/{reveal,env,sample,import,test}` | `settings-feature.js` | Settings pop-over: catalog and saves, reveal, `.env` view, import, sample, provider test. |
 | `/api/setup` (status, choice) | `role-workspace-feature.js` | First-run choice: example data or a blank master CV. |
 | `/api/roles`, `/api/roles/<id>` (read, update, `/delete`), `/api/roles/<id>/cv`, `/api/master/cv` | `role-workspace-feature.js` | Role list, create/update/archive/delete, role and master CV read/save. Routes in [docs/architecture.md](../../docs/architecture.md) "Role API". |
 | `/api/roles/<id>/merge`, `/api/master/import` (view, save) | `role-merge-feature.js` | Promote/pull/import merge view and saving it. |
