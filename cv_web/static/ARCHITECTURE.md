@@ -189,6 +189,7 @@ This map identifies which frontend feature owns each backend/static endpoint int
 | `/api/research/stop` | `research-feature.js` | Request stop for active research run. |
 | `/api/research/format` | `research-feature.js` | Format research PDF output. |
 | `/api/research/reset-prompt` | `research-feature.js` | Restore default research prompt file. |
+| `/api/settings`, `/api/settings/{reveal,env,import,test}` | *(task 7: Settings panel)* | Settings API; no frontend caller yet. |
 | `/api/setup` (status, choice) | `role-workspace-feature.js` | First-run choice: example data or a blank master CV. |
 | `/api/roles`, `/api/roles/<id>` (read, update, `/delete`), `/api/roles/<id>/cv`, `/api/master/cv` | `role-workspace-feature.js` | Role list, create/update/archive/delete, role and master CV read/save. Routes in [docs/architecture.md](../../docs/architecture.md) "Role API". |
 | `/api/roles/<id>/merge`, `/api/master/import` (view, save) | `role-merge-feature.js` | Promote/pull/import merge view and saving it. |

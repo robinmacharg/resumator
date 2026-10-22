@@ -94,6 +94,10 @@ class ExportTests(DbCase):
         self.assertEqual(store.env_settings(self.conn), before)
         self.assertEqual(diff["changed"], [])
 
+    def test_unknown_secret_looking_key_is_masked(self) -> None:
+        settings_io.env_import(self.conn, "MY_SERVICE_TOKEN=abcdefghijkl")
+        self.assertNotIn("abcdefghijkl", settings_io.env_export(self.conn))
+
     def test_empty(self) -> None:
         self.assertEqual(settings_io.env_export(self.conn), "")
 

@@ -6,7 +6,7 @@ files left are fictional samples under `examples/`. A Settings UI covers adding 
 options, and viewing the settings as a `.env`. Scope is config only; content files (`input/prompt.md`, CVs) are a
 separate TODO item.
 
-**Status:** IN PROGRESS. Design agreed (D1–D11). Tasks 1–5 done. Branch `feature/20261022-settings-db` (from `develop`).
+**Status:** IN PROGRESS. Design agreed (D1–D11). Tasks 1–6 done. Branch `feature/20261022-settings-db` (from `develop`).
 
 **Files** (layout per [../README.md](../README.md)): this index (read every session), [design.md](design.md) (read
 only the sections your task links), one file per task under `tasks/`, and [log.md](log.md) (append one entry per
@@ -21,7 +21,7 @@ task; read only the last few).
 | 3 | [Effective environment; `.env` reads removed](tasks/03-effective-env.md) | done |
 | 4 | [Startup audit](tasks/04-startup-audit.md) | done |
 | 5 | [Import/export core and role CLI](tasks/05-import-export-cli.md) | done |
-| 6 | [Settings API](tasks/06-api.md) | todo |
+| 6 | [Settings API](tasks/06-api.md) | done |
 | 7 | [Settings UI panel](tasks/07-ui.md) | todo |
 | 8 | [First-run Settings step](tasks/08-first-run.md) | todo |
 | 9 | [Migrate this install and cold-start test](tasks/09-migrate-install.md) | todo |
@@ -32,7 +32,7 @@ fresh after 3, 5 and 8, and before 9 (it touches real data).
 
 ## Handoff
 
-Tasks 1–5 are done (committed). Next is task 6 (settings API), then 7 (UI) in the same session. `settings_io.env_import_values`/`env_export`/`mask_secret`/`is_secret` are ready for the API to reuse. The real `.env` still blocks startup of the server and scripts until it is imported with `python3 -m resumator --action settings-import --env-file .env --delete-after` (task 9 does this on the real install; don't before). Run Python tests with Python 3.11+ (`python3.13 -m unittest
+Tasks 1–6 are done (committed). Next is task 7 (Settings UI panel), same session if context allows; it also removes `EDITOR_FILES["env"]` and the Env tab. The API shapes are in task 6's Handover. The real `.env` still blocks startup of the server and scripts until it is imported with `python3 -m resumator --action settings-import --env-file .env --delete-after` (task 9 does this on the real install; don't before). Run Python tests with Python 3.11+ (`python3.13 -m unittest
 discover -s tests`): system `python3` and `.venv` are 3.9.6 and fail 19 pre-existing tests (a `.venv` rebuild is
 being handled separately).
 

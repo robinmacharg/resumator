@@ -41,8 +41,16 @@ def mask_secret(value: str) -> str:
     return f"{value[:3]}…{value[-4:]}"
 
 
+def declared_specs(groups: list[settings_catalog.SettingGroup]) -> dict[str, object]:
+    """Specs the catalog really declares; the synthesized "Other" entries are left out so `is_secret` falls back
+    to the name heuristic for them."""
+    return {
+        spec.key: spec for group in groups if group.id != settings_catalog.OTHER_ID for spec in group.specs
+    }
+
+
 def _spec_map() -> dict[str, object]:
-    return {spec.key: spec for group in settings_catalog.catalog() for spec in group.specs}
+    return declared_specs(settings_catalog.catalog())
 
 
 def env_from_environment(base: Mapping[str, str] | None = None) -> dict[str, str]:
@@ -110,7 +118,7 @@ def env_export(conn: sqlite3.Connection, reveal: bool = False) -> str:
     """Stored settings as `.env` text, grouped and commented by catalog section; secrets masked unless `reveal`."""
     stored = store.env_settings(conn)
     groups = settings_catalog.catalog(stored)
-    specs = {spec.key: spec for group in groups for spec in group.specs}
+    specs = declared_specs(groups)
     lines: list[str] = []
     for group in groups:
         rows = [spec for spec in group.specs if spec.key in stored]

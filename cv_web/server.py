@@ -55,6 +55,7 @@ from cv_web import server_process_runners as process_runners
 from cv_web.server_http_handlers import (
     dispatch_get,
     dispatch_post,
+    dispatch_put,
     handle_api_research_status_get,
     handle_api_run_status_get,
     handle_cv_run,
@@ -746,6 +747,10 @@ class CVWebHandler(BaseHTTPRequestHandler):
         - None. This function performs side effects only.
         """
         dispatch_post(self, self.path, _http_handler_deps())
+
+    def do_PUT(self) -> None:
+        """Purpose: Route PUT requests (the settings save) to the shared dispatcher."""
+        dispatch_put(self, self.path, _http_handler_deps())
 
 
 def run_server() -> None:
