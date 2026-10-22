@@ -234,6 +234,9 @@ class RunTests(CliTestCase):
         code, _, err = self.cli("--action", "render", "--kind", "research", "--role", "lead-ios-engineer",
                                 "--format", "docx")
         self.assertIn("PDF only", err)
+        code, _, err = self.cli("--action", "render", "--kind", "research", "--role", "lead-ios-engineer",
+                                "--theme", "compact")
+        self.assertIn("PDF only", err)
         with mock.patch.object(resumator, "render_research_pdf", side_effect=RuntimeError("pandoc died")):
             self.research_run()
             code, _, err = self.cli("--action", "render", "--kind", "research", "--role", "lead-ios-engineer",

@@ -4,7 +4,7 @@
 PDF built on demand, run picker), never the `output/research_output.*` files, and the role CLI can write a research
 PDF. File mode (`research_role.py`, `research_format.py`, `/api/research/*`) keeps working.
 
-**Status:** in progress. Branch `feature/20261022-role-research` (from `develop`). Decisions RR1–RR6 in
+**Status:** done. Branch `feature/20261022-role-research` (from `develop`). Decisions RR1–RR6 in
 [design.md](design.md).
 
 **Files** (layout per [../README.md](../README.md)): this index (read every session), [design.md](design.md) (read
@@ -20,7 +20,7 @@ task; read only the last few).
 | 3 | [Research tab reads the role's current run](tasks/03-tab-current-run.md) | done |
 | 4 | [Research run picker, company/URL prefill](tasks/04-run-picker.md) | done |
 | 5 | [Role CLI: research PDF](tasks/05-cli.md) | done |
-| 6 | [Tests sweep and docs](tasks/06-docs.md) | todo |
+| 6 | [Tests sweep and docs](tasks/06-docs.md) | done |
 
 Sessions: 1 → 2 stay (backend, small). Fresh session before 3 (frontend). 3 → 4 stay. 5 → 6 can share a session.
 
@@ -34,9 +34,9 @@ Sessions: 1 → 2 stay (backend, small). Fresh session before 3 (frontend). 3 �
 
 ## Handoff
 
-Tasks 1–5 done (committed). Next: task 6 (tests sweep and docs; `docs/architecture.md`'s `resumator.py` row is
-already current). The real DB now has a research run (id 1); still test on a DB copy. A "404 - unknown route" the
-user saw in the research pane wasn't reproduced (task 4 Handover); ask for the URL if it comes back.
+All six tasks done (committed). Branch `feature/20261022-role-research` is ready to merge into `develop` with
+`git merge --no-ff`. A "404 - unknown route" the user saw in the research pane wasn't reproduced (task 4 Handover);
+ask for the URL if it comes back.
 
 Paste this to start or continue:
 

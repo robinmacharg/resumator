@@ -14,3 +14,5 @@
   reproduced; likely a stale server or page.
 - 2026-10-22 · Task 5 · `research --out F` and `render --kind research [--run N]` write a research run's PDF.
   Checked on a DB copy. Tests pass (unittest 384, npm 128).
+- 2026-10-22 · Task 6 · Docs updated (architecture, gaps, TODO, AGENTS test list); one CLI refusal test added. Plan
+  done. Tests pass (unittest 384, npm 128).
