@@ -36,6 +36,8 @@ const CV_LABELS = { role: "Role CV", master: "Master CV" };
  * @property {(steering: {text: string, enabled: boolean}) => void} applySteering Show a role's steering.
  * @property {(theme: string) => void} applyTheme Show a role's theme.
  * @property {any} roleRunsFeature Run-history API: loadRuns, showSelectedRun, refreshTailoredOutput, showFirstRun.
+ * @property {(roleId: number | null) => Promise<void>} [loadRoleResearch] Show the role's current research run
+ *   (null: no role yet).
  * @property {(message: string) => boolean} [confirm] Confirmation prompt (window.confirm).
  * @property {() => void} [reloadPage] Full page reload (after the last role is deleted).
  * @property {() => void} [openSettingsStep] First-run Settings step (import, sample or skip), shown after the
@@ -65,6 +67,7 @@ export function createRoleWorkspaceFeature(ctx) {
     const confirmAction = ctx.confirm || ((message) => window.confirm(message));
     const reloadPage = ctx.reloadPage || (() => window.location.reload());
     const openSettingsStep = ctx.openSettingsStep || (() => {});
+    const loadRoleResearch = ctx.loadRoleResearch || (async () => {});
 
     let steeringTimer = null;
     let pendingSteering = null;
@@ -292,6 +295,7 @@ export function createRoleWorkspaceFeature(ctx) {
             syncModeUi();
             renderSidebar();
             await roleRunsFeature.loadRuns(role.id);
+            await loadRoleResearch(role.id);
             setStatus(`Opened role "${role.name}".`);
             return true;
         } catch (err) {
@@ -315,6 +319,7 @@ export function createRoleWorkspaceFeature(ctx) {
         renderSidebar();
         roleRunsFeature.showSelectedRun();
         await roleRunsFeature.refreshTailoredOutput();
+        await loadRoleResearch(null);
         setStatus("Editing the master CV. Add a role with + to tailor it and run.");
     }
 
@@ -359,6 +364,7 @@ export function createRoleWorkspaceFeature(ctx) {
             // The file-mode startup filled these from input/ (or a browser draft); nothing is chosen yet.
             applyRoleFiles({ cv: "", jobspec: "" });
             roleRunsFeature.showFirstRun();
+            await loadRoleResearch(null);
             syncModeUi();
             openFirstRunDialog();
             return;

@@ -76,6 +76,7 @@ function createHarness({
         steering: [],
         theme: [],
         loadRuns: [],
+        research: [],
         status: [],
         showRun: 0,
         reload: 0,
@@ -174,6 +175,7 @@ function createHarness({
                 calls.firstRunPreview += 1;
             },
         },
+        loadRoleResearch: async (roleId) => calls.research.push(roleId),
         confirm,
         reloadPage: () => {
             calls.reload += 1;
@@ -192,6 +194,7 @@ test("initialize on a new install offers the first-run choice and stays out of r
     assert.deepEqual(calls.dialog, ["open"]);
     assert.deepEqual([editors.cv, editors.jobspec], ["", ""]);
     assert.equal(calls.firstRunPreview, 1);
+    assert.deepEqual(calls.research, [null]);
     assert.equal(state.workspace, false);
     assert.deepEqual(feature.getRoleOwnedKeys(), []);
     assert.equal(els.body.classList.contains("role-mode"), false);
@@ -237,6 +240,7 @@ test("with no roles but a master, only the master CV is open", async () => {
     assert.equal(els.jobspecEditor.readOnly, true);
     assert.equal(editableFiles.cv.tabLabel, "Master CV");
     assert.deepEqual([calls.showRun, calls.tailored], [1, 1]);
+    assert.deepEqual(calls.research, [null]);
 });
 
 test("with no role the master saves, the job spec and theme changes are held back", async () => {
@@ -317,6 +321,7 @@ test("initialize opens the remembered role and fills the role-owned editors", as
     assert.equal(editors.jobspec, "job 2");
     assert.deepEqual(calls.theme, ["default"]);
     assert.deepEqual(calls.loadRuns, [2]);
+    assert.deepEqual(calls.research, [2]);
     assert.equal(els.body.classList.contains("role-mode"), true);
     assert.equal(editableFiles.cv.tabLabel, "Role CV");
     assert.equal(els.fileLoadButtons[0].textContent, "Reload");

@@ -272,6 +272,7 @@ const previewBindings = {
     applyCvOutputState: previewFeature.applyCvOutputState,
     applyResearchPreviewState: previewFeature.applyResearchOutputState,
     setCvRunSource: previewFeature.setCvRunSource,
+    setResearchRunSource: previewFeature.setResearchRunSource,
     updatePreview: previewFeature.updatePreview,
 };
 
@@ -292,6 +293,7 @@ const {
     setDebugLogOutput,
     setResearchStatus,
     setResearchOutput,
+    setResearchBuiltQueryOutput,
     setResearchCommandOutput,
     summarizeRun,
     summarizeResearchOutput,
@@ -364,6 +366,8 @@ const roleWorkspaceFeature = createRoleWorkspaceFeature({
     applySteering: (steering) => steeringFeature.applySteering(steering),
     applyTheme: (theme) => themeFeature.applyTheme(theme),
     roleRunsFeature,
+    // Late-bound: researchFeature is created further down.
+    loadRoleResearch: (roleId) => researchFeature.loadRoleResearch(roleId),
     // settingsFeature is created further down; this only runs after a first-run choice.
     openSettingsStep: () => settingsFeature.openFirstRun(),
 });
@@ -439,9 +443,11 @@ const researchFeature = createResearchFeature({
     updatePreviewCacheBuster: previewWorkflowDeps.updatePreviewCacheBuster,
     setResearchStatus,
     setResearchOutput,
+    setResearchBuiltQueryOutput,
     setResearchCommandOutput,
     renderResearchState,
     summarizeResearchOutput,
+    setResearchRunSource: previewBindings.setResearchRunSource,
     ...roleRunDeps,
     afterRoleResearchRun: () => roleWorkspaceFeature.refreshRoles(),
 });

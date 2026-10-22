@@ -260,3 +260,28 @@ test("pdf preview shows a role run, and goes back to files when the source is cl
     assert.equal(els.pdfPreviewDocxLink.hidden, true);
     assert.match(els.pdfPreviewOpenLink.href, /^\/output\//);
 });
+
+test("pdf preview shows a role research run on the Research tab, separate from the CV run", () => {
+    const els = createEls();
+    els.pdfPreview.getAttribute = () => els.pdfPreview.src;
+    els.pdfPreviewDocxLink = { hidden: false, href: "" };
+    let kind = "research";
+    const feature = createPdfPreviewFeature({ els, getActivePreviewKind: () => kind });
+
+    feature.setCvRunSource({ url: "/cv.pdf", docxUrl: "/cv.docx", label: "run #3", steering: "", generatedAt: null });
+    feature.setResearchRunSource({ url: "/api/roles/1/runs/research/4/research.pdf", label: "run #4", generatedAt: null });
+    feature.updatePreview();
+
+    assert.equal(els.pdfPreview.src, "/api/roles/1/runs/research/4/research.pdf");
+    assert.match(els.pdfPreviewTitle.textContent, /^PDF Preview \(Research, run #4, /);
+    assert.equal(els.pdfPreviewDocxLink.hidden, true);
+
+    feature.setResearchRunSource({ url: null, label: "no runs yet", generatedAt: null, placeholder: "No research runs yet" });
+    feature.updatePreview();
+    assert.equal(els.pdfPreview.classList.has("hidden"), true);
+    assert.equal(els.pdfPlaceholder.textContent, "No research runs yet");
+
+    kind = "cv";
+    feature.updatePreview();
+    assert.equal(els.pdfPreview.src, "/cv.pdf");
+});
