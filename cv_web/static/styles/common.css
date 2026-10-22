@@ -1,18 +1,11 @@
-/* Declares global design tokens used by all static UI styles. */
+/* Declares app-only design tokens; shared colour tokens (--bg, --line, --brand, …) live in theme.css. */
 :root {
-  --bg: #f4efe8;
-  --panel: #fffaf3;
-  --ink: #1f1f1f;
-  --muted: #57534e;
-  --line: #d6cec2;
-  --brand: #005f73;
-  --brand-strong: #0a9396;
-  --danger: #b42318;
+  --brand-strong: var(--brand);
   --subtab-gap: 0.35rem;
   --subtab-border-radius: 0.45rem 0.45rem 0 0;
   --subtab-padding: 0.3rem 0.65rem;
   --subtab-font-size: 0.8rem;
-  --subtab-bg: #f7f2ec;
+  --subtab-bg: var(--surface-muted);
   --subtab-active-bg: #fff;
   --subtab-active-weight: 600;
 }
@@ -28,15 +21,25 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  font-family: "Avenir Next", "Segoe UI", sans-serif;
   color: var(--ink);
-  background: radial-gradient(circle at top right, #e6f4f1 0%, var(--bg) 45%);
+  background: var(--bg);
 }
 
 /* Makes body a vertical flex container so header and layout panes stack cleanly. */
 body {
   display: flex;
   flex-direction: column;
+}
+
+/* Undoes Bootstrap Reboot's lighter headings; dialog titles keep their old size. */
+h1,
+h2,
+h3 {
+  font-weight: 700;
+}
+
+dialog h2 {
+  font-size: 1.5rem;
 }
 
 /* Styles the sticky-like top bar container with spacing and subtle backdrop treatment. */
@@ -47,8 +50,7 @@ body {
   gap: 1rem;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--line);
-  background: rgba(255, 250, 243, 0.9);
-  backdrop-filter: blur(6px);
+  background: var(--panel);
 }
 
 /* Defines title heading spacing and scale in the top bar. */
@@ -303,7 +305,7 @@ body {
   flex: none;
   padding: 0.4rem 1.25rem;
   border-top: 1px solid var(--line);
-  background: rgba(255, 250, 243, 0.9);
+  background: var(--panel);
   font-size: 0.85rem;
   white-space: nowrap;
   overflow: hidden;
@@ -322,7 +324,7 @@ body {
 .tab-btn {
   border: 1px solid var(--line);
   border-bottom: 0;
-  background: #f7f2ec;
+  background: var(--surface-muted);
   color: var(--muted);
   border-radius: 0.5rem 0.5rem 0 0;
   padding: 0.45rem 0.75rem;
@@ -458,14 +460,14 @@ textarea {
   padding: 0.65rem;
   background: #fff;
   color: var(--ink);
-  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  font-family: var(--bs-font-monospace);
   font-size: 0.84rem;
   line-height: 1.35;
 }
 
 /* Differentiates readonly textareas with muted background fill. */
 textarea[readonly] {
-  background: #f8f7f4;
+  background: var(--surface-muted);
 }
 
 /* Styles generic select controls used within panels. */
@@ -474,6 +476,12 @@ select {
   border-radius: 0.5rem;
   padding: 0.35rem 0.4rem;
   max-width: 280px;
+  font-size: 0.85rem;
+}
+
+/* Keeps text inputs at the old control size (Reboot makes controls inherit the 1rem body size). */
+input:not([type="checkbox"], [type="radio"]) {
+  font-size: 0.85rem;
 }
 
 /* Styles preformatted output blocks with dark terminal-like theme. */

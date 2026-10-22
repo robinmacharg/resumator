@@ -15,6 +15,7 @@ and `output/` files. Second pipeline: company/role research notes. Python stdlib
 | Planned work and known issues | [docs/gaps.md](docs/gaps.md) |
 | Writing or continuing a plan (layout, end-of-task and new-session rules) | [docs/plans/README.md](docs/plans/README.md) |
 | Settings in the DB (`.env` removal; decisions D1–D11) | [docs/plans/settings-in-db/index.md](docs/plans/settings-in-db/index.md) |
+| Moving the web UI to Bootstrap (decisions B1–B9) | [docs/plans/bootstrap-ui/index.md](docs/plans/bootstrap-ui/index.md) |
 | DB schema and ER diagram (keep current with `store.MIGRATIONS`) | [docs/db-schema.md](docs/db-schema.md) |
 | Roles, merge, first run, role CLI (decisions R1–R21) | [docs/plans/multi-role-design.md](docs/plans/multi-role-design.md) |
 | Frontend JS modules, endpoint ownership | [cv_web/static/ARCHITECTURE.md](cv_web/static/ARCHITECTURE.md) |

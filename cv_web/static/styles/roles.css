@@ -115,6 +115,16 @@ body:not(.cv-master) [data-master-only] {
   border-top: 1px solid var(--line);
 }
 
+/* Lets the status picker fill the sidebar width instead of overflowing it. */
+.role-sidebar-foot .model-picker {
+  width: 100%;
+}
+
+.role-sidebar-foot .model-picker select {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Spaces the preview header links. */
 .preview-header a + a {
   margin-left: 0.6rem;
@@ -248,7 +258,7 @@ body:not(.cv-master) [data-master-only] {
 /* Gives edited conflict text room. */
 .merge-edit {
   min-height: 8rem;
-  font-family: monospace;
+  font-family: var(--bs-font-monospace);
 }
 
 /* Shows merge refusals inside the dialog. */

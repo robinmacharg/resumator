@@ -1,0 +1,29 @@
+/* Retunes Bootstrap 5.3 for this app (decisions B4–B8 in docs/plans/bootstrap-ui/design.md) and maps our own
+   tokens onto Bootstrap's variables, so one file sets the look. Loaded after bootstrap.min.css, before feature CSS. */
+:root,
+[data-bs-theme="light"] {
+  /* Primary, links and focus ring stay Bootstrap's default blue #0d6efd (B7). Danger keeps our red. */
+  --bs-danger: #b42318;
+  --bs-danger-rgb: 180, 35, 24;
+
+  /* Very pale blue page; panels stay white (B6). */
+  --bs-body-bg: #f3f6fa;
+  --bs-body-bg-rgb: 243, 246, 250;
+
+  /* Small, square-ish corners (B4); badges use --bs-border-radius, so they follow. */
+  --bs-border-radius: 0.1875rem;
+  --bs-border-radius-sm: 0.125rem;
+  --bs-border-radius-lg: 0.25rem;
+  --bs-border-radius-xl: 0.25rem;
+  --bs-border-radius-xxl: 0.25rem;
+
+  /* Our tokens, now read from Bootstrap's. */
+  --bg: var(--bs-body-bg);
+  --panel: var(--bs-white);
+  --surface-muted: var(--bs-tertiary-bg);
+  --ink: var(--bs-body-color);
+  --muted: var(--bs-secondary-color);
+  --line: var(--bs-border-color);
+  --brand: var(--bs-primary);
+  --danger: var(--bs-danger);
+}
