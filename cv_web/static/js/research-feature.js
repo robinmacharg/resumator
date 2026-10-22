@@ -15,7 +15,7 @@ import { parseResearchUrlsInput } from "./app-utils.js";
  * Boundaries: this feature orchestrates research lifecycle and polling; UI/state mutations are delegated to callbacks.
  *
  * @typedef {Object} ResearchFeatureContext
- * @property {{isResearchRunning: boolean, selectedProvider: string, selectedModel: string, activeResearchOutputTab: string}} state Shared app state subset.
+ * @property {{isResearchRunning: boolean, selectedProvider: string, selectedModel: string, activeResearchOutputTab: string, researchRuns?: any[], roles?: any[]}} state Shared app state subset.
  * @property {any} els DOM element registry.
  * @property {(path: string, options?: RequestInit) => Promise<any>} api JSON API request helper.
  * @property {() => {cv: string, prompt: string, research_prompt: string, jobspec: string}} currentFiles Current editor payload.
@@ -35,6 +35,7 @@ import { parseResearchUrlsInput } from "./app-utils.js";
  * @property {(roleId: number, run: any) => Promise<void>} [afterRoleResearchRun] Role mode: after a stored run.
  * @property {(source: any) => void} [setResearchRunSource] Role mode: Research preview source (null = file mode).
  * @property {(text: string) => void} [setResearchBuiltQueryOutput] Built-query pane renderer.
+ * @property {(iso: string) => string} [formatDateTime] Short date-time formatter for the run picker.
  */
 
 /**
@@ -43,7 +44,7 @@ import { parseResearchUrlsInput } from "./app-utils.js";
  * Boundary: no direct DOM querying; consumes pre-collected element references and callback functions.
  *
  * @param {ResearchFeatureContext} ctx Feature dependencies.
- * @returns {{fetchResearchStatus: () => Promise<any>, waitForResearchCompletion: () => Promise<any>, runResearch: () => Promise<void>, stopResearch: () => Promise<void>, onResearchPrimaryAction: () => void, formatResearchPdf: () => Promise<void>, resetResearchPrompt: () => Promise<void>, copyResearchOutputToClipboard: () => Promise<void>, loadRoleResearch: (roleId: number | null, options?: {keepConsole?: boolean}) => Promise<void>}}
+ * @returns {{fetchResearchStatus: () => Promise<any>, waitForResearchCompletion: () => Promise<any>, runResearch: () => Promise<void>, stopResearch: () => Promise<void>, onResearchPrimaryAction: () => void, formatResearchPdf: () => Promise<void>, resetResearchPrompt: () => Promise<void>, copyResearchOutputToClipboard: () => Promise<void>, loadRoleResearch: (roleId: number | null, options?: {keepConsole?: boolean}) => Promise<void>, handleResearchRunSelectChanged: () => Promise<void>}}
  */
 export function createResearchFeature(ctx) {
     const {
@@ -67,6 +68,7 @@ export function createResearchFeature(ctx) {
         afterRoleResearchRun,
         setResearchRunSource,
         setResearchBuiltQueryOutput,
+        formatDateTime,
     } = ctx;
 
     /**
@@ -236,10 +238,73 @@ export function createResearchFeature(ctx) {
     }
 
     /**
-     * Role mode: show the role's current research run (output and PDF), never `output/` files (RR4).
-     * With no role or no current run, the panes and preview show an empty state.
+     * Picker label: "#3 · 21 Oct 14:02 · gemini/pro · ✓ · dry run · current".
+     * @param {any} run
+     * @returns {string}
+     */
+    function researchRunLabel(run) {
+        const model = [run.provider, run.model].filter(Boolean).join("/");
+        return [
+            `#${run.id}`,
+            formatDateTime ? formatDateTime(run.finishedAt || run.startedAt) : run.finishedAt || run.startedAt,
+            model,
+            run.success ? "✓" : "✗",
+            run.dryRun ? "dry run" : "",
+            run.isCurrent ? "current" : "",
+        ]
+            .filter(Boolean)
+            .join(" · ");
+    }
+
+    /**
+     * Fill the research run picker from state.researchRuns; failed runs can't be picked.
+     * @returns {void}
+     */
+    function renderResearchRunSelect() {
+        const select = els.researchRunSelect;
+        if (!select) {
+            return;
+        }
+        select.replaceChildren();
+        const runs = state.researchRuns || [];
+        if (!runs.length) {
+            const opt = document.createElement("option");
+            opt.value = "";
+            opt.textContent = "No runs yet";
+            select.appendChild(opt);
+            return;
+        }
+        runs.forEach((run) => {
+            const opt = document.createElement("option");
+            opt.value = String(run.id);
+            opt.textContent = researchRunLabel(run);
+            opt.disabled = !run.success;
+            select.appendChild(opt);
+        });
+        const current = runs.find((run) => run.isCurrent);
+        select.value = current ? String(current.id) : "";
+    }
+
+    /**
+     * Prefill company and URLs from the current run; the company falls back to the role's (RR5).
+     * @param {number} roleId
+     * @param {any | null} current Current run summary, or null.
+     * @returns {void}
+     */
+    function prefillResearchInputs(roleId, current) {
+        const role = (state.roles || []).find((item) => item.id === roleId);
+        els.researchCompanyInput.value = (current && current.company) || (role && role.company) || "";
+        const urls = current && Array.isArray(current.urlsJson) ? current.urlsJson : [];
+        els.researchUrlsInput.value = urls.join("\n");
+    }
+
+    /**
+     * Role mode: show the role's current research run (output and PDF), never `output/` files (RR4), fill the run
+     * picker and prefill company and URLs (RR5). With no role or no current run, the panes and preview show an
+     * empty state.
      * @param {number | null} roleId Active role, or null when there is none yet.
-     * @param {{keepConsole?: boolean}} [options] keepConsole leaves the output panes alone (a failed run's log).
+     * @param {{keepConsole?: boolean}} [options] keepConsole leaves the output panes and inputs alone (a failed
+     *   run's log, and the inputs it was started with).
      * @returns {Promise<void>}
      */
     async function loadRoleResearch(roleId, options = {}) {
@@ -253,12 +318,22 @@ export function createResearchFeature(ctx) {
             updatePreviewCacheBuster();
         };
         if (roleId === null) {
+            state.researchRuns = [];
+            renderResearchRunSelect();
             empty("no role yet", "No role yet: add one with +");
             return;
         }
         try {
             const { researchRuns } = await api(`/api/roles/${roleId}/runs`);
-            const current = (researchRuns || []).find((item) => item.isCurrent);
+            if (getActiveRoleId && getActiveRoleId() !== roleId) {
+                return;
+            }
+            state.researchRuns = researchRuns || [];
+            renderResearchRunSelect();
+            const current = state.researchRuns.find((item) => item.isCurrent) || null;
+            if (!options.keepConsole) {
+                prefillResearchInputs(roleId, current);
+            }
             if (!current) {
                 empty("no runs yet", "No research runs yet for this role. Run Research first.");
                 return;
@@ -286,6 +361,29 @@ export function createResearchFeature(ctx) {
             updatePreviewCacheBuster();
         } catch (err) {
             setResearchStatus(`Couldn't load the role's research: ${err.message}`, true);
+        }
+    }
+
+    /**
+     * Research run picker change: make the picked run current, then show it.
+     * @returns {Promise<void>}
+     */
+    async function handleResearchRunSelectChanged() {
+        const roleId = getActiveRoleId ? getActiveRoleId() : null;
+        const runId = Number(els.researchRunSelect && els.researchRunSelect.value);
+        if (roleId === null || !Number.isFinite(runId) || runId <= 0) {
+            return;
+        }
+        try {
+            await api(`/api/roles/${roleId}/runs/research/${runId}/current`, {
+                method: "POST",
+                body: JSON.stringify({}),
+            });
+            await loadRoleResearch(roleId);
+            setResearchStatus(`Showing research run #${runId}.`);
+        } catch (err) {
+            setResearchStatus(`Couldn't select research run #${runId}: ${err.message}`, true);
+            renderResearchRunSelect();
         }
     }
 
@@ -470,5 +568,6 @@ export function createResearchFeature(ctx) {
         resetResearchPrompt,
         copyResearchOutputToClipboard,
         loadRoleResearch,
+        handleResearchRunSelectChanged,
     };
 }

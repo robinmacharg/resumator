@@ -219,6 +219,9 @@ export function createAppEventBindingsFeature(ctx) {
         if (roleRunsFeature && els.runSelect) {
             els.runSelect.addEventListener("change", roleRunsFeature.handleRunSelectChanged);
         }
+        if (els.researchRunSelect) {
+            els.researchRunSelect.addEventListener("change", researchFeature.handleResearchRunSelectChanged);
+        }
     }
 
     return {

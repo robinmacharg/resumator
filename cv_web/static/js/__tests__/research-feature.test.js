@@ -290,3 +290,132 @@ test("a failed role research run keeps its log in the console and still refreshe
     assert.equal(sources.at(-1).url, "/api/roles/5/runs/research/7/research.pdf");
     assert.deepEqual(calls.setResearchStatus.at(-1), { message: "Research run failed.", isError: true });
 });
+
+/** A select stub that records its options. */
+function fakeSelect() {
+    return {
+        value: "",
+        options: [],
+        replaceChildren() {
+            this.options = [];
+        },
+        appendChild(opt) {
+            this.options.push(opt);
+        },
+    };
+}
+
+const RESEARCH_RUNS = [
+    { id: 9, success: 0, isCurrent: 0, dryRun: 0, provider: "gemini", model: "", company: "Later", startedAt: "2026-10-22T11:00" },
+    { id: 8, success: 1, isCurrent: 1, dryRun: 0, provider: "claude", model: "sonnet", company: "Acme", urlsJson: ["https://a.example", "https://b.example"], finishedAt: "2026-10-22T10:00" },
+    { id: 7, success: 1, isCurrent: 0, dryRun: 1, provider: "gemini", model: null, company: null, urlsJson: [], finishedAt: "2026-10-21T10:00" },
+];
+
+test("role research fills the run picker; failed runs can't be picked", async () => {
+    global.document = { createElement: () => ({ value: "", textContent: "", disabled: false }) };
+    const { ctx } = createRoleContext(RESEARCH_RUNS, { 8: { id: 8, outputMd: "md" } }, {
+        formatDateTime: (iso) => `t(${iso})`,
+    });
+    ctx.state.researchRuns = [];
+    ctx.els.researchRunSelect = fakeSelect();
+    const feature = createResearchFeature(ctx);
+
+    await feature.loadRoleResearch(5);
+
+    const labels = ctx.els.researchRunSelect.options.map((opt) => opt.textContent);
+    assert.deepEqual(labels, [
+        "#9 · t(2026-10-22T11:00) · gemini · ✗",
+        "#8 · t(2026-10-22T10:00) · claude/sonnet · ✓ · current",
+        "#7 · t(2026-10-21T10:00) · gemini · ✓ · dry run",
+    ]);
+    assert.deepEqual(ctx.els.researchRunSelect.options.map((opt) => opt.disabled), [true, false, false]);
+    assert.equal(ctx.els.researchRunSelect.value, "8");
+});
+
+test("role research prefills company and URLs from the current run", async () => {
+    const { ctx } = createRoleContext(RESEARCH_RUNS, { 8: { id: 8, outputMd: "md" } });
+    ctx.state.roles = [{ id: 5, company: "Role Co" }];
+    const feature = createResearchFeature(ctx);
+
+    await feature.loadRoleResearch(5);
+
+    assert.equal(ctx.els.researchCompanyInput.value, "Acme");
+    assert.equal(ctx.els.researchUrlsInput.value, "https://a.example\nhttps://b.example");
+});
+
+test("role research company falls back to the role's when the run or role has none", async () => {
+    const { ctx } = createRoleContext([{ ...RESEARCH_RUNS[2], isCurrent: 1 }], { 7: { id: 7, outputMd: "" } });
+    ctx.state.roles = [{ id: 5, company: "Role Co" }];
+    const feature = createResearchFeature(ctx);
+
+    await feature.loadRoleResearch(5);
+    assert.equal(ctx.els.researchCompanyInput.value, "Role Co");
+    assert.equal(ctx.els.researchUrlsInput.value, "");
+
+    const noRuns = createRoleContext([]);
+    noRuns.ctx.state.roles = [{ id: 5, company: "" }];
+    await createResearchFeature(noRuns.ctx).loadRoleResearch(5);
+    assert.equal(noRuns.ctx.els.researchCompanyInput.value, "");
+});
+
+test("a failed role run keeps the inputs it was started with", async () => {
+    const { ctx } = createRoleContext(RESEARCH_RUNS, { 8: { id: 8, outputMd: "md" } });
+    ctx.els.researchCompanyInput.value = "Typed";
+    const feature = createResearchFeature(ctx);
+
+    await feature.loadRoleResearch(5, { keepConsole: true });
+
+    assert.equal(ctx.els.researchCompanyInput.value, "Typed");
+});
+
+test("picking a research run makes it current and shows it", async () => {
+    global.document = { createElement: () => ({ value: "", textContent: "", disabled: false }) };
+    const runs = RESEARCH_RUNS.map((run) => ({ ...run }));
+    const posted = [];
+    const { ctx, calls, sources } = createRoleContext(runs, {
+        7: { id: 7, outputMd: "older research" },
+        8: { id: 8, outputMd: "md" },
+    });
+    const baseApi = ctx.api;
+    ctx.api = async (path, options) => {
+        if (options && options.method === "POST") {
+            posted.push(path);
+            runs.forEach((run) => (run.isCurrent = run.id === 7 ? 1 : 0));
+            return { success: true };
+        }
+        return baseApi(path, options);
+    };
+    ctx.state.researchRuns = [];
+    ctx.els.researchRunSelect = fakeSelect();
+    const feature = createResearchFeature(ctx);
+    ctx.els.researchRunSelect.value = "7";
+
+    await feature.handleResearchRunSelectChanged();
+
+    assert.deepEqual(posted, ["/api/roles/5/runs/research/7/current"]);
+    assert.equal(sources.at(-1).url, "/api/roles/5/runs/research/7/research.pdf");
+    assert.equal(calls.setResearchOutput.at(-1), "older research");
+    assert.equal(ctx.els.researchRunSelect.value, "7");
+    assert.deepEqual(calls.setResearchStatus.at(-1), { message: "Showing research run #7.", isError: false });
+});
+
+test("a refused run pick reports the error and restores the picker", async () => {
+    global.document = { createElement: () => ({ value: "", textContent: "", disabled: false }) };
+    const { ctx, calls } = createRoleContext(RESEARCH_RUNS, { 8: { id: 8, outputMd: "md" } });
+    ctx.state.researchRuns = RESEARCH_RUNS;
+    ctx.els.researchRunSelect = fakeSelect();
+    const baseApi = ctx.api;
+    ctx.api = async (path, options) => {
+        if (options && options.method === "POST") {
+            throw new Error("failed runs can't be current");
+        }
+        return baseApi(path, options);
+    };
+    const feature = createResearchFeature(ctx);
+    ctx.els.researchRunSelect.value = "9";
+
+    await feature.handleResearchRunSelectChanged();
+
+    assert.equal(calls.setResearchStatus.at(-1).isError, true);
+    assert.equal(ctx.els.researchRunSelect.value, "8");
+});

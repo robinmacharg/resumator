@@ -186,6 +186,9 @@ flowchart TD
     a run, the output panes show the role's current research run and the Research preview its on-demand PDF
     (`setResearchRunSource`); no role or no current run → empty state, never `output/` files. A failed or stopped
     run keeps its log in the console (it isn't made current). The Format button is `data-file-only`.
+  - Role mode run picker (`#researchRunSelect`, RR5): lists the role's research runs (✓/✗, dry run, current; failed
+    runs disabled); picking one makes it current and reloads the tab. Company and URLs prefill from the current run
+    (company falls back to the role's), except after a failed run.
 
 - `logs-feature.js`
   - Fetches log index and selected debug log content.
@@ -244,7 +247,7 @@ This map identifies which frontend feature owns each backend/static endpoint int
 | `/api/roles/<id>/merge`, `/api/master/import` (view, save) | `role-merge-feature.js` | Promote/pull/import merge view and saving it. |
 | `…/cv/versions/<v>`, `…/cv/versions/<v>/restore` (role or master) | `cv-history-feature.js` | Version history and restore. |
 | `/api/roles/<id>/runs`, `…/runs/cv/<run>`, `…/runs/cv/<run>/cv.pdf\|docx` | `role-runs-feature.js` (documents via `pdf-preview-feature.js`) | Run history, run detail for the Tailored tab, on-demand PDF/DOCX. |
-| `/api/roles/<id>/runs`, `…/runs/research/<run>`, `…/runs/research/<run>/research.pdf` | `research-feature.js` (PDF via `pdf-preview-feature.js`) | The role's current research run and its on-demand PDF. |
+| `/api/roles/<id>/runs`, `…/runs/research/<run>`, `…/runs/research/<run>/research.pdf`, `…/runs/research/<run>/current` (POST) | `research-feature.js` (PDF via `pdf-preview-feature.js`) | Research run picker, the current run and its on-demand PDF. |
 | `/api/roles/<id>/runs/cv`, `…/runs/research` | `cv-pipeline-feature.js`, `research-feature.js` | Start role runs; progress on the shared `/api/run/status` and `/api/research/status`. |
 | `/output/tailored.md` | `app-operations-feature.js` | File mode only: load tailored markdown output into viewer (role mode shows the picked run's model JSON). |
 

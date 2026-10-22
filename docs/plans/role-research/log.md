@@ -9,3 +9,7 @@
   run stored nothing: likely a file-mode run that failed or a dry run, then Format redid the old PDF.
 - 2026-10-22 · Task 3 · Role mode Research tab shows the current run (`loadRoleResearch`) and its PDF; empty state
   with no role/run; failed runs keep their log; Format hidden. Tests pass (unittest 380, npm 122).
+- 2026-10-22 · Task 4 · Research run picker (make current, reload) and company/URL prefill from the current run.
+  Checked in headless Chrome on a DB copy. Tests pass (unittest 380, npm 128). User's "404 - unknown route" not
+  reproduced; likely a stale server or page.
+

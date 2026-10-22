@@ -66,6 +66,7 @@ const state = {
     cvSource: "role",
     cvRuns: [],
     selectedCvRunId: null,
+    researchRuns: [],
 };
 
 // Phase 2: stable DOM registry collected once and injected into features.
@@ -110,6 +111,7 @@ const els = {
     mergeApplyBtn: document.getElementById("mergeApplyBtn"),
     mergeCancelBtn: document.getElementById("mergeCancelBtn"),
     runSelect: document.getElementById("runSelect"),
+    researchRunSelect: document.getElementById("researchRunSelect"),
     providerSelect: document.getElementById("providerSelect"),
     modelSelect: document.getElementById("modelSelect"),
     themeSelect: document.getElementById("themeSelect"),
@@ -448,6 +450,7 @@ const researchFeature = createResearchFeature({
     renderResearchState,
     summarizeResearchOutput,
     setResearchRunSource: previewBindings.setResearchRunSource,
+    formatDateTime: (value) => formatPreviewDateTime(value, "?"),
     ...roleRunDeps,
     afterRoleResearchRun: () => roleWorkspaceFeature.refreshRoles(),
 });

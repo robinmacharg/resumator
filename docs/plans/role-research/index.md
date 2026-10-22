@@ -18,7 +18,7 @@ task; read only the last few).
 | 1 | [In-memory research formatter](tasks/01-formatter.md) | done |
 | 2 | [Research run PDF route](tasks/02-render-route.md) | done |
 | 3 | [Research tab reads the role's current run](tasks/03-tab-current-run.md) | done |
-| 4 | [Research run picker, company/URL prefill](tasks/04-run-picker.md) | todo |
+| 4 | [Research run picker, company/URL prefill](tasks/04-run-picker.md) | done |
 | 5 | [Role CLI: research PDF](tasks/05-cli.md) | todo |
 | 6 | [Tests sweep and docs](tasks/06-docs.md) | todo |
 
@@ -34,9 +34,9 @@ Sessions: 1 → 2 stay (backend, small). Fresh session before 3 (frontend). 3 �
 
 ## Handoff
 
-Tasks 1–3 done (committed). Next: task 4 (research run picker, company/URL prefill), building on
-`research-feature.js` `loadRoleResearch` (task 3 Handover). The real DB has no research runs yet: test with a DB
-copy and stored runs (task 2 Handover). Task 3's role-mode UI was checked via the API, not clicked in a browser.
+Tasks 1–4 done (committed). Next: task 5 (role CLI research PDF), then task 6 (tests sweep and docs). The real DB
+has no research runs yet: test with a DB copy and stored runs (task 2 Handover). A "404 - unknown route" the user
+saw in the research pane wasn't reproduced (task 4 Handover); ask for the URL if it comes back.
 
 Paste this to start or continue:
 
