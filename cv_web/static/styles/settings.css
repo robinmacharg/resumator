@@ -89,13 +89,6 @@
   display: block;
 }
 
-/* Cog button at the far right of the header. */
-.settings-cog {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.35rem 0.5rem;
-}
-
 /* Lays labels, inputs and per-field buttons on one row. */
 .settings-field {
   display: grid;

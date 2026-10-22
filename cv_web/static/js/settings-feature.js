@@ -110,7 +110,7 @@ export function createSettingsFeature(ctx) {
             input,
         ];
         if (setting.secret && setting.isSet) {
-            const reveal = h("button", { type: "button", className: "btn btn-secondary", textContent: "Reveal" });
+            const reveal = h("button", { type: "button", className: "btn btn-sm btn-outline-secondary", textContent: "Reveal" });
             reveal.addEventListener("click", async () => {
                 try {
                     const result = await send("/api/settings/reveal", "POST", { key: setting.key });
@@ -183,7 +183,7 @@ export function createSettingsFeature(ctx) {
 
     function buildGlobal(group) {
         const fields = buildFieldList(group);
-        const save_ = h("button", { type: "button", className: "btn btn-primary", textContent: "Save" });
+        const save_ = h("button", { type: "button", className: "btn btn-sm btn-primary", textContent: "Save" });
         save_.addEventListener("click", () => save(fields.collect(), "Global settings saved."));
         return h("section", { className: "settings-block" }, [
             fields.element,
@@ -195,8 +195,8 @@ export function createSettingsFeature(ctx) {
         const enabled = Boolean(group.status && group.status.enabled);
         const fields = buildFieldList(group);
         const result = h("span", { className: "settings-test-result", role: "status" });
-        const test = h("button", { type: "button", className: "btn btn-secondary", textContent: "Test" });
-        const saveBtn = h("button", { type: "button", className: "btn btn-primary", textContent: "Save" });
+        const test = h("button", { type: "button", className: "btn btn-sm btn-outline-secondary", textContent: "Test" });
+        const saveBtn = h("button", { type: "button", className: "btn btn-sm btn-primary", textContent: "Save" });
         test.addEventListener("click", async () => {
             const diff = fields.collect();
             const overrides = { ...diff.set };
@@ -245,7 +245,7 @@ export function createSettingsFeature(ctx) {
         const addRow = (key, value) => {
             const keyInput = h("input", { type: "text", value: key, placeholder: "NAME", spellcheck: false });
             const valueInput = h("input", { type: "text", value, placeholder: "value", spellcheck: false });
-            const remove = h("button", { type: "button", className: "btn btn-secondary", textContent: "Remove" });
+            const remove = h("button", { type: "button", className: "btn btn-sm btn-outline-secondary", textContent: "Remove" });
             const row = h("div", { className: "settings-other-row" }, [keyInput, valueInput, remove]);
             const entry = { read: () => ({ key: keyInput.value, value: valueInput.value }), row };
             remove.addEventListener("click", () => {
@@ -256,9 +256,9 @@ export function createSettingsFeature(ctx) {
             list.appendChild(row);
         };
         settings.forEach((setting) => addRow(setting.key, setting.value));
-        const add = h("button", { type: "button", className: "btn btn-secondary", textContent: "Add row" });
+        const add = h("button", { type: "button", className: "btn btn-sm btn-outline-secondary", textContent: "Add row" });
         add.addEventListener("click", () => addRow("", ""));
-        const saveBtn = h("button", { type: "button", className: "btn btn-primary", textContent: "Save" });
+        const saveBtn = h("button", { type: "button", className: "btn btn-sm btn-primary", textContent: "Save" });
         saveBtn.addEventListener("click", () => {
             const diff = diffOtherRows(settings, rows.map((entry) => entry.read()));
             if (diff.invalid.length) {

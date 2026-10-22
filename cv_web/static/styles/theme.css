@@ -27,3 +27,41 @@
   --brand: var(--bs-primary);
   --danger: var(--bs-danger);
 }
+
+/* Denser buttons than Bootstrap's 1rem default; .btn-sm is restated because this file loads after Bootstrap. */
+.btn {
+  --bs-btn-font-size: 0.875rem;
+  --bs-btn-padding-y: 0.3125rem;
+  --bs-btn-padding-x: 0.75rem;
+}
+
+.btn-sm {
+  --bs-btn-font-size: 0.8125rem;
+  --bs-btn-padding-y: 0.1875rem;
+  --bs-btn-padding-x: 0.5rem;
+}
+
+/* Bootstrap's danger buttons hard-code #dc3545; use our red (B7). */
+.btn-danger {
+  --bs-btn-bg: var(--bs-danger);
+  --bs-btn-border-color: var(--bs-danger);
+  --bs-btn-hover-bg: #9a1e14;
+  --bs-btn-hover-border-color: #9a1e14;
+  --bs-btn-active-bg: #861a11;
+  --bs-btn-active-border-color: #861a11;
+  --bs-btn-disabled-bg: var(--bs-danger);
+  --bs-btn-disabled-border-color: var(--bs-danger);
+  --bs-btn-focus-shadow-rgb: var(--bs-danger-rgb);
+}
+
+.btn-outline-danger {
+  --bs-btn-color: var(--bs-danger);
+  --bs-btn-border-color: var(--bs-danger);
+  --bs-btn-hover-bg: var(--bs-danger);
+  --bs-btn-hover-border-color: var(--bs-danger);
+  --bs-btn-active-bg: #9a1e14;
+  --bs-btn-active-border-color: #9a1e14;
+  --bs-btn-disabled-color: var(--bs-danger);
+  --bs-btn-disabled-border-color: var(--bs-danger);
+  --bs-btn-focus-shadow-rgb: var(--bs-danger-rgb);
+}

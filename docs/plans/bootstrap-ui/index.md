@@ -5,7 +5,7 @@ professional look: flat buttons, 2–4px corners, Bootstrap's system font, a ver
 vanilla-JS behaviour (dialogs, tabs, splitters, sidebar) is unchanged. Ends with our custom CSS cut to what
 Bootstrap doesn't cover.
 
-**Status:** in progress (task 1 done). Decisions B1–B9 agreed. Branch `feature/20261022-bootstrap-ui` (from `develop`).
+**Status:** in progress (tasks 1–2 done). Decisions B1–B9 agreed. Branch `feature/20261022-bootstrap-ui` (from `develop`).
 
 **Files** (layout per [../README.md](../README.md)): this index (read every session), [design.md](design.md) (read
 only the sections your task links), one file per task under `tasks/`, and [log.md](log.md) (append one entry per
@@ -16,7 +16,7 @@ task; read only the last few).
 | # | Task | Status |
 |---|---|---|
 | 1 | [Baseline screenshots, vendor Bootstrap, theme tokens, layout fixes](tasks/01-foundation.md) | done |
-| 2 | [Buttons](tasks/02-buttons.md) | todo |
+| 2 | [Buttons](tasks/02-buttons.md) | done |
 | 3 | [Form controls](tasks/03-forms.md) | todo |
 | 4 | [Tabs and sub-tabs](tasks/04-tabs.md) | todo |
 | 5 | [Surfaces: panes, sidebar, dialogs, Settings, status bar](tasks/05-surfaces.md) | todo |
@@ -38,10 +38,11 @@ screenshot tooling) and before 6.
 
 ## Handoff
 
-Task 1 done and committed (`feat: Bootstrap UI task 1`) on `feature/20261022-bootstrap-ui`, with the plan files. Bootstrap 5.3.8 is
-loaded, `theme.css` sets the look, layout unchanged. B7 settled: primary is Bootstrap's default blue (no override in
-`theme.css`). Next: task 2 (buttons). Gotchas:
-our `.btn*` rules override Bootstrap's until task 2 deletes them; the screenshot kit is in task 1's Handover.
+Tasks 1–2 done and committed on `feature/20261022-bootstrap-ui` (plus an unrelated draggable role-sidebar commit,
+`roleSplitter` in `ui-layout-feature.js`). Buttons are Bootstrap (`btn-outline-secondary` for secondary; see task 2
+Handover). Next: task 3 (form controls). Gotchas: `theme.css` restates `.btn-sm` after `.btn` because it loads after
+Bootstrap; the screenshot kit is in task 1's Handover (ports 8765/8799/8811 are taken by other servers, so pick a
+free port in `launch.py`).
 
 Paste this to start or continue:
 

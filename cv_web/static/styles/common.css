@@ -106,59 +106,8 @@ dialog h2 {
   cursor: not-allowed;
 }
 
-/* Provides baseline button shape, spacing, and interaction transitions. */
-.btn {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.45rem 0.9rem;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: transform 120ms ease, opacity 120ms ease;
-}
-
-/* Adds subtle hover lift to interactive buttons. */
-.btn:hover {
-  transform: translateY(-1px);
-}
-
-/* Applies disabled-state visuals and removes hover motion for buttons. */
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* Styles primary action buttons with brand gradient emphasis. */
-.btn-primary {
-  background: linear-gradient(120deg, var(--brand), var(--brand-strong));
-  color: #fff;
-  border-color: transparent;
-}
-
-/* Styles neutral secondary action buttons. */
-.btn-secondary {
-  background: #fff;
-  color: var(--ink);
-}
-
-/* Styles destructive action buttons with danger gradient emphasis. */
-.btn-danger {
-  background: linear-gradient(120deg, #b42318, #d92d20);
-  color: #fff;
-  border-color: transparent;
-}
-
-/* Styles lightweight text-like ghost action buttons. */
-.btn-ghost {
-  border-color: transparent;
-  background: transparent;
-  color: var(--brand);
-  text-decoration: underline;
-}
-
-/* Defines compact icon-only button dimensions and centering. */
+/* Squares icon-only buttons (Bootstrap .btn-sm) and centres the icon. */
 .icon-btn {
-  border-radius: 0.45rem;
   padding: 0.28rem;
   min-width: 2rem;
   min-height: 2rem;
@@ -442,12 +391,6 @@ dialog h2 {
   align-items: center;
   justify-content: flex-end;
   gap: 0.4rem;
-}
-
-/* Compacts button sizing for inline file action controls. */
-.file-actions .btn {
-  padding: 0.3rem 0.65rem;
-  font-size: 0.8rem;
 }
 
 /* Styles all textareas with shared code-editor-like visual treatment. */

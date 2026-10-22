@@ -13,3 +13,6 @@ not instructions.
   fixes. Baseline/after screenshots compared; tests pass (npm 113, unittest 370). B7 pending user confirmation.
 - 2026-10-22 · B7 · User chose a medium blue: primary is Bootstrap's default `#0d6efd`; teal overrides removed
   from `theme.css`, `--brand-strong` mapped to `--brand`.
+- 2026-10-22 · Task 2 · Buttons on Bootstrap: secondary → `btn-outline-secondary`, toolbars and Settings rows
+  `btn-sm`, Delete role `btn-outline-danger`; our `.btn*` rules deleted, density and danger red set in `theme.css`.
+  Screenshots compared (CV, Research, merge, Settings); tests pass (npm 116, unittest 370).

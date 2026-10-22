@@ -26,12 +26,12 @@
                         <option value="">Default order</option>
                     </select>
                 </label>
-                <button id="restartServerBtn" class="btn btn-secondary" type="button">
+                <button id="restartServerBtn" class="btn btn-outline-secondary" type="button">
                     Restart Server
                 </button>
                 <button
                     id="settingsOpenBtn"
-                    class="btn btn-secondary settings-cog"
+                    class="btn btn-sm btn-outline-secondary icon-btn settings-cog"
                     type="button"
                     aria-label="Settings"
                     title="Settings"
@@ -51,7 +51,7 @@
                         <strong>Roles</strong>
                         <button
                             id="newRoleBtn"
-                            class="btn btn-secondary icon-btn"
+                            class="btn btn-sm btn-outline-secondary icon-btn"
                             type="button"
                             title="New role (its CV starts as a copy of the master CV)"
                             aria-label="New role"
@@ -69,7 +69,7 @@
                                 <option value="closed">Closed (archived)</option>
                             </select>
                         </label>
-                        <button id="deleteRoleBtn" class="btn btn-secondary" type="button">
+                        <button id="deleteRoleBtn" class="btn btn-outline-danger" type="button">
                             Delete role
                         </button>
                     </div>
@@ -197,7 +197,7 @@
                                             </select>
                                             <button
                                                 id="promoteCvBtn"
-                                                class="btn btn-secondary"
+                                                class="btn btn-sm btn-outline-secondary"
                                                 type="button"
                                                 title="Copy this role's CV changes into the master CV (you pick which)"
                                                 data-role-only
@@ -207,7 +207,7 @@
                                             </button>
                                             <button
                                                 id="pullCvBtn"
-                                                class="btn btn-secondary"
+                                                class="btn btn-sm btn-outline-secondary"
                                                 type="button"
                                                 title="Bring master CV changes into this role's CV (you pick which)"
                                                 data-role-only
@@ -217,7 +217,7 @@
                                             </button>
                                             <button
                                                 id="importCvBtn"
-                                                class="btn btn-secondary"
+                                                class="btn btn-sm btn-outline-secondary"
                                                 type="button"
                                                 title="Merge hand edits in input/CV.md into the master CV (you pick which)"
                                                 data-role-only
@@ -227,7 +227,7 @@
                                             </button>
                                             <button
                                                 id="cvHistoryBtn"
-                                                class="btn btn-secondary"
+                                                class="btn btn-sm btn-outline-secondary"
                                                 type="button"
                                                 title="Versions of the open CV; restore one as a new version"
                                                 data-role-only
@@ -235,13 +235,13 @@
                                                 History
                                             </button>
                                             <button
-                                                class="btn btn-secondary file-load-btn"
+                                                class="btn btn-sm btn-outline-secondary file-load-btn"
                                                 data-file="cv"
                                             >
                                                 Load from Disk
                                             </button>
                                             <button
-                                                class="btn btn-secondary file-save-btn"
+                                                class="btn btn-sm btn-outline-secondary file-save-btn"
                                                 data-file="cv"
                                             >
                                                 Save
@@ -256,13 +256,13 @@
                                         <label id="promptTitle" for="promptEditor">CV Prompt</label>
                                         <div class="file-actions">
                                             <button
-                                                class="btn btn-secondary file-load-btn"
+                                                class="btn btn-sm btn-outline-secondary file-load-btn"
                                                 data-file="prompt"
                                             >
                                                 Load from Disk
                                             </button>
                                             <button
-                                                class="btn btn-secondary file-save-btn"
+                                                class="btn btn-sm btn-outline-secondary file-save-btn"
                                                 data-file="prompt"
                                             >
                                                 Save
@@ -277,13 +277,13 @@
                                         <label id="jobspecTitle" for="jobspecEditor">Job Spec</label>
                                         <div class="file-actions">
                                             <button
-                                                class="btn btn-secondary file-load-btn"
+                                                class="btn btn-sm btn-outline-secondary file-load-btn"
                                                 data-file="jobspec"
                                             >
                                                 Load from Disk
                                             </button>
                                             <button
-                                                class="btn btn-secondary file-save-btn"
+                                                class="btn btn-sm btn-outline-secondary file-save-btn"
                                                 data-file="jobspec"
                                             >
                                                 Save
@@ -348,10 +348,10 @@
                                     <button id="runResearchBtn" class="btn btn-primary">
                                         Run Research
                                     </button>
-                                    <button id="formatResearchBtn" class="btn btn-secondary">
+                                    <button id="formatResearchBtn" class="btn btn-outline-secondary">
                                         Format Research PDF
                                     </button>
-                                    <button id="resetResearchPromptBtn" class="btn btn-secondary">
+                                    <button id="resetResearchPromptBtn" class="btn btn-outline-secondary">
                                         Reset Prompt to Default
                                     </button>
                                     <span id="researchStatusText">Idle.</span>
@@ -411,13 +411,13 @@
                                         >
                                         <div class="file-actions">
                                             <button
-                                                class="btn btn-secondary file-load-btn"
+                                                class="btn btn-sm btn-outline-secondary file-load-btn"
                                                 data-file="research_prompt"
                                             >
                                                 Load from Disk
                                             </button>
                                             <button
-                                                class="btn btn-secondary file-save-btn"
+                                                class="btn btn-sm btn-outline-secondary file-save-btn"
                                                 data-file="research_prompt"
                                             >
                                                 Save
@@ -436,13 +436,13 @@
                                         <label for="researchJobspecEditor">Job Spec</label>
                                         <div class="file-actions">
                                             <button
-                                                class="btn btn-secondary file-load-btn"
+                                                class="btn btn-sm btn-outline-secondary file-load-btn"
                                                 data-file="jobspec"
                                             >
                                                 Load from Disk
                                             </button>
                                             <button
-                                                class="btn btn-secondary file-save-btn"
+                                                class="btn btn-sm btn-outline-secondary file-save-btn"
                                                 data-file="jobspec"
                                             >
                                                 Save
@@ -461,13 +461,13 @@
                                         <label for="researchCvEditor">CV</label>
                                         <div class="file-actions">
                                             <button
-                                                class="btn btn-secondary file-load-btn"
+                                                class="btn btn-sm btn-outline-secondary file-load-btn"
                                                 data-file="cv"
                                             >
                                                 Load from Disk
                                             </button>
                                             <button
-                                                class="btn btn-secondary file-save-btn"
+                                                class="btn btn-sm btn-outline-secondary file-save-btn"
                                                 data-file="cv"
                                             >
                                                 Save
@@ -499,7 +499,7 @@
                                     ></span>
                                     <button
                                         id="copyResearchOutputBtn"
-                                        class="btn btn-secondary icon-btn"
+                                        class="btn btn-sm btn-outline-secondary icon-btn"
                                         type="button"
                                         title="Copy research output"
                                         aria-label="Copy research output"
@@ -579,7 +579,7 @@
                                     aria-live="polite"
                                     aria-hidden="true"
                                 ></span>
-                                <button id="refreshLogsBtn" class="btn btn-secondary">
+                                <button id="refreshLogsBtn" class="btn btn-outline-secondary">
                                     Refresh Logs
                                 </button>
                             </div>
@@ -662,7 +662,7 @@
                 <label for="newRoleJobspecInput">Job spec</label>
                 <textarea id="newRoleJobspecInput" spellcheck="false" placeholder="Paste the job spec"></textarea>
                 <div class="role-dialog-actions">
-                    <button id="newRoleCancelBtn" class="btn btn-secondary" type="button">Cancel</button>
+                    <button id="newRoleCancelBtn" class="btn btn-outline-secondary" type="button">Cancel</button>
                     <button class="btn btn-primary" type="submit">Create role</button>
                 </div>
             </form>
@@ -678,7 +678,7 @@
                 </p>
                 <p id="firstRunError" class="merge-error" role="alert"></p>
                 <div class="role-dialog-actions">
-                    <button id="firstRunBlankBtn" class="btn btn-secondary" type="button">Blank master CV</button>
+                    <button id="firstRunBlankBtn" class="btn btn-outline-secondary" type="button">Blank master CV</button>
                     <button id="firstRunExampleBtn" class="btn btn-primary" type="button">Example data</button>
                 </div>
             </div>
@@ -691,7 +691,7 @@
                 <ul id="mergeList" class="merge-list"></ul>
                 <p id="mergeError" class="merge-error" role="alert"></p>
                 <div class="role-dialog-actions">
-                    <button id="mergeCancelBtn" class="btn btn-secondary" type="button">Cancel</button>
+                    <button id="mergeCancelBtn" class="btn btn-outline-secondary" type="button">Cancel</button>
                     <button id="mergeApplyBtn" class="btn btn-primary" type="button">Apply ticked changes</button>
                 </div>
             </div>
@@ -706,7 +706,7 @@
                 </div>
                 <p id="historyError" class="merge-error" role="alert"></p>
                 <div class="role-dialog-actions">
-                    <button id="historyCloseBtn" class="btn btn-secondary" type="button">Close</button>
+                    <button id="historyCloseBtn" class="btn btn-outline-secondary" type="button">Close</button>
                     <button id="historyRestoreBtn" class="btn btn-primary" type="button" disabled>
                         Restore as new version
                     </button>
@@ -725,9 +725,9 @@
                 <div class="settings-toolbar">
                     <span class="settings-note">Stored in the database.</span>
                     <div class="file-actions">
-                        <button id="settingsImportBtn" class="btn btn-secondary" type="button">Import…</button>
-                        <button id="settingsSampleBtn" class="btn btn-secondary" type="button">Load sample</button>
-                        <button id="settingsEnvBtn" class="btn btn-secondary" type="button">View as .env</button>
+                        <button id="settingsImportBtn" class="btn btn-outline-secondary" type="button">Import…</button>
+                        <button id="settingsSampleBtn" class="btn btn-outline-secondary" type="button">Load sample</button>
+                        <button id="settingsEnvBtn" class="btn btn-outline-secondary" type="button">View as .env</button>
                     </div>
                 </div>
                 <p id="settingsStatus" class="settings-status" role="status"></p>
@@ -746,9 +746,9 @@
                                 <option value="merge">Merge (add and update)</option>
                                 <option value="replace">Replace (also remove others)</option>
                             </select>
-                            <button id="settingsImportPreviewBtn" class="btn btn-secondary" type="button">Preview</button>
+                            <button id="settingsImportPreviewBtn" class="btn btn-outline-secondary" type="button">Preview</button>
                             <button id="settingsImportApplyBtn" class="btn btn-primary" type="button">Apply</button>
-                            <button id="settingsImportCloseBtn" class="btn btn-secondary" type="button">Close</button>
+                            <button id="settingsImportCloseBtn" class="btn btn-outline-secondary" type="button">Close</button>
                         </div>
                         <p id="settingsImportResult" class="settings-status" role="status"></p>
                     </div>
@@ -756,10 +756,10 @@
                         <label for="settingsEnvText">Settings as .env (secrets masked)</label>
                         <textarea id="settingsEnvText" spellcheck="false" rows="8" readonly></textarea>
                         <div class="settings-actions">
-                            <button id="settingsEnvRevealBtn" class="btn btn-secondary" type="button">Reveal secrets</button>
-                            <button id="settingsEnvCopyBtn" class="btn btn-secondary" type="button">Copy</button>
-                            <button id="settingsEnvDownloadBtn" class="btn btn-secondary" type="button">Download</button>
-                            <button id="settingsEnvCloseBtn" class="btn btn-secondary" type="button">Close</button>
+                            <button id="settingsEnvRevealBtn" class="btn btn-outline-secondary" type="button">Reveal secrets</button>
+                            <button id="settingsEnvCopyBtn" class="btn btn-outline-secondary" type="button">Copy</button>
+                            <button id="settingsEnvDownloadBtn" class="btn btn-outline-secondary" type="button">Download</button>
+                            <button id="settingsEnvCloseBtn" class="btn btn-outline-secondary" type="button">Close</button>
                         </div>
                     </div>
                     <div id="settingsPanelGlobal" class="settings-panel active" role="tabpanel"></div>
