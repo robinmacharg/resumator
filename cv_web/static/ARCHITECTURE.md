@@ -137,7 +137,8 @@ flowchart TD
 
 - `role-workspace-feature.js` (multi-role plan steps 9 and 12)
   - Role sidebar (list, **+** dialog, status select where `closed` = archive, delete) and role selection
-    (remembered in localStorage). Once the DB is set up (`state.workspace`) the app is in **role mode**
+    (remembered in localStorage). Clicking the role title (pencil) swaps in a name input; blur or Enter saves a
+    changed, non-blank name (`commitRename`), Escape discards. Once the DB is set up (`state.workspace`) the app is in **role mode**
     (`body.role-mode`; `[data-role-only]`/`[data-file-only]` elements show and hide). File mode is only a fallback
     when the role API can't be reached.
   - First run (step 12): `GET /api/setup` says when the choice is due; `#firstRunDialog` offers example data or a

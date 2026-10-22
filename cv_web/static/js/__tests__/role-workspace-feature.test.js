@@ -92,6 +92,13 @@ function createHarness({
         roleList: fakeElement("ul"),
         roleStatusSelect: fakeElement("select"),
         activeRoleLabel: fakeElement("strong"),
+        roleTitleBtn: fakeElement("button"),
+        roleNameInput: Object.assign(fakeElement("input"), {
+            hidden: true,
+            focus() {},
+            select() {},
+            blur() {},
+        }),
         cvSourceSelect: fakeElement("select"),
         jobspecEditor: fakeElement("textarea"),
         firstRunDialog: {
@@ -448,6 +455,42 @@ test("status changes archive the role; deleting the last role reloads the page",
     await feature.deleteActiveRole();
     assert.equal(calls.api.some((call) => call.path === "/api/roles/1/delete"), true);
     assert.equal(calls.reload, 1);
+});
+
+test("renaming the role saves a changed name on blur and skips unchanged or blank names", async () => {
+    const { feature, els, calls } = createHarness({ storage: { "cvweb.roles.local_copied": "true" } });
+    await feature.initialize();
+    const role = feature.getActiveRole();
+    const before = calls.api.length;
+
+    feature.startRename();
+    assert.equal(els.roleNameInput.hidden, false);
+    assert.equal(els.roleTitleBtn.hidden, true);
+    assert.equal(els.roleNameInput.value, role.name);
+    await feature.commitRename();
+    assert.equal(els.roleNameInput.hidden, true);
+    assert.equal(els.roleTitleBtn.hidden, false);
+
+    feature.startRename();
+    els.roleNameInput.value = "   ";
+    await feature.commitRename();
+    assert.equal(calls.api.length, before);
+
+    feature.startRename();
+    els.roleNameInput.value = "Discarded";
+    feature.handleRenameKeydown({ key: "Escape", preventDefault() {} });
+    await feature.commitRename();
+    assert.equal(calls.api.length, before);
+
+    feature.startRename();
+    els.roleNameInput.value = "  Staff Engineer ";
+    await feature.commitRename();
+    assert.deepEqual(calls.api.at(-1), {
+        path: `/api/roles/${role.id}`,
+        method: "POST",
+        body: { name: "Staff Engineer" },
+    });
+    assert.match(els.activeRoleLabel.textContent, /Staff Engineer/);
 });
 
 test("createRoleFromDialog creates the role from the dialog and opens it", async () => {

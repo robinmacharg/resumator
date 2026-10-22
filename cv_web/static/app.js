@@ -72,6 +72,8 @@ const els = {
     body: document.body,
     statusText: document.getElementById("statusText"),
     activeRoleLabel: document.getElementById("activeRoleLabel"),
+    roleTitleBtn: document.getElementById("roleTitleBtn"),
+    roleNameInput: document.getElementById("roleNameInput"),
     roleSidebarControls: document.getElementById("roleSidebarControls"),
     roleList: document.getElementById("roleList"),
     newRoleBtn: document.getElementById("newRoleBtn"),

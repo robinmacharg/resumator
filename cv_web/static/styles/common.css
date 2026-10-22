@@ -259,6 +259,45 @@ body {
   font-size: 0.9rem;
 }
 
+/* Shows the role title as a borderless button; the pencil hints that a click renames the role. */
+.role-title-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: text;
+}
+
+.role-title-btn[hidden] {
+  display: none;
+}
+
+/* Keeps the rename pencil quiet until the title is hovered or focused. */
+.role-title-pencil {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.role-title-btn:hover .role-title-pencil,
+.role-title-btn:focus-visible .role-title-pencil {
+  color: var(--brand);
+  opacity: 1;
+}
+
+/* Sizes the inline role name input to match the title it replaces. */
+.role-name-input {
+  min-width: 18rem;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid var(--brand);
+  border-radius: 0.35rem;
+  font: inherit;
+  font-weight: 600;
+}
+
 /* Styles the full-width status bar pinned beneath the workspace. */
 .status-bar {
   flex: none;

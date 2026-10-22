@@ -179,6 +179,11 @@ export function createAppEventBindingsFeature(ctx) {
             if (els.roleStatusSelect) {
                 els.roleStatusSelect.addEventListener("change", roleWorkspaceFeature.handleStatusChanged);
             }
+            bindOptionalClick(els.roleTitleBtn, roleWorkspaceFeature.startRename);
+            if (els.roleNameInput) {
+                els.roleNameInput.addEventListener("blur", roleWorkspaceFeature.commitRename);
+                els.roleNameInput.addEventListener("keydown", roleWorkspaceFeature.handleRenameKeydown);
+            }
             if (els.cvSourceSelect) {
                 els.cvSourceSelect.addEventListener("change", roleWorkspaceFeature.handleCvSourceChanged);
             }

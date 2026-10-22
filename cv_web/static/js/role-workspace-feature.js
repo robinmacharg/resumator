@@ -3,7 +3,7 @@ import { getStorageString, setStorageString } from "./storage-utils.js";
 /**
  * Architecture role:
  * - Layer: domain workflow feature used by app bootstrap (multi-role plan step 9).
- * - Responsibility: the role sidebar (list, create, status, delete), role selection, the role-owned editors (the
+ * - Responsibility: the role sidebar (list, create, status, delete), renaming the open role, role selection, the role-owned editors (the
  *   role or master CV and the job spec, saved through the Role API instead of `input/` files), and the first-run
  *   choice (step 12), followed by the Settings step when no settings are stored (settings-in-db task 8).
  *
@@ -634,6 +634,67 @@ export function createRoleWorkspaceFeature(ctx) {
     }
 
     /**
+     * Swap the role title for a name input (the title click).
+     * @returns {void}
+     */
+    function startRename() {
+        const role = getActiveRole();
+        if (!role || !els.roleNameInput) {
+            return;
+        }
+        els.roleNameInput.value = role.name;
+        els.roleNameInput.hidden = false;
+        if (els.roleTitleBtn) {
+            els.roleTitleBtn.hidden = true;
+        }
+        els.roleNameInput.focus?.();
+        els.roleNameInput.select?.();
+    }
+
+    /**
+     * Leave the name input; the role is saved only when the trimmed name changed and isn't blank.
+     * @returns {Promise<void>}
+     */
+    async function commitRename() {
+        if (!els.roleNameInput || els.roleNameInput.hidden) {
+            return;
+        }
+        els.roleNameInput.hidden = true;
+        if (els.roleTitleBtn) {
+            els.roleTitleBtn.hidden = false;
+        }
+        const role = getActiveRole();
+        const name = (els.roleNameInput.value || "").trim();
+        if (!role || !name || name === role.name) {
+            return;
+        }
+        try {
+            await updateActiveRole({ name });
+            renderSidebar();
+            syncModeUi();
+            setStatus(`Renamed role to "${name}".`);
+        } catch (err) {
+            setStatus(`Couldn't rename the role: ${err.message}`, true);
+        }
+    }
+
+    /**
+     * Enter saves the name (by blurring); Escape restores it first so nothing is written.
+     * @param {KeyboardEvent} event
+     * @returns {void}
+     */
+    function handleRenameKeydown(event) {
+        if (event.key === "Escape") {
+            const role = getActiveRole();
+            els.roleNameInput.value = role ? role.name : "";
+        } else if (event.key !== "Enter") {
+            return;
+        }
+        event.preventDefault();
+        els.roleNameInput.blur();
+    }
+
+    /**
      * Delete the active role, its CV versions and runs, after confirmation.
      * @returns {Promise<void>}
      */
@@ -727,6 +788,9 @@ export function createRoleWorkspaceFeature(ctx) {
         handleSteeringChanged,
         handleThemeChanged,
         handleStatusChanged,
+        startRename,
+        commitRename,
+        handleRenameKeydown,
         deleteActiveRole,
         openNewRoleDialog,
         createRoleFromDialog,
