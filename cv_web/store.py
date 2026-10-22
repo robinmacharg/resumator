@@ -3,7 +3,8 @@
 Architecture role:
 - Layer: persistence (stdlib `sqlite3`, JSON in TEXT columns).
 - Responsibility: open the DB, apply ordered schema migrations, and provide CRUD for roles, CV versions (master
-  and role), prompt versions, CV runs, research runs and settings, plus an online `backup`.
+  and role), prompt versions, CV runs, research runs, internal settings and env settings (user config), plus an
+  online `backup`.
 
 Design notes (docs/plans/multi-role-design.md R8, R9, R13, R15, R18):
 - One append-only `cv_version` table holds master (`role_id IS NULL`) and role CVs. A CV's current text is its
@@ -116,6 +117,13 @@ MIGRATIONS: tuple[str, ...] = (
     CREATE TABLE setting (
         key TEXT PRIMARY KEY,
         value TEXT
+    );
+    """,
+    """
+    CREATE TABLE env_setting (
+        key TEXT PRIMARY KEY CHECK (key GLOB '[A-Za-z_]*' AND key NOT GLOB '*[^A-Za-z0-9_]*'),
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
     );
     """,
 )
@@ -658,3 +666,57 @@ def set_setting(conn: sqlite3.Connection, key: str, value: str | None) -> None:
 
 def delete_setting(conn: sqlite3.Connection, key: str) -> None:
     conn.execute("DELETE FROM setting WHERE key = ?", (key,))
+
+
+# ---------------------------------------------------------------------------
+# Env settings (user config: provider keys, models, tuning; docs/plans/settings-in-db/)
+# ---------------------------------------------------------------------------
+
+_ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _check_env_key(key: str) -> None:
+    if not _ENV_KEY_RE.match(key or ""):
+        raise StoreError(f"Invalid setting key: {key!r}")
+
+
+def list_env_settings(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """All env settings as `{key, value, updated_at}`, ordered by key."""
+    rows = conn.execute("SELECT key, value, updated_at FROM env_setting ORDER BY key").fetchall()
+    return [dict(row) for row in rows]
+
+
+def env_settings(conn: sqlite3.Connection) -> dict[str, str]:
+    """All env settings as a `{key: value}` mapping."""
+    return {row["key"]: row["value"] for row in conn.execute("SELECT key, value FROM env_setting")}
+
+
+def get_env_setting(conn: sqlite3.Connection, key: str) -> str | None:
+    row = conn.execute("SELECT value FROM env_setting WHERE key = ?", (key,)).fetchone()
+    return None if row is None else row["value"]
+
+
+def set_env_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
+    """Insert or update one setting. `updated_at` only moves when the value changes."""
+    _check_env_key(key)
+    conn.execute(
+        "INSERT INTO env_setting (key, value, updated_at) VALUES (?, ?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at "
+        "WHERE env_setting.value IS NOT excluded.value",
+        (key, value, now_iso()),
+    )
+
+
+def delete_env_setting(conn: sqlite3.Connection, key: str) -> bool:
+    return conn.execute("DELETE FROM env_setting WHERE key = ?", (key,)).rowcount > 0
+
+
+def replace_env_settings(conn: sqlite3.Connection, values: dict[str, str]) -> None:
+    """Make the stored settings exactly `values`, in one transaction. Unchanged keys keep their `updated_at`."""
+    for key in values:
+        _check_env_key(key)
+    with transaction(conn):
+        for key in set(env_settings(conn)) - set(values):
+            delete_env_setting(conn, key)
+        for key, value in values.items():
+            set_env_setting(conn, key, value)

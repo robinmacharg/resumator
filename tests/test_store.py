@@ -31,7 +31,7 @@ class MigrationTests(StoreTestCase):
         self.assertEqual(store.schema_version(self.conn), len(store.MIGRATIONS))
         tables = {row[0] for row in self.conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
         self.assertTrue(
-            {"role", "cv_version", "prompt_version", "cv_run", "research_run", "setting", "schema_version"} <= tables
+            {"role", "cv_version", "prompt_version", "cv_run", "research_run", "setting", "env_setting", "schema_version"} <= tables
         )
         self.assertEqual(self.conn.execute("PRAGMA foreign_keys").fetchone()[0], 1)
         self.assertEqual(self.conn.execute("PRAGMA journal_mode").fetchone()[0], "wal")
@@ -360,6 +360,60 @@ class SettingTests(StoreTestCase):
         self.assertEqual(store.get_setting(self.conn, "first_run_done"), "2")
         store.delete_setting(self.conn, "first_run_done")
         self.assertIsNone(store.get_setting(self.conn, "first_run_done"))
+
+
+class EnvSettingTests(StoreTestCase):
+    def test_set_get_list_delete(self) -> None:
+        self.assertEqual(store.list_env_settings(self.conn), [])
+        store.set_env_setting(self.conn, "OPENAI_API_KEY", "sk-test")
+        store.set_env_setting(self.conn, "CV_FAST_MODE", "false")
+        self.assertEqual(store.get_env_setting(self.conn, "OPENAI_API_KEY"), "sk-test")
+        self.assertIsNone(store.get_env_setting(self.conn, "MISSING"))
+        self.assertEqual([row["key"] for row in store.list_env_settings(self.conn)], ["CV_FAST_MODE", "OPENAI_API_KEY"])
+        self.assertEqual(store.env_settings(self.conn), {"CV_FAST_MODE": "false", "OPENAI_API_KEY": "sk-test"})
+        self.assertTrue(store.delete_env_setting(self.conn, "CV_FAST_MODE"))
+        self.assertFalse(store.delete_env_setting(self.conn, "CV_FAST_MODE"))
+        self.assertEqual(store.env_settings(self.conn), {"OPENAI_API_KEY": "sk-test"})
+
+    def test_kept_apart_from_internal_settings(self) -> None:
+        store.set_setting(self.conn, "first_run_done", "example")
+        store.set_env_setting(self.conn, "MODEL_PROVIDER", "openai")
+        store.replace_env_settings(self.conn, {})
+        self.assertEqual(store.get_setting(self.conn, "first_run_done"), "example")
+        self.assertEqual(store.env_settings(self.conn), {})
+
+    def test_updated_at_moves_only_when_value_changes(self) -> None:
+        with mock.patch.object(store, "now_iso", return_value="2026-01-01T00:00:00Z"):
+            store.set_env_setting(self.conn, "GEMINI_MODEL", "pro")
+        with mock.patch.object(store, "now_iso", return_value="2026-02-01T00:00:00Z"):
+            store.set_env_setting(self.conn, "GEMINI_MODEL", "pro")
+        self.assertEqual(store.list_env_settings(self.conn)[0]["updated_at"], "2026-01-01T00:00:00Z")
+        with mock.patch.object(store, "now_iso", return_value="2026-03-01T00:00:00Z"):
+            store.set_env_setting(self.conn, "GEMINI_MODEL", "flash")
+        self.assertEqual(store.list_env_settings(self.conn)[0]["updated_at"], "2026-03-01T00:00:00Z")
+
+    def test_replace_adds_changes_and_removes(self) -> None:
+        with mock.patch.object(store, "now_iso", return_value="2026-01-01T00:00:00Z"):
+            store.set_env_setting(self.conn, "KEEP", "1")
+            store.set_env_setting(self.conn, "CHANGE", "old")
+            store.set_env_setting(self.conn, "DROP", "x")
+        store.replace_env_settings(self.conn, {"KEEP": "1", "CHANGE": "new", "ADD": "y"})
+        rows = {row["key"]: row for row in store.list_env_settings(self.conn)}
+        self.assertEqual({k: r["value"] for k, r in rows.items()}, {"ADD": "y", "CHANGE": "new", "KEEP": "1"})
+        self.assertEqual(rows["KEEP"]["updated_at"], "2026-01-01T00:00:00Z")
+        self.assertNotEqual(rows["CHANGE"]["updated_at"], "2026-01-01T00:00:00Z")
+
+    def test_invalid_keys_are_refused(self) -> None:
+        for key in ("", "1ABC", "HAS SPACE", "A-B", "A=B"):
+            with self.subTest(key=key), self.assertRaises(StoreError):
+                store.set_env_setting(self.conn, key, "v")
+        with self.assertRaises(StoreError):
+            store.replace_env_settings(self.conn, {"GOOD": "1", "BAD KEY": "2"})
+        self.assertEqual(store.env_settings(self.conn), {})
+
+    def test_schema_check_backs_up_key_validation(self) -> None:
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.conn.execute("INSERT INTO env_setting (key, value, updated_at) VALUES ('A-B', 'v', 'now')")
 
 
 class BackupTests(StoreTestCase):
