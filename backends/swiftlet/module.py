@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from backends.base import Backend, BackendStatus
+from backends.base import Backend, BackendStatus, SettingSpec
 from provider_clients import AttemptResult, run_swiftlet_attempt
 
 DEFAULT_MODEL = "qwen3_5_moe_text"
@@ -30,6 +30,16 @@ class SwiftletBackend(Backend):
     id = "swiftlet"
     label = "Swiftlet"
     timeout_seconds = 240
+
+    def settings(self) -> list[SettingSpec]:
+        """Declare every env key this backend reads, for the Settings catalog."""
+        return [
+            SettingSpec("SWIFTLET_API_URL", "Swiftlet API URL", help="Must serve /v1/chat/completions."),
+            SettingSpec("SWIFTLET_MODEL", "Swiftlet model", default="qwen3_5_moe_text"),
+            SettingSpec("SWIFTLET_MODEL_FALLBACKS", "Swiftlet fallback models", kind="csv", help="Comma-separated, tried in order after the primary model."),
+            SettingSpec("SWIFTLET_MAX_RETRIES", "Swiftlet max retries", kind="int", default="2", advanced=True),
+            SettingSpec("SWIFTLET_INITIAL_BACKOFF_SECONDS", "Swiftlet initial backoff (s)", kind="int", default="2", advanced=True),
+        ]
 
     def model_sequence(self, env: dict[str, str], explicit_model: str = "") -> list[str]:
         """Build ordered Swiftlet model candidates from config and defaults."""

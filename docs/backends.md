@@ -11,6 +11,8 @@ Every backend lives in `backends/<id>/module.py`. The module exposes `get_backen
 | `interrogate(env) -> BackendStatus` | `enabled`, `reason` (shown when disabled), `models`, `default_model`. Must be cheap |
 | `model_sequence(env, explicit_model) -> list[str]` | Attempt order. An explicit model means try only that one |
 | `run_attempt(*, model_name, prompt_text, env, timeout_seconds, heartbeat_seconds, attempt_index, debug_log_dir, log_prefix, emit_live_output, **extra) -> AttemptResult` | One call. Must not raise for provider errors; return a non-zero `returncode` and put the error in `stderr`. `debug_log_dir` may be None (`--io json` runs): write the attempt log with `provider_clients._write_attempt_log(attempt_log_path(debug_log_dir, name), lines)`, which sends it to stderr and leaves `log_path` None |
+| `settings() -> list[SettingSpec]` (optional) | Every env key the backend reads: `key, label, secret, default, kind (text/bool/int/csv/choice), choices, help, advanced`. Feeds `settings_catalog`; absent means "no declared keys" (stored keys show under Other). A test greps the sources, so a new `env.get("KEY")` must be declared |
+| `test_connection(env) -> TestResult` (optional) | `ok, message, elapsed_seconds, model`. Absent means `settings_catalog.default_test_connection`: interrogate, then one real "Reply with OK" call on the first model, 60 s cap, no fallback |
 
 `AttemptResult` (`provider_clients.py`) has these fields: `provider, model, returncode, stdout, stderr, elapsed_seconds,
 log_path, timed_out`. `stdout` is the model's text. `log_path` is None when no log file was written.
@@ -21,6 +23,8 @@ log_path, timed_out`. `stdout` is the model's text. `log_path` is None when no l
   is cached, so each `/api/state` re-interrogates (and so re-health-checks the bridge).
 - If an import fails or `interrogate` raises, the backend is registered disabled with the reason. Duplicate ids:
   the first one wins.
+- `load_backend_objects()` instantiates the backends without interrogating them (used by `settings_catalog`, so
+  listing settings never health-checks or autostarts the bridge).
 - Default provider = the first enabled backend, alphabetically. `.env MODEL_PROVIDER` and `--provider` override it.
 - `provider_catalog.load_provider_catalog` uses the registry and only falls back to `model_providers.json` when no
   backends are found. That JSON is stale relative to the modules, so treat it as a fallback only.
@@ -57,7 +61,7 @@ for every attempt.
    subprocess example).
 2. Put the transport in `provider_clients.py` as `run_<id>_attempt(...)`. Follow an existing HTTP runner for
    retry, backoff, log and `AttemptResult` handling.
-3. In `interrogate`, disable the backend with a clear `reason` when credentials or config are missing.
+3. Declare its env keys in `settings()` (secrets flagged). In `interrogate`, disable the backend with a clear `reason` when credentials or config are missing.
 4. Document its env vars in the table above. Optionally add it to `model_providers.json`.
 5. No registry, server or UI changes are needed; it appears in the provider dropdown automatically.
 

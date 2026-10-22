@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from provider_clients import AttemptResult
 
@@ -13,6 +13,32 @@ class BackendStatus:
     reason: str = ""
     models: list[str] | None = None
     default_model: str = ""
+
+
+@dataclass(frozen=True)
+class SettingSpec:
+    """One configurable env key: what the Settings catalog shows and how it validates."""
+
+    key: str
+    label: str
+    secret: bool = False
+    default: str | None = None
+    kind: Literal["text", "bool", "int", "csv", "choice"] = "text"
+    choices: tuple[str, ...] | None = None
+    help: str = ""
+    advanced: bool = False
+
+
+@dataclass
+class TestResult:
+    """Outcome of a provider connection test."""
+
+    __test__ = False  # not a pytest/unittest case despite the name
+
+    ok: bool
+    message: str = ""
+    elapsed_seconds: float = 0.0
+    model: str = ""
 
 
 class Backend(Protocol):
@@ -74,3 +100,8 @@ class Backend(Protocol):
         - Normalized attempt result payload.
         """
         ...
+
+    # Optional members (a backend may omit them):
+    #   settings() -> list[SettingSpec]: every env key this backend reads; absent means none declared.
+    #   test_connection(env) -> TestResult: provider-specific check; absent means the default test in
+    #   settings_catalog.default_test_connection.

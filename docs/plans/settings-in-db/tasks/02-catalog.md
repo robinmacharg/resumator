@@ -1,6 +1,6 @@
 # Task 2: settings catalog and backend contract
 
-**Status:** todo. **Read:** [design § Settings catalog](../design.md#settings-catalog-code),
+**Status:** done. **Read:** [design § Settings catalog](../design.md#settings-catalog-code),
 [§ Provider test](../design.md#provider-test), D3, D11; `backends/base.py`; the env table in `docs/backends.md`.
 
 ## Do
@@ -21,4 +21,13 @@ land in Other; the default test returns `ok` / an error message with a fake back
 
 ## Handover
 
-(fill in at the end of the task)
+- `backends/base.py`: `SettingSpec` (adds `advanced`; `choices` is a tuple) and `TestResult`. Every backend has
+  `settings()`; none has `test_connection` (all use the default).
+- `settings_catalog.py`: `global_specs`, `backend_specs`, `catalog_keys`, `catalog(env)` -> `SettingGroup(id, label,
+  specs)` list (Global, backends, Other only when needed), `default_test_connection`, `test_connection` (dispatch).
+  `catalog_keys()` is what task 3 strips from `os.environ` (D8).
+- `backend_registry.load_backend_objects()` is new: loads backends without interrogating them.
+- `GEMINI_API_KEY` is declared under the gemini backend (it is only passed to the CLI). `OPENAI_TOKEN` and
+  `HUGGINGFACE_API_TOKEN` (aliases) are declared as advanced secrets.
+- Interrogate reasons still say "missing in .env" (OPENAI, HF): reword in task 3.
+- Tests: `tests/test_settings_catalog.py` (12). 306 pass on 3.13.

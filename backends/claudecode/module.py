@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from backends.base import Backend, BackendStatus
+from backends.base import Backend, BackendStatus, SettingSpec
 from provider_clients import AttemptResult, run_claudecode_attempt
 
 DEFAULT_MODEL = "opus"
@@ -32,6 +32,16 @@ class ClaudeCodeBackend(Backend):
     id = "claudecode"
     label = "Claude Code"
     timeout_seconds = 600
+
+    def settings(self) -> list[SettingSpec]:
+        """Declare every env key this backend reads, for the Settings catalog."""
+        return [
+            SettingSpec("BACKEND_CLAUDECODE_ENABLED", "Claude Code enabled", kind="bool", default="true"),
+            SettingSpec("CLAUDECODE_MODEL", "Claude Code model", default="opus", help="Alias (opus, sonnet, fable, haiku) or a full model id."),
+            SettingSpec("CLAUDECODE_MODEL_FALLBACKS", "Claude Code fallback models", kind="csv", help="Comma-separated, tried in order after the primary model."),
+            SettingSpec("CLAUDECODE_SYSTEM_PROMPT", "Claude Code system prompt", advanced=True),
+            SettingSpec("CLAUDECODE_EFFORT", "Claude Code effort", advanced=True, help="Passed to claude --effort."),
+        ]
 
     def model_sequence(self, env: dict[str, str], explicit_model: str = "") -> list[str]:
         """Build ordered Claude model candidates: explicit model only, else primary then env fallbacks."""

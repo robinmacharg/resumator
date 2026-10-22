@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib import error, request
 from urllib.parse import urlparse
 
-from backends.base import Backend, BackendStatus
+from backends.base import Backend, BackendStatus, SettingSpec
 from provider_clients import AttemptResult, _write_attempt_log, attempt_log_path, run_vscodebridge_attempt
 
 DEFAULT_MODEL = "copilot-vscode"
@@ -42,6 +42,22 @@ class VSCodeBridgeBackend(Backend):
     id = "vscodebridge"
     label = "VS Code Bridge"
     timeout_seconds = 240
+
+    def settings(self) -> list[SettingSpec]:
+        """Declare every env key this backend reads, for the Settings catalog."""
+        return [
+            SettingSpec("BACKEND_VSCODEBRIDGE_ENABLED", "VS Code Bridge enabled", kind="bool", default="true"),
+            SettingSpec("VSCODE_BRIDGE_API_URL", "Bridge API URL", default="http://127.0.0.1:8766/generate"),
+            SettingSpec("VSCODE_BRIDGE_API_KEY", "Bridge API key", secret=True, help="Sent as x-api-key."),
+            SettingSpec("VSCODE_BRIDGE_MODEL", "Bridge model label", default="copilot-vscode", help="Label only; the extension picks the Copilot model."),
+            SettingSpec("VSCODE_BRIDGE_MODEL_FALLBACKS", "Bridge fallback models", kind="csv", advanced=True),
+            SettingSpec("VSCODE_BRIDGE_AUTOSTART", "Autostart bridge", kind="bool", default="true"),
+            SettingSpec("VSCODE_BRIDGE_STARTUP_CMD", "Bridge startup command", advanced=True),
+            SettingSpec("VSCODE_BRIDGE_STARTUP_TIMEOUT_SECONDS", "Bridge startup timeout (s)", kind="int", default="45", advanced=True),
+            SettingSpec("VSCODE_BRIDGE_SYSTEM_PROMPT", "Bridge system prompt", advanced=True),
+            SettingSpec("VSCODE_BRIDGE_MAX_RETRIES", "Bridge max retries", kind="int", default="1", advanced=True),
+            SettingSpec("VSCODE_BRIDGE_INITIAL_BACKOFF_SECONDS", "Bridge initial backoff (s)", kind="int", default="1", advanced=True),
+        ]
 
     def model_sequence(self, env: dict[str, str], explicit_model: str = "") -> list[str]:
         """Build ordered bridge model candidates from explicit/config/default values."""

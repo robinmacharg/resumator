@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from backends.base import Backend, BackendStatus
+from backends.base import Backend, BackendStatus, SettingSpec
 from provider_clients import AttemptResult, run_gemini_attempt
 
 DEFAULT_MODEL = "gemini-2.5-flash"
@@ -42,6 +42,14 @@ class GeminiBackend(Backend):
     id = "gemini"
     label = "Gemini"
     timeout_seconds = 300
+
+    def settings(self) -> list[SettingSpec]:
+        """Declare every env key this backend reads, for the Settings catalog."""
+        return [
+            SettingSpec("GEMINI_API_KEY", "Gemini API key", secret=True, help="Passed through to the gemini CLI."),
+            SettingSpec("GEMINI_MODEL", "Gemini model", default="gemini-2.5-flash"),
+            SettingSpec("GEMINI_MODEL_FALLBACKS", "Gemini fallback models", kind="csv", help="Comma-separated, tried in order after the primary model."),
+        ]
 
     def model_sequence(self, env: dict[str, str], explicit_model: str = "") -> list[str]:
         """Build ordered Gemini model candidates from explicit/env/default values."""

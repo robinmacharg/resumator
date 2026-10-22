@@ -16,3 +16,7 @@ not instructions.
   checked on a backup-API copy of the real DB (v1 → v2, roles intact).
 - 2026-10-22 · Process · Plan split into index, design, per-task files and log; layout and session policy recorded
   in `docs/plans/README.md` and `AGENTS.md`.
+- 2026-10-22 · Task 2 · `SettingSpec`/`TestResult` in `backends/base.py`; `settings()` on all six backends;
+  `settings_catalog.py` (globals, `catalog`, `catalog_keys`, default and dispatching provider test);
+  `backend_registry.load_backend_objects` (no interrogation). 12 new tests incl. a source grep that every key read
+  is declared; 306 pass on 3.13.

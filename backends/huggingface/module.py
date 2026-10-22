@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from backends.base import Backend, BackendStatus
+from backends.base import Backend, BackendStatus, SettingSpec
 from provider_clients import AttemptResult, run_huggingface_attempt
 
 DEFAULT_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
@@ -34,6 +34,18 @@ class HuggingFaceBackend(Backend):
     id = "huggingface"
     label = "Hugging Face"
     timeout_seconds = 180
+
+    def settings(self) -> list[SettingSpec]:
+        """Declare every env key this backend reads, for the Settings catalog."""
+        return [
+            SettingSpec("HF_API_TOKEN", "Hugging Face API token", secret=True),
+            SettingSpec("HUGGINGFACE_API_TOKEN", "Hugging Face token (alias)", secret=True, help="Used when HF_API_TOKEN is empty.", advanced=True),
+            SettingSpec("HUGGINGFACE_API_URL", "Hugging Face API URL", default="https://router.huggingface.co/v1/chat/completions"),
+            SettingSpec("HUGGINGFACE_MODEL", "Hugging Face model", default="meta-llama/Llama-3.1-8B-Instruct"),
+            SettingSpec("HUGGINGFACE_MODEL_FALLBACKS", "Hugging Face fallback models", kind="csv", help="Comma-separated, tried in order after the primary model."),
+            SettingSpec("HUGGINGFACE_MAX_RETRIES", "Hugging Face max retries", kind="int", default="2", advanced=True),
+            SettingSpec("HUGGINGFACE_INITIAL_BACKOFF_SECONDS", "Hugging Face initial backoff (s)", kind="int", default="2", advanced=True),
+        ]
 
     def model_sequence(self, env: dict[str, str], explicit_model: str = "") -> list[str]:
         """Build ordered Hugging Face model candidates from config and defaults."""

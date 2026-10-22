@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from backends.base import Backend, BackendStatus
+from backends.base import Backend, BackendStatus, SettingSpec
 from provider_clients import AttemptResult, run_openai_attempt
 
 DEFAULT_MODEL = "gpt-5.6-luna"
@@ -35,6 +35,18 @@ class OpenAIBackend(Backend):
     id = "openai"
     label = "OpenAI"
     timeout_seconds = 180
+
+    def settings(self) -> list[SettingSpec]:
+        """Declare every env key this backend reads, for the Settings catalog."""
+        return [
+            SettingSpec("OPENAI_API_KEY", "OpenAI API key", secret=True),
+            SettingSpec("OPENAI_TOKEN", "OpenAI token (alias)", secret=True, help="Used when OPENAI_API_KEY is empty.", advanced=True),
+            SettingSpec("OPENAI_API_URL", "OpenAI API URL", default="https://api.openai.com/v1/chat/completions"),
+            SettingSpec("OPENAI_MODEL", "OpenAI model", default="gpt-5.6-luna"),
+            SettingSpec("OPENAI_MODEL_FALLBACKS", "OpenAI fallback models", kind="csv", help="Comma-separated, tried in order after the primary model."),
+            SettingSpec("OPENAI_MAX_RETRIES", "OpenAI max retries", kind="int", default="2", advanced=True),
+            SettingSpec("OPENAI_INITIAL_BACKOFF_SECONDS", "OpenAI initial backoff (s)", kind="int", default="2", advanced=True),
+        ]
 
     def model_sequence(self, env: dict[str, str], explicit_model: str = "") -> list[str]:
         """Build ordered OpenAI model candidates from config and defaults."""

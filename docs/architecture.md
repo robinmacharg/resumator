@@ -21,6 +21,7 @@ Two ways to run, sharing the same pipeline scripts:
 | `research_role.py` | Research pipeline CLI: research prompt + company + URLs + CV + job spec → backend → `research_output.md/.json` |
 | `pipe_io.py` | `--io json` harness for both pipelines (`run_json_io`): one JSON request on stdin, progress on stderr, one JSON result on stdout, no data files. fd 1 points at stderr while the run works, so stray prints can't corrupt the result. SIGTERM exits through Python, so the result is still written and tracked provider groups are killed. Used by `role_runner` ([plan](plans/multi-role.md), "Run I/O") |
 | `research_format.py` | Normalises research markdown → `research_output.formatted.{md,pdf}` |
+| `settings_catalog.py` | Declares every config key (globals plus each backend's `settings()`), groups them for the Settings page, `catalog_keys()`, provider connection tests ([backends.md](backends.md)) |
 | `backend_registry.py` | Discovers `backends/*/module.py`, interrogates each, exposes catalog and lookup ([backends.md](backends.md)) |
 | `provider_catalog.py` | Frontend-shaped provider catalog. Uses the registry first, falls back to static `model_providers.json` |
 | `provider_clients.py` | Transport per provider (`run_<provider>_attempt`) → `AttemptResult`; writes per-attempt logs. Provider CLIs start in their own session (so a timeout kills the group); live groups are tracked (`track_provider_process`) and killed at interpreter exit, so Ctrl-C or a stop doesn't leave `claude`/`gemini` running |

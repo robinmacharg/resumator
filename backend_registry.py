@@ -127,6 +127,26 @@ def _safe_status(backend: Backend, env: dict[str, str]) -> BackendStatus:
     )
 
 
+def load_backend_objects() -> list[Backend]:
+    """Instantiate every loadable backend without interrogating it (no network, no autostart).
+
+    Returns:
+    - Backends in module order; modules that fail to load, or repeat an id, are skipped.
+    """
+    backends: list[Backend] = []
+    seen_ids: set[str] = set()
+    for module_path in _iter_backend_module_paths():
+        try:
+            backend_obj = _import_backend_module(module_path).get_backend()
+        except Exception:
+            continue
+        backend_id = str(getattr(backend_obj, "id", "")).strip()
+        if backend_id and backend_id not in seen_ids:
+            seen_ids.add(backend_id)
+            backends.append(backend_obj)
+    return backends
+
+
 def discover_backends(env: dict[str, str] | None = None) -> list[RegisteredBackend]:
     """Discover and interrogate all backend modules in the backends directory.
 
