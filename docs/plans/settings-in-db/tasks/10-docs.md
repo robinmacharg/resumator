@@ -7,7 +7,7 @@
 - `docs/backends.md`: env vars are now settings keys; precedence (D8, D11); `settings()` / `test_connection()`.
 - `docs/architecture.md`, `cv_web/static/ARCHITECTURE.md`: settings flow, endpoints, Settings panel.
 - `AGENTS.md`: `.env` invariant → "the DB holds keys; never echo them"; the audit; the settings CLI actions.
-- `docs/plans/multi-role-design.md`: ER diagram gains `env_setting`; note that D6 supersedes R5 for config.
+- `docs/plans/multi-role-design.md`: note that D6 supersedes R5 for config. (The ER diagram, with `env_setting`, already moved to `docs/db-schema.md`.)
 
 ## Done when
 

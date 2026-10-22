@@ -10,6 +10,8 @@ Two ways to run, sharing the same pipeline scripts:
 - **One-shot file mode** (`generate_cv.py`, `research_role.py`, `cv_convert.py`): reads `input/`, writes `output/`,
   no database. The web UI falls back to it only when the role API can't be reached.
 
+Database schema and ER diagram: [db-schema.md](db-schema.md).
+
 ## Components
 
 | File | Role |

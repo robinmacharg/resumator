@@ -15,7 +15,8 @@ and `output/` files. Second pipeline: company/role research notes. Python stdlib
 | Planned work and known issues | [docs/gaps.md](docs/gaps.md) |
 | Writing or continuing a plan (layout, end-of-task and new-session rules) | [docs/plans/README.md](docs/plans/README.md) |
 | Settings in the DB (`.env` removal; decisions D1–D11) | [docs/plans/settings-in-db/index.md](docs/plans/settings-in-db/index.md) |
-| Roles, DB schema, merge, first run, role CLI (decisions R1–R21) | [docs/plans/multi-role-design.md](docs/plans/multi-role-design.md) |
+| DB schema and ER diagram (keep current with `store.MIGRATIONS`) | [docs/db-schema.md](docs/db-schema.md) |
+| Roles, merge, first run, role CLI (decisions R1–R21) | [docs/plans/multi-role-design.md](docs/plans/multi-role-design.md) |
 | Frontend JS modules, endpoint ownership | [cv_web/static/ARCHITECTURE.md](cv_web/static/ARCHITECTURE.md) |
 | VS Code Copilot bridge extension | [VSCodeExtension/README.md](VSCodeExtension/README.md) |
 
@@ -31,7 +32,8 @@ and `output/` files. Second pipeline: company/role research notes. Python stdlib
 - `input/CV.md` is the user's real CV and `.env` holds real keys. Don't rewrite their content unless asked, and never echo
   `.env` values. `cv_web/resumator.db` holds the user's real roles and CVs: don't write to it in checks. Copy it
   with SQLite's backup API and use `--db` (CLI) or `server_roles.DB_PATH` (server) on the copy.
-- Schema changes are a new `store.MIGRATIONS` entry; never edit an applied migration.
+- Schema changes are a new `store.MIGRATIONS` entry; never edit an applied migration. Update the ER diagram in
+  [docs/db-schema.md](docs/db-schema.md) in the same change.
 - Model output must pass `validate_and_normalize_payload` in `generate_cv.py`. If you change the JSON contract,
   update `input/prompt.md`, the validator, `render_tagged_markdown`, and `cv_convert.py` together.
 - Looks live in `themes/` (Typst theme + Lua filter for PDF, `docx-styles.xml` for DOCX). `cv_convert` emits
