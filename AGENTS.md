@@ -29,9 +29,13 @@ and `output/` files. Second pipeline: company/role research notes. Python stdlib
 - Python 3.11+ (tests use `unittest` `enterContext`). No third-party Python deps (`requirements.txt` is empty by
   design). External tools only via subprocess (`gemini`, `pandoc`, `typst`).
 - Scripts use cwd-relative `input/` and `output/`: run them from the repo root.
-- `input/CV.md` is the user's real CV and `.env` holds real keys. Don't rewrite their content unless asked, and never echo
-  `.env` values. `cv_web/resumator.db` holds the user's real roles and CVs: don't write to it in checks. Copy it
-  with SQLite's backup API and use `--db` (CLI) or `server_roles.DB_PATH` (server) on the copy.
+- `input/CV.md` is the user's real CV; don't rewrite it unless asked. `cv_web/resumator.db` holds the user's real
+  roles, CVs and provider keys (`env_setting`, plain text): never echo setting values, and don't write to it in
+  checks. Copy it with SQLite's backup API and use `--db` (CLI) or `server_roles.DB_PATH` (server) on the copy.
+- Config lives only in the DB (`settings_env.effective_env`); no `.env` is read, and shell values for catalogued
+  keys are ignored. `startup_audit` refuses to start while a `.env` is in the repo (import it with
+  `--action settings-import --env-file F --delete-after`). New env keys must be declared in a backend's
+  `settings()` or `settings_catalog` (a test greps for undeclared reads).
 - Schema changes are a new `store.MIGRATIONS` entry; never edit an applied migration. Update the ER diagram in
   [docs/db-schema.md](docs/db-schema.md) in the same change.
 - Model output must pass `validate_and_normalize_payload` in `generate_cv.py`. If you change the JSON contract,

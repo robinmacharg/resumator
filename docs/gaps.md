@@ -42,8 +42,6 @@ Suggested shape:
 
 ## P2 — Correctness and hygiene
 
-- **`.env` is tracked in git** and holds real API keys. Rotate the keys, `git rm --cached .env`, add a
-  `.env.example`, and add `.env` to `.gitignore`. Keys remain in git history until it is rewritten.
 - **CV.md content issues**: 54 `[cite: 1]` artefacts left over from a Gemini paste. The `skills_raw` lists are not
   valid YAML (`- "a", "b"`). In the Boostworks role, one bullet is split mid-sentence ("…to give" / "* Customer
   Relations…").
@@ -78,8 +76,7 @@ Suggested shape:
 - File mode in the web UI (`[data-file-only]`, the file branches in the feature modules and the `input/`-backed
   editors for CV and job spec) is now only a fallback for an unreachable role API. Remove it, or keep it as an
   explicit "no database" switch.
-- Dead code: `run_gemini_with_diagnostics` in both `generate_cv.py` and `research_role.py`. Both have a local
-  `load_dotenv_file` that duplicates `env_utils.parse_dotenv_file`.
+- Dead code: `run_gemini_with_diagnostics` in both `generate_cv.py` and `research_role.py`.
 - `research_role.py` keeps its own `DEFAULT_*_MODEL` and fallback lists that duplicate the backend modules. It should
   rely on `backend.model_sequence`.
 - `_split_csv` and `_dedupe` are copied into each backend module. Move them to `backends/base.py` or a shared helper.

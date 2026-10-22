@@ -1,6 +1,6 @@
 # Task 10: docs
 
-**Status:** todo. **Read:** the "Doc upkeep" rule in AGENTS.md; the docs named below.
+**Status:** done. **Read:** the "Doc upkeep" rule in AGENTS.md; the docs named below.
 
 ## Do
 
@@ -15,4 +15,9 @@ No doc mentions `.env` as live config (grep), except history and import.
 
 ## Handover
 
-(fill in at the end of the task)
+- Most docs were already updated by tasks 3–9; this task did AGENTS.md (invariant, audit, declare-new-keys rule),
+  README (Settings, first-run import, audit error fix, one-shot scripts read DB config), backends.md (D8/D9/D11
+  precedence, CLI settings actions), architecture.md (`EDITOR_FILES` has no `env`; pop-over not sub-tab),
+  multi-role-design.md (R5 superseded for config by D6) and gaps.md (stale `.env`-in-git and `load_dotenv_file`
+  entries removed: `.env` has no git history and the duplicate parsers are gone).
+- Grep check: remaining `.env` mentions are history, import, or "not read" statements.

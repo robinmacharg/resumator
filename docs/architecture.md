@@ -96,7 +96,7 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
 
 - Entry: `python3 -m cv_web` → `server.py` (composition root), 127.0.0.1:8765.
 - Editable files (`EDITOR_FILES` in `server.py`, mirrored by `EDITABLE_FILES` in `static/app.js`): `cv`, `prompt`,
-  `research_prompt`, `jobspec`, `env`. In role mode `cv` and `jobspec` are the role's (or the master CV) and are
+  `research_prompt`, `jobspec` (settings are not a file: see the Settings routes below). In role mode `cv` and `jobspec` are the role's (or the master CV) and are
   saved through the Role API, never to `input/`.
 - `/output/<name>` only serves `ALLOWED_OUTPUT_FILES`.
 - Runs: `server_run_helpers.make_command` builds `generate_cv.py` (full) or `cv_convert.py --pdf --docx` (format)
@@ -114,7 +114,7 @@ The UI is in "role mode" once the DB is set up (`role-workspace-feature.js` and 
 [static/ARCHITECTURE.md](../cv_web/static/ARCHITECTURE.md)). A new install first picks example data or a blank master
 CV (`/api/setup`); with no roles yet only the master CV is open and runs wait for a role. The file-based endpoints
 above are unchanged, and the UI falls back to them only when the role API can't be reached. In role mode the CV and
-job spec editors never reach them, so `input/CV.md` isn't overwritten; the prompt editors stay file-based; settings are edited in the Settings sub-tab (`/api/settings`). Role research runs are stored, but the UI doesn't list or render
+job spec editors never reach them, so `input/CV.md` isn't overwritten; the prompt editors stay file-based; settings are edited in the Settings pop-over (header cog, `/api/settings`). Role research runs are stored, but the UI doesn't list or render
 them yet (see [gaps.md](gaps.md)).
 
 | Route | What |

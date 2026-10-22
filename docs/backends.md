@@ -29,6 +29,12 @@ log_path, timed_out`. `stdout` is the model's text. `log_path` is None when no l
 - `provider_catalog.load_provider_catalog(env)` is the registry's catalog; `model_providers.json` is gone (D10).
 - Config comes from the DB, never `.env`: `settings_env.effective_env(conn)` is the process environment minus every
   catalogued key plus the stored settings (D8). `runtime_env(stored)` is the same rule for discovery.
+- One rule for every catalogued key, secret or not (D11): a shell `export` is ignored (the startup audit warns).
+  One-off non-secret overrides are CLI flags (`--provider`, `--model`, `--theme`, `--fast`, `--font-priority`).
+  Secrets are never CLI arguments (D9): a one-shot run missing its provider's key prompts with `getpass` on a
+  terminal, or fails with how to set it.
+- Set keys in the UI (Settings pop-over) or the role CLI (`--action settings-set --key K`, `settings-import`,
+  `settings-export [--reveal]`, `settings-test --provider P`).
 
 ## How pipelines use a backend
 
@@ -63,7 +69,7 @@ for every attempt.
 2. Put the transport in `provider_clients.py` as `run_<id>_attempt(...)`. Follow an existing HTTP runner for
    retry, backoff, log and `AttemptResult` handling.
 3. Declare its env keys in `settings()` (secrets flagged). In `interrogate`, disable the backend with a clear `reason` when credentials or config are missing.
-4. Document its env vars in the table above.
+4. Document its env vars in the table above. They appear in the Settings pop-over as a provider card.
 5. No registry, server or UI changes are needed; it appears in the provider dropdown automatically.
 
 Duplication to be aware of: `_split_csv` and `_dedupe` are copied into each module, and `research_role.py` keeps its

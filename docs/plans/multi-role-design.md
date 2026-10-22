@@ -11,7 +11,7 @@ Design record for [multi-role.md](multi-role.md) (status, steps and Handoff live
 | R2 | **No cross-role copying** for now; copy and paste covers it | Your call. Keeps the model simple |
 | R3 | **First run** for a new user: example data or blank. No general "import existing" option | Your call. Most users have no single-role history to bring over |
 | R4 | **One-time migration for the current install** (a CLI command, not a UI path): today's files become the first role, including the current research output | Your call. It's a one-off move from single-role to multi-role |
-| R5 | **CLI keeps today's one-shot, file-based generation** and adds role mode: `--role "Name" --action cv|research|…` | Your call. Scripting and quick runs stay possible without the DB |
+| R5 | **CLI keeps today's one-shot, file-based generation** and adds role mode: `--role "Name" --action cv|research|…` | Your call. Scripting and quick runs stay possible without the DB. **Superseded for config** by settings-in-db D6: the one-shot scripts read their settings from the DB; CV and job spec input stays file-based |
 | R6 | **Only agent-returned text is stored**; PDFs are rendered on demand | Your call (original brief) |
 | R7 | **Changes between master and role CVs are diffed and merged, never overwritten.** Information removed from a role stays in the master | Your call. A role's deliberate removals must not delete facts from the master |
 | R8 | **The master CV is versioned in the DB**, alongside the role CVs: every save, promotion or merge adds a version with its date and source | Your call. Gives history, undo, and the common ancestor that merges need |
