@@ -35,7 +35,7 @@ const CV_LABELS = { role: "Role CV", master: "Master CV" };
  * @property {() => any} currentFileValues Editor values for every key, role-owned ones included.
  * @property {(steering: {text: string, enabled: boolean}) => void} applySteering Show a role's steering.
  * @property {(theme: string) => void} applyTheme Show a role's theme.
- * @property {any} roleRunsFeature Run-history API: loadRuns, clear.
+ * @property {any} roleRunsFeature Run-history API: loadRuns, showSelectedRun, refreshTailoredOutput, showFirstRun.
  * @property {(message: string) => boolean} [confirm] Confirmation prompt (window.confirm).
  * @property {() => void} [reloadPage] Full page reload (after the last role is deleted).
  * @property {() => void} [openSettingsStep] First-run Settings step (import, sample or skip), shown after the
@@ -358,6 +358,7 @@ export function createRoleWorkspaceFeature(ctx) {
             settingsStepDue = !setup.hasSettings;
             // The file-mode startup filled these from input/ (or a browser draft); nothing is chosen yet.
             applyRoleFiles({ cv: "", jobspec: "" });
+            roleRunsFeature.showFirstRun();
             syncModeUi();
             openFirstRunDialog();
             return;

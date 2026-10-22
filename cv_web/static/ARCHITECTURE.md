@@ -143,7 +143,8 @@ flowchart TD
   - First run (step 12): `GET /api/setup` says when the choice is due; `#firstRunDialog` offers example data or a
     blank master CV (`chooseFirstRun`) and can't be dismissed (Escape is cancelled, or it reopens on close). When
     `hasSettings` was false, the choice is followed by the Settings step (`ctx.openSettingsStep`). While the choice
-    is due the CV and job spec editors are cleared (the file-mode startup loaded `input/` into them).
+    is due the CV and job spec editors are cleared (the file-mode startup loaded `input/` into them), and the CV
+    preview and Tailored tab show a placeholder instead of `output/` files (`roleRunsFeature.showFirstRun`).
   - No roles yet (`isMasterOnly`, `body.no-role`): the master CV is open, `[data-needs-role]` controls (CV picker,
     promote/pull, run picker, status/delete) hide, the job spec is read-only, CV and research runs are refused
     (`isRoleRequired` in the run features), theme changes are only kept, and the preview says "No role yet".

@@ -81,6 +81,7 @@ function createHarness({
         reload: 0,
         dialog: [],
         tailored: 0,
+        firstRunPreview: 0,
         settingsStep: 0,
         onCreate: () => {},
     };
@@ -162,6 +163,9 @@ function createHarness({
             refreshTailoredOutput: async () => {
                 calls.tailored += 1;
             },
+            showFirstRun: () => {
+                calls.firstRunPreview += 1;
+            },
         },
         confirm,
         reloadPage: () => {
@@ -180,6 +184,7 @@ test("initialize on a new install offers the first-run choice and stays out of r
 
     assert.deepEqual(calls.dialog, ["open"]);
     assert.deepEqual([editors.cv, editors.jobspec], ["", ""]);
+    assert.equal(calls.firstRunPreview, 1);
     assert.equal(state.workspace, false);
     assert.deepEqual(feature.getRoleOwnedKeys(), []);
     assert.equal(els.body.classList.contains("role-mode"), false);
