@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from cv_convert import available_themes, render_cv
+import startup_audit
 from cv_web import first_run, migrate_single_role, role_runner, store
 
 OUTPUT_DIR = Path("output")
@@ -86,6 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"--action {args.action} needs --role")
     if args.action == "setup" and not args.choice:
         parser.error("--action setup needs --choice example or blank")
+    startup_audit.audit_or_exit(allow={"dotenv"} if args.action == "settings-import" else ())
     if args.action == "migrate-single-role":
         return _migrate(args)
     try:

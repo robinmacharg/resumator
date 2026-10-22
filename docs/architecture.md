@@ -26,6 +26,7 @@ Two ways to run, sharing the same pipeline scripts:
 | `provider_catalog.py` | Frontend-shaped provider catalog. From the registry only (`model_providers.json` removed) |
 | `provider_clients.py` | Transport per provider (`run_<provider>_attempt`) → `AttemptResult`; writes per-attempt logs. Provider CLIs start in their own session (so a timeout kills the group); live groups are tracked (`track_provider_process`) and killed at interpreter exit, so Ctrl-C or a stop doesn't leave `claude`/`gemini` running |
 | `env_utils.py` | `.env` text parser, kept for settings import only |
+| `startup_audit.py` | `run_audit(root, allow=())` / `audit_or_exit`: a stray `.env` is an error (refuses to start; the import action passes `allow={"dotenv"}`); `model_providers.json`, `~/.gemini/.env` and shell-set catalogued keys warn. Called by `cv_web`, `resumator`, `generate_cv`, `research_role`, `research_format`, `cv_convert` (not `--io json`) |
 | `settings_env.py` | `effective_env(conn)`: `os.environ` minus catalogued keys plus the DB's `env_setting` rows; `one_shot_env` for the scripts (DB, flag overrides, `getpass` for a missing provider secret) |
 | `cv_web/` | stdlib `http.server` UI wrapper. Runs the CLIs as subprocesses and streams their output |
 | `cv_merge.py` | Entry-level three-way merge of CV source text (`split_units`, `compare`, `merge`) for promote/pull between master and role CVs. Pure functions, used by `cv_web/role_merge.py` |

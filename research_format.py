@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Mapping
 
+import startup_audit
 from cv_convert import choose_font
 from settings_env import one_shot_env
 
@@ -201,6 +202,7 @@ def main() -> int:
     - `int` value representing the operation result.
     """
     args = parse_args()
+    startup_audit.audit_or_exit()
     return run(
         input_md=Path(args.input_md),
         output_md=Path(args.output_md),

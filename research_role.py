@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+import startup_audit
 from backend_registry import get_backend_or_raise
 from provider_catalog import load_provider_catalog, provider_map
 from settings_env import SettingsError, one_shot_env
@@ -1030,6 +1031,7 @@ def main() -> None:
     if args.io == "json":
         sys.exit(run_json_io(handle_json_request))
 
+    startup_audit.audit_or_exit()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     DEBUG_LOG_DIR.mkdir(parents=True, exist_ok=True)
 

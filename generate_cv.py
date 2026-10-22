@@ -11,6 +11,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 import cv_source
+import startup_audit
 from cv_convert import convert_markdown_outputs, count_pdf_pages, render_cv
 from backend_registry import get_backend_or_raise
 from provider_catalog import load_provider_catalog, provider_map
@@ -1301,6 +1302,7 @@ def main() -> None:
     if args.io == "json":
         sys.exit(run_json_io(handle_json_request))
 
+    startup_audit.audit_or_exit()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     DEBUG_LOG_DIR.mkdir(parents=True, exist_ok=True)
 

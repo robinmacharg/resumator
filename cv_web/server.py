@@ -28,6 +28,7 @@ ROOT_DIR = APP_DIR.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+import startup_audit
 from cv_convert import available_themes
 from cv_web.server_run_helpers import (
     _build_research_command,
@@ -756,6 +757,7 @@ def run_server() -> None:
     Returns:
     - None. This function performs side effects only.
     """
+    startup_audit.audit_or_exit(ROOT_DIR)
     INPUT_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     LOG_DIR.mkdir(parents=True, exist_ok=True)

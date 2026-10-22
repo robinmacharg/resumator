@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+import startup_audit
+
 THEMES_DIR = Path(__file__).resolve().parent / "themes"
 STYLES_FILTER = THEMES_DIR / "styles.lua"
 DEFAULT_TYPST_THEME = THEMES_DIR / "default.typ"
@@ -656,6 +658,7 @@ def main() -> None:
     - None. This function performs side effects only.
     """
     args = parse_args()
+    startup_audit.audit_or_exit()
     markdown_path = Path(args.markdown)
     output_pdf = Path(args.pdf)
     output_docx = Path(args.docx)
