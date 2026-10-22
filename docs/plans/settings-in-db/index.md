@@ -32,7 +32,7 @@ fresh after 3, 5 and 8, and before 9 (it touches real data).
 
 ## Handoff
 
-Tasks 1–4 are done (4 uncommitted until committed with this handoff). Next is task 5, in a new session (add `settings-import` to `resumator.ACTIONS`; `main` already allows `dotenv` for it). Nothing reads the real `.env`, and the audit now refuses to start the server and scripts while it exists, so until task 5's import the app can't run: that is expected. Run Python tests with Python 3.11+ (`python3.13 -m unittest
+Tasks 1–4 are done (committed). Next is task 5, in a new session (add `settings-import` to `resumator.ACTIONS`; `main` already allows `dotenv` for it). Nothing reads the real `.env`, and the audit now refuses to start the server and scripts while it exists, so until task 5's import the app can't run: that is expected. Run Python tests with Python 3.11+ (`python3.13 -m unittest
 discover -s tests`): system `python3` and `.venv` are 3.9.6 and fail 19 pre-existing tests (a `.venv` rebuild is
 being handled separately).
 
