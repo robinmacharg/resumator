@@ -1,21 +1,10 @@
-/* Declares app-only design tokens; shared colour tokens (--bg, --line, --brand, …) live in theme.css. */
-:root {
-  --brand-strong: var(--brand);
-}
+/* Colour tokens (--bg, --line, --brand, …) live in theme.css; Bootstrap's Reboot sets box-sizing, body margin,
+   font, colour and background. */
 
-/* Applies border-box sizing globally for predictable layout math. */
-* {
-  box-sizing: border-box;
-}
-
-/* Sets document-wide typography, base colors, and full-height canvas behavior. */
+/* Gives the page full height for the column layout below. */
 html,
 body {
-  margin: 0;
-  padding: 0;
   height: 100%;
-  color: var(--ink);
-  background: var(--bg);
 }
 
 /* Makes body a vertical flex container so header and layout panes stack cleanly. */
@@ -121,20 +110,10 @@ dialog .modal-title {
   overflow: hidden;
 }
 
-/* Styles the vertical pane splitter used to resize editor and preview widths. */
+/* Sizes the vertical pane splitter used to resize editor and preview widths. */
 .pane-splitter {
-  position: relative;
   width: var(--splitter-width);
-  min-height: 0;
   cursor: col-resize;
-  user-select: none;
-  touch-action: none;
-  border-radius: 999px;
-  background: transparent;
-  border: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* Shares common interactive splitter affordances for pane and research splitters. */
@@ -159,16 +138,6 @@ dialog .modal-title {
   background-image: radial-gradient(circle, rgba(31, 31, 31, 0.5) 1px, transparent 1px);
   background-size: 6px 6px;
   background-position: center;
-}
-
-/* Preserves transparent background while pane splitter is actively dragged. */
-.pane-splitter.dragging {
-  background: transparent;
-}
-
-/* Preserves transparent background while any shared splitter is actively dragged. */
-:is(.pane-splitter, .research-section-splitter).dragging {
-  background: transparent;
 }
 
 /* Makes the editor pane a vertical stack of status, tabs, and content. */
@@ -198,10 +167,6 @@ dialog .modal-title {
   color: inherit;
   font: inherit;
   cursor: text;
-}
-
-.role-title-btn[hidden] {
-  display: none;
 }
 
 /* Keeps the rename pencil quiet until the title is hovered or focused. */
@@ -271,16 +236,6 @@ dialog .modal-title {
   display: grid;
 }
 
-/* Keeps logs panel hidden when not active inside shared tab system. */
-.tab-panel.logs {
-  display: none;
-}
-
-/* Reveals logs panel when selected in shared tab system. */
-.tab-panel.logs.active {
-  display: grid;
-}
-
 /* Provides shared bordered card shell for logs and research control surfaces. */
 :is(.logs, .research-controls) {
   border: var(--bs-border-width) solid var(--line);
@@ -315,15 +270,8 @@ dialog .modal-title {
   display: grid;
 }
 
-/* Applies default label emphasis inside top-level tab panels. */
+/* Applies label emphasis inside top-level tab panels (CV subpanels, research inputs). */
 .tab-panel label {
-  font-weight: 600;
-  color: var(--muted);
-}
-
-/* Applies label emphasis for CV subpanels and research input grids. */
-.cv-subpanel label,
-.research-input-grid label {
   font-weight: 600;
   color: var(--muted);
 }

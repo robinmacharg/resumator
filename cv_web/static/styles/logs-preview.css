@@ -1,7 +1,6 @@
-/* Defines the logs tab shell with header, controls, and panel content regions. */
+/* Defines the logs tab shell with header, controls, and panel content regions (shown/hidden as a .tab-panel). */
 .logs {
   padding: 0.75rem;
-  display: grid;
   grid-template-rows: auto auto 1fr;
   gap: 0.5rem;
   overflow: hidden;
@@ -70,6 +69,11 @@
 .preview-header a {
   color: var(--brand);
   font-size: 0.85rem;
+}
+
+/* Spaces the preview header links. */
+.preview-header a + a {
+  margin-left: 0.6rem;
 }
 
 /* Sizes and displays the embedded PDF preview frame. */

@@ -35,7 +35,6 @@
 #tab-prompt,
 #tab-jobspec,
 #tab-steering,
-#tab-env,
 #tab-tailored {
   padding: 0.75rem;
   grid-template-rows: auto minmax(260px, 1fr);

@@ -7,6 +7,7 @@ This document summarizes the frontend module structure under `cv_web/static`.
 - `app.js` is the composition root.
 - Feature modules under `static/js` hold domain behavior.
 - Shared utilities (`api-client.js`, `app-utils.js`) provide infrastructure helpers.
+- Styling is Bootstrap 5.3 CSS (no Bootstrap JS) plus our own CSS; see [Styles](#styles).
 
 ## Dependency Flow
 
@@ -189,6 +190,28 @@ flowchart TD
 
 - `app-startup-feature.js`
   - Executes final startup order (autosave binding, mirrored editors, layout init, initialize).
+
+## Styles
+
+Decisions B1–B9 in [docs/plans/bootstrap-ui/design.md](../../docs/plans/bootstrap-ui/design.md).
+
+| File | Holds |
+|---|---|
+| `styles/vendor/bootstrap.min.css` | Bootstrap 5.3.8, vendored (only the source-map comment stripped); loaded first by `index.html` |
+| `styles.css` | `@import`s the files below, in this order |
+| `styles/theme.css` | The one place to retune the look: `--bs-*` overrides (pale blue page, small corners, our danger red), our tokens (`--bg`, `--panel`, `--ink`, `--muted`, `--line`, `--brand`, `--danger`, `--surface-muted`) mapped onto Bootstrap's, and density/colour tweaks to `.btn`, `.form-*`, `.nav`, `dialog` (modal vars) and `.list-group` |
+| `styles/common.css` | App shell: top bar, panes and splitters, tab panels, sub-tab strips, editors (`textarea`), log `pre`, status bar |
+| `styles/cv.css`, `research.css`, `logs-preview.css`, `roles.css`, `settings.css` | Layout for one area each (role sidebar and dialogs in `roles.css`) |
+
+- Markup uses Bootstrap classes for buttons, form controls, navs, list groups, badges and modal parts; our CSS
+  only covers layout and what Bootstrap lacks. Colours come from tokens, not hex.
+- Bootstrap fills controls, active tabs, list-group items and cards with `--bs-body-bg` (our pale blue), so white
+  surfaces set `var(--panel)`; `<dialog>`s hold `modal-header`/`-body`/`-footer` and `theme.css` sets the
+  `--bs-modal-*` vars on `dialog` (Bootstrap sets them only on `.modal`).
+- Upgrading Bootstrap: download the release's `dist/css/bootstrap.min.css`, check its sha384
+  (`openssl dgst -sha384 -binary F | openssl base64 -A`) against the SRI hash on getbootstrap.com, strip the
+  trailing `/*# sourceMappingURL=… */` comment (no map is served; this changes the hash, so check first), replace
+  the vendored file, update the version here, then compare screenshots of each view.
 
 ## API Endpoint Ownership
 

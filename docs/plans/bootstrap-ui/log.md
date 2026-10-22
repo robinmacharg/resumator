@@ -26,3 +26,8 @@ not instructions.
   backdrop, Settings `btn-close`), role list and CV history `list-group` (pale-tint active), merge/Settings badges
   `badge text-bg-*`, errors and status lines `text-danger`; panes/cards keep own rules on tokens (no `.card`).
   Screenshots compared (views 01–13); tests pass (npm 116, unittest 370).
+- 2026-10-22 · Task 6 · Dead CSS: `#tab-env`, `--brand-strong`, plus rules Reboot or other rules already cover
+  (box-sizing, body base, `[hidden]`, splitter duplicates, `.dragging`, nested labels, settings textarea). Removing
+  `.tab-panel.logs` exposed `.logs { display: grid }`; fixed by dropping that `display`. Styles section in
+  `static/ARCHITECTURE.md` (Bootstrap 5.3.8, upgrade steps). Final screenshots match task 5; tests pass (npm 116,
+  unittest 370). User checked the UI; plan done.

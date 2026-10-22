@@ -139,12 +139,6 @@
   background: var(--panel);
 }
 
-.settings-tool textarea {
-  width: 100%;
-  box-sizing: border-box;
-  font-family: var(--bs-font-monospace);
-}
-
 .settings-status,
 .settings-test-result {
   margin: 0.25rem 0;

@@ -43,11 +43,6 @@
   height: 6px;
 }
 
-/* Maintains a transparent splitter background while dragging. */
-.research-section-splitter.dragging {
-  background: transparent;
-}
-
 /* Lays out each research input panel with header content and a fill area. */
 .research-input-panel {
   grid-template-rows: auto minmax(0, 1fr);

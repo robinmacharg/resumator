@@ -104,7 +104,8 @@ sections if none are present) → backend (same fallback loop, with extra Gemini
   `/api/run/status`. There is one run lock for CV and one for research. Research can be stopped.
 - Provider and model dropdowns come from `provider_catalog.load_provider_catalog` via `/api/state`.
 - Request bodies are JSON only. There is no multipart/file-upload handling yet ([gaps.md](gaps.md)).
-- Module map and endpoint ownership: [cv_web/static/ARCHITECTURE.md](../cv_web/static/ARCHITECTURE.md).
+- Module map, endpoint ownership and styles (vendored Bootstrap 5.3, `styles/theme.css`):
+  [cv_web/static/ARCHITECTURE.md](../cv_web/static/ARCHITECTURE.md).
 
 ### Role API (`server_roles.py`)
 

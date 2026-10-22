@@ -5,7 +5,7 @@ professional look: flat buttons, 2–4px corners, Bootstrap's system font, a ver
 vanilla-JS behaviour (dialogs, tabs, splitters, sidebar) is unchanged. Ends with our custom CSS cut to what
 Bootstrap doesn't cover.
 
-**Status:** in progress (tasks 1–5 done). Decisions B1–B9 agreed. Branch `feature/20261022-bootstrap-ui` (from `develop`).
+**Status:** done (tasks 1–6; user checked the UI). Decisions B1–B9 agreed. Branch `feature/20261022-bootstrap-ui` (from `develop`).
 
 **Files** (layout per [../README.md](../README.md)): this index (read every session), [design.md](design.md) (read
 only the sections your task links), one file per task under `tasks/`, and [log.md](log.md) (append one entry per
@@ -20,7 +20,7 @@ task; read only the last few).
 | 3 | [Form controls](tasks/03-forms.md) | done |
 | 4 | [Tabs and sub-tabs](tasks/04-tabs.md) | done |
 | 5 | [Surfaces: panes, sidebar, dialogs, Settings, status bar](tasks/05-surfaces.md) | done |
-| 6 | [Dead CSS removal and docs](tasks/06-cleanup-docs.md) | todo |
+| 6 | [Dead CSS removal and docs](tasks/06-cleanup-docs.md) | done |
 
 Sessions: 2 → 3 → 4 can stay in one session (same files, small diffs). Start fresh after 1 (it sets up the
 screenshot tooling) and before 6.
@@ -38,12 +38,9 @@ screenshot tooling) and before 6.
 
 ## Handoff
 
-Tasks 1–5 committed on `feature/20261022-bootstrap-ui`. Panes, sidebar,
-dialogs (modal header/body/footer inside `<dialog>`), list groups, badges and status colours are Bootstrap or
-token-based; see task 5's Handover. Next: task 6 (dead CSS removal and docs), in a new session. Gotchas: Bootstrap
-fills controls, active tabs, list-group items and cards with `--bs-body-bg` (our pale blue), so surfaces need
-`var(--panel)`; modal parts need the `--bs-modal-*` vars `theme.css` sets on `dialog`. Screenshot kit: task 5's
-Handover (port 8823; 8765/8799/8811 are held by other servers).
+Plan done: tasks 1–6 committed on `feature/20261022-bootstrap-ui`, one commit per task (B9). Next: merge to
+`develop` when the user asks. Styles are documented in `cv_web/static/ARCHITECTURE.md` § Styles. Gotcha for later
+CSS work: a feature rule that sets `display` on a `.tab-panel` element beats `.tab-panel`'s hidden state.
 
 Paste this to start or continue:
 
