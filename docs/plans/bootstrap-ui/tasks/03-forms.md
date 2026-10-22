@@ -1,6 +1,6 @@
 # Task 3: form controls
 
-**Status:** todo. **Read:** [design § Class mapping](../design.md#class-mapping).
+**Status:** done. **Read:** [design § Class mapping](../design.md#class-mapping).
 
 ## Do
 
@@ -18,4 +18,13 @@ All controls share one height and focus ring per size; tests pass; screenshots c
 
 ## Handover
 
-(empty)
+- Sizes: regular `form-select` / `form-control` beside regular buttons (header pickers, Run/Theme, sidebar Status,
+  debug log, import mode, new-role dialog, research company); `-sm` beside `btn-sm` (CV source select, every
+  Settings field and Other row, import file). `theme.css` matches their font/padding to `.btn` / `.btn-sm` and fills
+  them white (Bootstrap uses `--bs-body-bg`, our pale blue).
+- Checkboxes: Steer and Dry run are `form-check form-check-inline inline-toggle` labels wrapping a
+  `form-check-input`; merge checkboxes/radios get `form-check-input` only.
+- Deleted: `.model-picker select` look and `:disabled`, generic `select` and text-`input` rules (common.css),
+  `.research-input-grid input`, `#researchCompanyInput` height (research.css). Kept: `.model-picker .form-select` and
+  `.file-actions .form-select` at `width: auto` (Bootstrap's 100% squeezed the toolbar), `.role-name-input` sizing.
+- Editor textareas stay ours (monospace, no `form-control`) with `--bs-border-radius` and Bootstrap's focus ring.

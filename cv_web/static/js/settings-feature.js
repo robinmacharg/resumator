@@ -86,13 +86,14 @@ export function createSettingsFeature(ctx) {
         if (setting.kind === "bool" || setting.kind === "choice") {
             const options = setting.kind === "bool" ? ["true", "false"] : setting.choices || [];
             const defaultLabel = setting.default ? `(default: ${setting.default})` : "(not set)";
-            input = h("select", {}, [
+            input = h("select", { className: "form-select form-select-sm" }, [
                 h("option", { value: "", textContent: defaultLabel }),
                 ...options.map((option) => h("option", { value: option, textContent: option })),
             ]);
             input.value = start;
         } else {
             input = h("input", {
+                className: "form-control form-control-sm",
                 type: setting.secret ? "password" : "text",
                 value: start,
                 placeholder: setting.secret
@@ -243,8 +244,8 @@ export function createSettingsFeature(ctx) {
         const rows = [];
         const list = h("div", { className: "settings-fields" });
         const addRow = (key, value) => {
-            const keyInput = h("input", { type: "text", value: key, placeholder: "NAME", spellcheck: false });
-            const valueInput = h("input", { type: "text", value, placeholder: "value", spellcheck: false });
+            const keyInput = h("input", { className: "form-control form-control-sm", type: "text", value: key, placeholder: "NAME", spellcheck: false });
+            const valueInput = h("input", { className: "form-control form-control-sm", type: "text", value, placeholder: "value", spellcheck: false });
             const remove = h("button", { type: "button", className: "btn btn-sm btn-outline-secondary", textContent: "Remove" });
             const row = h("div", { className: "settings-other-row" }, [keyInput, valueInput, remove]);
             const entry = { read: () => ({ key: keyInput.value, value: valueInput.value }), row };

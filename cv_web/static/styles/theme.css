@@ -65,3 +65,20 @@
   --bs-btn-disabled-border-color: var(--bs-danger);
   --bs-btn-focus-shadow-rgb: var(--bs-danger-rgb);
 }
+
+/* Form controls at the button sizes above, so a control and its neighbouring button share a height. White fill:
+   Bootstrap uses --bs-body-bg, our pale blue page. */
+.form-control,
+.form-select {
+  background-color: var(--panel);
+  font-size: 0.875rem;
+  padding-top: 0.3125rem;
+  padding-bottom: 0.3125rem;
+}
+
+.form-control-sm,
+.form-select-sm {
+  font-size: 0.8125rem;
+  padding-top: 0.1875rem;
+  padding-bottom: 0.1875rem;
+}

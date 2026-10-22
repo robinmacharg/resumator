@@ -84,26 +84,10 @@ dialog h2 {
   color: var(--muted);
 }
 
-/* Styles provider/model select controls in the top action area. */
-.model-picker select {
-  appearance: none;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.38rem 2rem 0.38rem 0.8rem;
-  font-size: 0.84rem;
+/* Keeps Bootstrap's full-width selects to their content inside pickers. */
+.model-picker .form-select {
+  width: auto;
   max-width: 320px;
-  background-color: #fff;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2357534e' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-size: 0.62rem;
-  background-position: right 0.95rem center;
-  color: var(--ink);
-}
-
-/* Dims and disables pointer behavior for unavailable model selections. */
-.model-picker select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* Squares icon-only buttons (Bootstrap .btn-sm) and centres the icon. */
@@ -241,10 +225,10 @@ dialog h2 {
 
 /* Sizes the inline role name input to match the title it replaces. */
 .role-name-input {
+  width: auto;
   min-width: 18rem;
   padding: 0.15rem 0.35rem;
-  border: 1px solid var(--brand);
-  border-radius: 0.35rem;
+  border-color: var(--brand);
   font: inherit;
   font-weight: 600;
 }
@@ -393,13 +377,18 @@ dialog h2 {
   gap: 0.4rem;
 }
 
+/* Keeps the CV source select to its content so the toolbar buttons don't wrap. */
+.file-actions .form-select {
+  width: auto;
+}
+
 /* Styles all textareas with shared code-editor-like visual treatment. */
 textarea {
   width: 100%;
   min-height: 0;
   resize: none;
-  border: 1px solid var(--line);
-  border-radius: 0.5rem;
+  border: var(--bs-border-width) solid var(--line);
+  border-radius: var(--bs-border-radius);
   padding: 0.65rem;
   background: #fff;
   color: var(--ink);
@@ -408,23 +397,16 @@ textarea {
   line-height: 1.35;
 }
 
+/* Gives editor textareas Bootstrap's focus ring. */
+textarea:focus {
+  border-color: rgba(var(--bs-primary-rgb), 0.5);
+  outline: 0;
+  box-shadow: 0 0 0 var(--bs-focus-ring-width) var(--bs-focus-ring-color);
+}
+
 /* Differentiates readonly textareas with muted background fill. */
 textarea[readonly] {
   background: var(--surface-muted);
-}
-
-/* Styles generic select controls used within panels. */
-select {
-  border: 1px solid var(--line);
-  border-radius: 0.5rem;
-  padding: 0.35rem 0.4rem;
-  max-width: 280px;
-  font-size: 0.85rem;
-}
-
-/* Keeps text inputs at the old control size (Reboot makes controls inherit the 1rem body size). */
-input:not([type="checkbox"], [type="radio"]) {
-  font-size: 0.85rem;
 }
 
 /* Styles preformatted output blocks with dark terminal-like theme. */

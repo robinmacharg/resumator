@@ -127,6 +127,7 @@ export function createRoleMergeFeature(ctx) {
             const wrapper = document.createElement("label");
             const radio = document.createElement("input");
             radio.type = "radio";
+            radio.className = "form-check-input";
             radio.name = `merge-conflict-${index}`;
             radio.value = value;
             radio.addEventListener("change", () => {
@@ -161,6 +162,7 @@ export function createRoleMergeFeature(ctx) {
             if (change.status !== "conflict") {
                 const checkbox = document.createElement("input");
                 checkbox.type = "checkbox";
+                checkbox.className = "form-check-input";
                 checkbox.checked = Boolean(change.accept);
                 head.appendChild(checkbox);
                 control.checkbox = checkbox;

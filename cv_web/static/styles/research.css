@@ -22,11 +22,6 @@
   resize: none;
 }
 
-/* Constrains company input to a single-line control height. */
-#researchCompanyInput {
-  height: 2rem;
-}
-
 /* Wraps input tabs and panel content in a constrained grid container. */
 .research-input-wrap {
   min-height: 0;
@@ -86,15 +81,6 @@
   gap: 0.35rem;
 }
 
-/* Applies consistent input field styling for research form inputs. */
-.research-input-grid input {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 0.5rem;
-  padding: 0.45rem 0.55rem;
-  font-size: 0.88rem;
-}
-
 /* Arranges research action buttons and toggles in a wrapping inline row. */
 .research-actions {
   display: flex;
@@ -104,14 +90,11 @@
   margin-top: auto;
 }
 
-/* Styles inline toggle controls used in research action rows. */
+/* Sits Bootstrap's inline form-check on the button row. */
 .inline-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  margin-right: 0.1rem;
+  margin: 0 0.1rem 0 0;
+  font-size: 0.875rem;
   font-weight: 500;
-  color: var(--muted);
 }
 
 /* Formats short status text for research run feedback. */
