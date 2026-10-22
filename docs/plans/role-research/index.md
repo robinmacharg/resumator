@@ -16,7 +16,7 @@ task; read only the last few).
 | # | Task | Status |
 |---|---|---|
 | 1 | [In-memory research formatter](tasks/01-formatter.md) | done |
-| 2 | [Research run PDF route](tasks/02-render-route.md) | todo |
+| 2 | [Research run PDF route](tasks/02-render-route.md) | done |
 | 3 | [Research tab reads the role's current run](tasks/03-tab-current-run.md) | todo |
 | 4 | [Research run picker, company/URL prefill](tasks/04-run-picker.md) | todo |
 | 5 | [Role CLI: research PDF](tasks/05-cli.md) | todo |
@@ -34,7 +34,9 @@ Sessions: 1 → 2 stay (backend, small). Fresh session before 3 (frontend). 3 �
 
 ## Handoff
 
-Task 1 done (committed). Next: task 2, the route; it calls `research_format.render_research_pdf`.
+Tasks 1–2 done (committed). Next: task 3 (frontend). The PDF route is
+`GET /api/roles/<id>/runs/research/<run>/research.pdf` (409 when the run has no output). The real DB has no
+research runs yet: test with a DB copy and a stored run (see task 2 Handover).
 
 Paste this to start or continue:
 

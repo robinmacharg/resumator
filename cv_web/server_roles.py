@@ -1,4 +1,5 @@
-"""Role API for the multi-role workspace: roles, role and master CVs, runs, and run PDFs/DOCX (multi-role step 8).
+"""Role API for the multi-role workspace: roles, role and master CVs, runs, and run PDFs/DOCX (multi-role step 8)
+and research run PDFs (role-research RR3).
 
 Architecture role:
 - Layer: backend HTTP handlers over `cv_web/store.py` and `cv_web/role_runner.py`.
@@ -12,7 +13,8 @@ Design notes (docs/plans/multi-role-design.md R6, R16, R21):
 - Role runs share the CV and research run locks and live run state with the file-based runs, so
   `/api/run/status` and `/api/research/status` show their progress (with `roleId`, and `runId` once saved).
 - PDFs and DOCX are rendered from the run's raw output on demand, never stored (R6). `RENDER_CACHE` keeps them in
-  memory by (run, theme, format); a finished run warms it with its own PDF (R16).
+  memory by (run, theme, format); a finished run warms it with its own PDF (R16). Research run PDFs share the
+  cache under the format `research-pdf` (their ids overlap CV run ids).
 - The `/api/settings…` routes live in `cv_web/server_settings.py` and are routed here (GET, PUT, POST).
 - Archiving is `status = closed` through the update route (R21).
 """
@@ -30,6 +32,7 @@ from typing import Any
 from urllib.parse import parse_qs
 
 from cv_convert import available_themes, render_cv
+from research_format import render_research_pdf
 from cv_web import first_run, role_merge, role_runner, server_settings, store
 from cv_web import server_runtime_state as runtime
 from cv_web.server_request_parsing import parse_selected_model, parse_selected_provider, parse_url_list
@@ -99,6 +102,7 @@ class RenderCache:
 
 
 RENDER_CACHE = RenderCache()
+RESEARCH_PDF_FORMAT = "research-pdf"
 
 
 def cache_key(run_id: int, theme: str, output_format: str) -> tuple[int, str, str]:
@@ -122,6 +126,21 @@ def render_run(conn: sqlite3.Connection, run: dict[str, Any], theme: str, output
         data = render_cv(run_markdown(conn, run), output_format, key[1] or None, env=effective_env(conn))
         if data is None:
             raise ApiError(f"Rendering CV run {run['id']} as {output_format} failed (see the server log)", 500)
+        RENDER_CACHE.put(key, data)
+    return data
+
+
+def render_research_run(conn: sqlite3.Connection, run: dict[str, Any]) -> bytes:
+    """A research run's PDF, from the cache or formatted now (RR1). 409 for a run with no markdown output."""
+    if not run["success"] or not (run["output_md"] or "").strip():
+        raise ApiError(f"Research run {run['id']} has no output to render", 409)
+    key = cache_key(run["id"], "", RESEARCH_PDF_FORMAT)
+    data = RENDER_CACHE.get(key)
+    if data is None:
+        try:
+            data = render_research_pdf(run["output_md"], env=effective_env(conn))
+        except RuntimeError as exc:
+            raise ApiError(f"Rendering research run {run['id']} failed: {exc}", 500) from exc
         RENDER_CACHE.put(key, data)
     return data
 
@@ -355,6 +374,7 @@ _GET_ROUTES = [
     (re.compile(_ROLE + r"/runs"), "list_runs"),
     (re.compile(_ROLE + r"/runs/(?P<kind>cv|research)/(?P<run>\d+)"), "get_run"),
     (re.compile(_ROLE + r"/runs/cv/(?P<run>\d+)/cv\.(?P<format>pdf|docx)"), "get_run_document"),
+    (re.compile(_ROLE + r"/runs/research/(?P<run>\d+)/research\.pdf"), "get_research_document"),
     (re.compile(r"/api/master/cv"), "get_master_cv"),
     (re.compile(r"/api/master/cv/versions/(?P<version>\d+)"), "get_master_cv_version"),
     (re.compile(r"/api/master/import"), "get_import"),
@@ -561,6 +581,11 @@ def _get_run_document(conn, role, params, query, payload, deps):
     return data, CONTENT_TYPES[output_format], f"{role['slug']}-run{run['id']}.{output_format}"
 
 
+def _get_research_document(conn, role, params, query, payload, deps):
+    run = _require_run(conn, role["id"], "research", int(params["run"]))
+    return render_research_run(conn, run), CONTENT_TYPES["pdf"], f"{role['slug']}-research{run['id']}.pdf"
+
+
 _HANDLERS = {
     "get_setup": _get_setup,
     "save_setup": _save_setup,
@@ -586,6 +611,7 @@ _HANDLERS = {
     "select_run": _select_run,
     "start_run": _start_run_handler,
     "get_run_document": _get_run_document,
+    "get_research_document": _get_research_document,
     "get_settings": server_settings.get_settings,
     "put_settings": server_settings.put_settings,
     "reveal_setting": server_settings.reveal_setting,

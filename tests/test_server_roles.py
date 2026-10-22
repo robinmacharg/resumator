@@ -270,6 +270,45 @@ class DocumentTests(ServerRolesTestCase):
         self.assertTrue(handler.documents[0][0].startswith(b"%PDF"))
 
 
+class ResearchDocumentTests(ServerRolesTestCase):
+    def add_research_run(self, *, success: bool = True, output_md: str | None = "# Engine Co\n\nNotes") -> int:
+        return store.add_research_run(self.conn, self.role_id, success=success, company="Engine Co",
+                                      output_md=output_md if success else None)
+
+    def path(self, run_id: int) -> str:
+        return f"/api/roles/{self.role_id}/runs/research/{run_id}/research.pdf"
+
+    def test_render_is_cached_apart_from_cv_runs(self) -> None:
+        run_id = self.add_research_run()
+        server_roles.RENDER_CACHE.put((run_id, "", "pdf"), b"%PDF-cv")  # a CV run with the same id
+        with mock.patch.object(server_roles, "render_research_pdf", return_value=b"%PDF-r") as render:
+            handler = self.call("GET", self.path(run_id))
+            self.call("GET", self.path(run_id))
+        self.assertEqual(handler.documents, [(b"%PDF-r", "application/pdf", f"engine-co-analyst-research{run_id}.pdf")])
+        self.assertEqual(render.call_count, 1)
+        self.assertEqual(render.call_args.args, ("# Engine Co\n\nNotes",))
+
+    def test_refusals(self) -> None:
+        failed = self.add_research_run(success=False)
+        empty = self.add_research_run(output_md=" ")
+        run_id = self.add_research_run()
+        self.json("GET", self.path(failed), status=409)
+        self.json("GET", self.path(empty), status=409)
+        self.json("GET", self.path(999), status=404)
+        other = store.create_role(self.conn, "Other")
+        self.json("GET", f"/api/roles/{other}/runs/research/{run_id}/research.pdf", status=404)
+        with mock.patch.object(server_roles, "render_research_pdf", side_effect=RuntimeError("pandoc missing")):
+            body = self.json("GET", self.path(run_id), status=500)
+        self.assertIn("pandoc missing", body["error"])
+
+    def test_real_render(self) -> None:
+        import shutil
+        if not shutil.which("pandoc"):
+            self.skipTest("needs pandoc")
+        handler = self.call("GET", self.path(self.add_research_run()))
+        self.assertTrue(handler.documents[0][0].startswith(b"%PDF"))
+
+
 class StartRunTests(ServerRolesTestCase):
     def setUp(self) -> None:
         super().setUp()
