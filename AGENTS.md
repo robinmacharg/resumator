@@ -13,6 +13,8 @@ and `output/` files. Second pipeline: company/role research notes. Python stdlib
 | CV input format, prompt contract, JSON schema, rendering, PDF, themes (`themes/`) | [docs/cv-format.md](docs/cv-format.md) |
 | Master CV source format v1, `cv_source.py` parser/linter, import rules | [docs/cv-source-format.md](docs/cv-source-format.md) |
 | Planned work and known issues | [docs/gaps.md](docs/gaps.md) |
+| Writing or continuing a plan (layout, end-of-task and new-session rules) | [docs/plans/README.md](docs/plans/README.md) |
+| Settings in the DB (`.env` removal; decisions D1–D11) | [docs/plans/settings-in-db/index.md](docs/plans/settings-in-db/index.md) |
 | Roles, DB schema, merge, first run, role CLI (decisions R1–R21) | [docs/plans/multi-role-design.md](docs/plans/multi-role-design.md) |
 | Frontend JS modules, endpoint ownership | [cv_web/static/ARCHITECTURE.md](cv_web/static/ARCHITECTURE.md) |
 | VS Code Copilot bridge extension | [VSCodeExtension/README.md](VSCodeExtension/README.md) |
@@ -52,6 +54,12 @@ python3 cv_source.py --lint [path]                  # lint a CV source file (def
 python3 -m unittest discover -s tests -v            # Python tests (server helpers, env_utils, cv_source, cv_merge, store, role_merge, role_runner, server_roles, migrate_single_role, first_run, resumator CLI, contract, backends, --io json)
 (cd cv_web/static && npm test)                      # frontend tests (node --test)
 ```
+
+## Plans and sessions
+
+Plans follow [docs/plans/README.md](docs/plans/README.md): a folder per plan with an index, design, one file per
+task and a log. At the end of a task or session, say whether to start a new session (with a handover prompt) or stay,
+and why.
 
 ## Doc upkeep
 

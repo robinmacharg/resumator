@@ -1,0 +1,18 @@
+# Settings in the DB: log
+
+Agent log for [index.md](index.md), newest entry last. Append one entry per task; earlier entries are history,
+not instructions.
+
+## Log
+
+- 2026-10-22 · Design · Sketched the move from `.env` to the DB. User decisions D1–D11: new `env_setting` table;
+  plain-text secrets for now with a Security TODO for backups; real-call provider test; `.env` never read and the
+  startup audit refuses to run while one exists (import excepted); fast mode stays global; one-shot scripts read the
+  DB; shell env can't override catalogued keys, one rule for all keys, with CLI flags for one-off overrides; no
+  secrets on the command line (`getpass` instead); `model_providers.json` removed; `~/.gemini/.env` is a warning only.
+- 2026-10-22 · Task 1 · Migration 2 adds `env_setting(key, value, updated_at)` with a key-format CHECK. Store gains
+  `list_env_settings`, `env_settings`, `get_env_setting`, `set_env_setting` (`updated_at` moves only on change),
+  `delete_env_setting`, `replace_env_settings`. Six tests in `EnvSettingTests`; 294 tests pass on 3.13. Migration
+  checked on a backup-API copy of the real DB (v1 → v2, roles intact).
+- 2026-10-22 · Process · Plan split into index, design, per-task files and log; layout and session policy recorded
+  in `docs/plans/README.md` and `AGENTS.md`.
