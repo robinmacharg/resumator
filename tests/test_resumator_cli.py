@@ -177,6 +177,70 @@ class RunTests(CliTestCase):
         self.assertTrue(out_path.read_bytes().startswith(b"%PDF"))
         self.assertIn(f"Wrote {out_path}", out)
 
+    def research_run(self, **fields) -> int:
+        fields = {"success": True, "output_md": "# Notes\n\nAcme ships apps.", **fields}
+        return store.add_research_run(self.conn, self.role_id, **fields)
+
+    def test_research_out_writes_the_runs_pdf(self) -> None:
+        out_path = self.tmp / "out" / "research.pdf"
+        run_id = self.research_run(make_current=False)
+        outcome = role_runner.RunOutcome(run_id, True, None, "log")
+        with mock.patch.object(role_runner, "run_research", return_value=outcome), \
+                mock.patch.object(resumator, "render_research_pdf", return_value=b"%PDF-r") as render:
+            code, out, _ = self.cli("--action", "research", "--role", "lead-ios-engineer", "--out", str(out_path))
+        self.assertEqual(code, 0)
+        self.assertEqual(render.call_args.args[0], "# Notes\n\nAcme ships apps.")
+        self.assertEqual(out_path.read_bytes(), b"%PDF-r")
+
+    def test_research_out_refuses_a_dry_run(self) -> None:
+        run_id = self.research_run(output_md="", dry_run=True)
+        outcome = role_runner.RunOutcome(run_id, True, None, "log")
+        with mock.patch.object(role_runner, "run_research", return_value=outcome):
+            code, _, err = self.cli("--action", "research", "--role", "lead-ios-engineer", "--dry-run",
+                                    "--out", str(self.tmp / "r.pdf"))
+        self.assertEqual(code, 1)
+        self.assertIn(f"research run {run_id} has no output to render (dry run)", err)
+        self.assertFalse((self.tmp / "r.pdf").exists())
+
+    def test_render_research_current_and_given_run(self) -> None:
+        old = self.research_run(output_md="old notes")
+        self.research_run(output_md="current notes")
+        current = store.current_research_run(self.conn, self.role_id)["id"]
+        with mock.patch.object(resumator, "render_research_pdf", return_value=b"%PDF-r") as render, \
+                mock.patch.object(resumator, "OUTPUT_DIR", self.tmp / "output"):
+            code, out, _ = self.cli("--action", "render", "--kind", "research", "--role", "lead-ios-engineer")
+            self.assertEqual(code, 0)
+            self.assertEqual(render.call_args.args[0], "current notes")
+            self.assertIn(f"lead-ios-engineer-research{current}.pdf", out)
+            out_path = self.tmp / "given.pdf"
+            code, _, _ = self.cli("--action", "render", "--kind", "research", "--role", "lead-ios-engineer",
+                                  "--run", str(old), "--out", str(out_path))
+        self.assertEqual(code, 0)
+        self.assertEqual(render.call_args.args[0], "old notes")
+        self.assertEqual(out_path.read_bytes(), b"%PDF-r")
+
+    def test_render_research_refusals(self) -> None:
+        code, _, err = self.cli("--action", "render", "--kind", "research", "--role", "lead-ios-engineer")
+        self.assertEqual(code, 1)
+        self.assertIn("no current research run", err)
+        failed = self.research_run(success=False, output_md="")
+        code, _, err = self.cli("--action", "render", "--kind", "research", "--role", "lead-ios-engineer",
+                                "--run", str(failed))
+        self.assertIn(f"research run {failed} has no output to render", err)
+        cv_run = store.current_cv_run(self.conn, self.role_id)["id"]
+        code, _, err = self.cli("--action", "render", "--kind", "research", "--role", "lead-ios-engineer",
+                                "--run", str(cv_run + 999))
+        self.assertIn(f"no research run {cv_run + 999}", err)
+        code, _, err = self.cli("--action", "render", "--kind", "research", "--role", "lead-ios-engineer",
+                                "--format", "docx")
+        self.assertIn("PDF only", err)
+        with mock.patch.object(resumator, "render_research_pdf", side_effect=RuntimeError("pandoc died")):
+            self.research_run()
+            code, _, err = self.cli("--action", "render", "--kind", "research", "--role", "lead-ios-engineer",
+                                    "--out", str(self.tmp / "x.pdf"))
+        self.assertEqual(code, 1)
+        self.assertIn("failed: pandoc died", err)
+
 
 class MigrateTests(CliTestCase):
     def test_migrate_passes_through(self) -> None:

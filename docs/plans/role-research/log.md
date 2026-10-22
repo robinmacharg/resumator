@@ -12,4 +12,5 @@
 - 2026-10-22 · Task 4 · Research run picker (make current, reload) and company/URL prefill from the current run.
   Checked in headless Chrome on a DB copy. Tests pass (unittest 380, npm 128). User's "404 - unknown route" not
   reproduced; likely a stale server or page.
-
+- 2026-10-22 · Task 5 · `research --out F` and `render --kind research [--run N]` write a research run's PDF.
+  Checked on a DB copy. Tests pass (unittest 384, npm 128).
