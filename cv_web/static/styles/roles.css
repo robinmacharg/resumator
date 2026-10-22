@@ -21,12 +21,19 @@ body:not(.cv-master) [data-master-only] {
   min-width: 0;
 }
 
-/* Styles the fixed-width role sidebar. */
+/* Styles the role sidebar; the role splitter sets --role-sidebar-width. */
 .role-sidebar {
-  width: 15rem;
+  width: var(--role-sidebar-width, 15rem);
   flex: 0 0 auto;
   padding: 1rem 0 1rem 1rem;
   min-height: 0;
+}
+
+/* Gives the role splitter a track beside the sidebar; the layout's own padding supplies the gap after it. */
+.role-splitter {
+  flex: 0 0 auto;
+  width: 4px;
+  margin: 1rem 0 1rem 0.375rem;
 }
 
 /* Stacks sidebar content; a disabled fieldset disables every control during runs. */
@@ -328,5 +335,9 @@ body:not(.cv-master) [data-master-only] {
   .role-sidebar {
     width: auto;
     padding: 1rem 1rem 0;
+  }
+
+  .role-splitter {
+    display: none;
   }
 }

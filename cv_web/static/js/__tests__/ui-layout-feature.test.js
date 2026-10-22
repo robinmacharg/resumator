@@ -108,6 +108,9 @@ function createContext() {
         ],
         paneSplitter: null,
         layout: null,
+        workspace: createPanel(),
+        roleSidebar: null,
+        roleSplitter: null,
     };
 
     const localStorageKeys = {
@@ -117,6 +120,7 @@ function createContext() {
         active_log_tab: "active_log_tab",
         research_output_tab: "research_output_tab",
         research_section_ratios: "research_section_ratios",
+        role_sidebar_width: "role_sidebar_width",
     };
 
     const ctx = {
@@ -187,4 +191,50 @@ test("ui-layout CV and research output tabs persist and trigger callbacks", () =
     assert.equal(state.activeResearchOutputTab, "command");
     assert.equal(localStorage.getItem(localStorageKeys.research_output_tab), "command");
     assert.equal(calls.onTabsChanged, 1);
+});
+
+test("ui-layout restores a saved role sidebar width, clamped", () => {
+    global.localStorage = createLocalStorageMock();
+    localStorage.setItem("role_sidebar_width", "900");
+
+    const { ctx, els } = createContext();
+    createUiLayoutFeature(ctx).initializeRoleSidebarWidth();
+
+    assert.equal(els.workspace.style.values["--role-sidebar-width"], "480px");
+});
+
+test("ui-layout keeps the CSS default role sidebar width when none is saved", () => {
+    global.localStorage = createLocalStorageMock();
+
+    const { ctx, els } = createContext();
+    createUiLayoutFeature(ctx).initializeRoleSidebarWidth();
+
+    assert.equal(els.workspace.style.values["--role-sidebar-width"], undefined);
+});
+
+test("ui-layout role splitter drag resizes and persists the sidebar width", () => {
+    global.localStorage = createLocalStorageMock();
+    global.window = { matchMedia: () => ({ matches: false }) };
+
+    const { ctx, state, els, localStorageKeys } = createContext();
+    els.roleSidebar = { getBoundingClientRect: () => ({ left: 10 }) };
+    els.roleSplitter = {
+        classList: createClassList(),
+        setPointerCapture() {},
+        releasePointerCapture() {},
+    };
+    els.roleSplitter.classList.add = (name) => els.roleSplitter.classList.toggle(name, true);
+    els.roleSplitter.classList.remove = (name) => els.roleSplitter.classList.toggle(name, false);
+    const feature = createUiLayoutFeature(ctx);
+
+    feature.onRoleSplitterPointerDown({ pointerId: 1 });
+    assert.equal(state.isDraggingRoleSplitter, true);
+    feature.onSplitterPointerMove({ clientX: 310 });
+    feature.onSplitterPointerMove({ clientX: 50 });
+    feature.onSplitterPointerUp({ pointerId: 1 });
+
+    assert.equal(state.isDraggingRoleSplitter, false);
+    assert.equal(els.workspace.style.values["--role-sidebar-width"], "160px");
+    assert.equal(localStorage.getItem(localStorageKeys.role_sidebar_width), "160");
+    assert.equal(els.roleSplitter.classList.has("dragging"), false);
 });

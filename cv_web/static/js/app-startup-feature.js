@@ -15,7 +15,7 @@
  * @property {any} els DOM element registry.
  * @property {() => void} bindAutosave Draft autosave binding callback.
  * @property {(primaryEditor: HTMLTextAreaElement | null, mirrorEditor: HTMLTextAreaElement | null) => void} bindMirroredEditors Mirrored editor binding callback.
- * @property {{initializeResearchSectionRatios: () => void}} uiLayoutFeature Layout feature API subset.
+ * @property {{initializeResearchSectionRatios: () => void, initializeRoleSidebarWidth: () => void}} uiLayoutFeature Layout feature API subset.
  * @property {() => void} syncResearchPrimaryButton Run-state button sync callback.
  * @property {() => Promise<void>} initialize App initialization callback.
  */
@@ -57,6 +57,7 @@ export function createAppStartupFeature(ctx) {
         bindAutosave();
         bindMirroredEditorPairs();
         uiLayoutFeature.initializeResearchSectionRatios();
+        uiLayoutFeature.initializeRoleSidebarWidth();
         syncResearchPrimaryButton();
         initialize();
     }

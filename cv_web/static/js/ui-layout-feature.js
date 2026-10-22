@@ -8,11 +8,14 @@ import {
 const SPLITTER_MIN_LEFT_PX = 360;
 const SPLITTER_MIN_RIGHT_PX = 320;
 const RESEARCH_SPLITTER_MIN_SECTION_PX = 140;
+const ROLE_SIDEBAR_MIN_PX = 160;
+const ROLE_SIDEBAR_MAX_PX = 480;
 
 /**
  * Architecture role:
  * - Layer: interaction/presentation feature used by app bootstrap.
- * - Responsibility: tab switching, persistence of active panels, and splitter drag interactions.
+ * - Responsibility: tab switching, persistence of active panels, and splitter drag interactions (panes, research
+ *   sections, role sidebar width).
  *
  * Plain-language purpose:
  * - This module is the "layout coordinator". It controls what panel is visible and how the user resizes major sections.
@@ -37,7 +40,7 @@ const RESEARCH_SPLITTER_MIN_SECTION_PX = 140;
  * Purpose: centralize tab state transitions, persistence, and splitter pointer behavior.
  *
  * @param {UiLayoutFeatureContext} ctx Feature dependencies.
- * @returns {{initializeResearchSectionRatios: () => void, setActiveTab: (tabName: string) => void, setActiveCvTab: (tabName: string) => void, setActiveResearchInputTab: (tabName: string) => void, setActiveLogTab: (tabName: string) => void, setActiveResearchOutputTab: (tabName: string) => void, onSplitterPointerDown: (event: PointerEvent) => void, onResearchSplitterPointerDown: (event: PointerEvent) => void, onSplitterPointerMove: (event: PointerEvent) => void, onSplitterPointerUp: (event: PointerEvent) => void}}
+ * @returns {{initializeResearchSectionRatios: () => void, initializeRoleSidebarWidth: () => void, setActiveTab: (tabName: string) => void, setActiveCvTab: (tabName: string) => void, setActiveResearchInputTab: (tabName: string) => void, setActiveLogTab: (tabName: string) => void, setActiveResearchOutputTab: (tabName: string) => void, onSplitterPointerDown: (event: PointerEvent) => void, onResearchSplitterPointerDown: (event: PointerEvent) => void, onRoleSplitterPointerDown: (event: PointerEvent) => void, onSplitterPointerMove: (event: PointerEvent) => void, onSplitterPointerUp: (event: PointerEvent) => void}}
  */
 export function createUiLayoutFeature(ctx) {
     const {
@@ -108,6 +111,36 @@ export function createUiLayoutFeature(ctx) {
             return;
         }
         applyResearchSectionRatios(savedRatios, false);
+    }
+
+    /**
+     * Apply the role sidebar width, clamped to its min/max.
+     * @param {number} widthPx Candidate width in pixels.
+     * @param {boolean} [persist=true] Persist width in localStorage.
+     * @returns {void}
+     */
+    function applyRoleSidebarWidth(widthPx, persist = true) {
+        if (!els.workspace || !Number.isFinite(widthPx)) {
+            return;
+        }
+
+        const clamped = Math.round(Math.min(Math.max(widthPx, ROLE_SIDEBAR_MIN_PX), ROLE_SIDEBAR_MAX_PX));
+        els.workspace.style.setProperty("--role-sidebar-width", `${clamped}px`);
+
+        if (persist) {
+            setStorageString(localStorageKeys.role_sidebar_width, String(clamped));
+        }
+    }
+
+    /**
+     * Restore the role sidebar width from localStorage; keeps the CSS default when none is saved.
+     * @returns {void}
+     */
+    function initializeRoleSidebarWidth() {
+        const saved = Number(getStorageString(localStorageKeys.role_sidebar_width));
+        if (saved > 0) {
+            applyRoleSidebarWidth(saved, false);
+        }
     }
 
     /**
@@ -276,6 +309,21 @@ export function createUiLayoutFeature(ctx) {
     }
 
     /**
+     * Start drag interaction for the role sidebar splitter.
+     * @param {PointerEvent} event Pointer event.
+     * @returns {void}
+     */
+    function onRoleSplitterPointerDown(event) {
+        if (!els.roleSplitter || !els.roleSidebar || window.matchMedia("(max-width: 1100px)").matches) {
+            return;
+        }
+
+        state.isDraggingRoleSplitter = true;
+        els.roleSplitter.classList.add("dragging");
+        els.roleSplitter.setPointerCapture(event.pointerId);
+    }
+
+    /**
      * Start drag interaction for research vertical splitters.
      * @param {PointerEvent} event Pointer event.
      * @returns {void}
@@ -314,6 +362,10 @@ export function createUiLayoutFeature(ctx) {
      * @returns {void}
      */
     function onSplitterPointerMove(event) {
+        if (state.isDraggingRoleSplitter && els.roleSidebar) {
+            applyRoleSidebarWidth(event.clientX - els.roleSidebar.getBoundingClientRect().left);
+            return;
+        }
         if (!state.isDraggingSplitter) {
             if (!state.isDraggingResearchSplitter || !state.activeResearchSplitter) {
                 return;
@@ -365,6 +417,16 @@ export function createUiLayoutFeature(ctx) {
      * @returns {void}
      */
     function onSplitterPointerUp(event) {
+        if (state.isDraggingRoleSplitter && els.roleSplitter) {
+            state.isDraggingRoleSplitter = false;
+            els.roleSplitter.classList.remove("dragging");
+            try {
+                els.roleSplitter.releasePointerCapture(event.pointerId);
+            } catch (_err) {
+                // Ignore capture release errors when pointer is no longer active.
+            }
+        }
+
         if (state.isDraggingResearchSplitter && state.activeResearchSplitter) {
             const drag = state.activeResearchSplitter;
             state.isDraggingResearchSplitter = false;
@@ -394,6 +456,7 @@ export function createUiLayoutFeature(ctx) {
 
     return {
         initializeResearchSectionRatios,
+        initializeRoleSidebarWidth,
         setActiveTab,
         setActiveCvTab,
         setActiveResearchInputTab,
@@ -401,6 +464,7 @@ export function createUiLayoutFeature(ctx) {
         setActiveResearchOutputTab,
         onSplitterPointerDown,
         onResearchSplitterPointerDown,
+        onRoleSplitterPointerDown,
         onSplitterPointerMove,
         onSplitterPointerUp,
     };

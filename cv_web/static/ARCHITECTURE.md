@@ -96,7 +96,8 @@ flowchart TD
   - Manages CV/Research PDF preview state and iframe/link rendering.
 
 - `ui-layout-feature.js`
-  - Controls tab activation, splitter interactions, and layout persistence.
+  - Controls tab activation, splitter interactions (editor/preview panes, research sections, role sidebar width), and
+    layout persistence.
 
 - `app-event-bindings-feature.js`
   - Attaches UI events to feature APIs.

@@ -139,6 +139,9 @@ export function createAppEventBindingsFeature(ctx) {
             window.addEventListener("pointerup", uiLayoutFeature.onSplitterPointerUp);
             window.addEventListener("pointercancel", uiLayoutFeature.onSplitterPointerUp);
         }
+        if (els.roleSplitter) {
+            els.roleSplitter.addEventListener("pointerdown", uiLayoutFeature.onRoleSplitterPointerDown);
+        }
         els.researchSplitters.forEach((splitter) => {
             splitter.addEventListener("pointerdown", uiLayoutFeature.onResearchSplitterPointerDown);
         });

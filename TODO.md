@@ -21,7 +21,6 @@
 - UI: styling - bootstrap, shadcn for task types, ant design?
 - UI: tree in LHS
 - UI: Activity spinners
-- UI: draggable role bar
 
 - Multiple master CVs
 - Support "suggested summary line" in CV for older roles

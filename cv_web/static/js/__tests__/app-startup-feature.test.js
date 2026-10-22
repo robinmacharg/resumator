@@ -29,6 +29,9 @@ function createHarness() {
             initializeResearchSectionRatios: () => {
                 calls.push({ type: "initializeResearchSectionRatios" });
             },
+            initializeRoleSidebarWidth: () => {
+                calls.push({ type: "initializeRoleSidebarWidth" });
+            },
         },
         syncResearchPrimaryButton: () => {
             calls.push({ type: "syncResearchPrimaryButton" });
@@ -54,6 +57,7 @@ test("app-startup executes startup sequence in expected order", () => {
             "bindMirroredEditors",
             "bindMirroredEditors",
             "initializeResearchSectionRatios",
+            "initializeRoleSidebarWidth",
             "syncResearchPrimaryButton",
             "initialize",
         ],
