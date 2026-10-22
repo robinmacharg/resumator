@@ -356,6 +356,8 @@ export function createRoleWorkspaceFeature(ctx) {
         }
         if (setup.needed) {
             settingsStepDue = !setup.hasSettings;
+            // The file-mode startup filled these from input/ (or a browser draft); nothing is chosen yet.
+            applyRoleFiles({ cv: "", jobspec: "" });
             syncModeUi();
             openFirstRunDialog();
             return;

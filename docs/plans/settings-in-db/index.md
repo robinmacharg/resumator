@@ -32,7 +32,7 @@ fresh after 3, 5 and 8, and before 9 (it touches real data).
 
 ## Handoff
 
-Tasks 1–8 are done (committed). Next is task 9 (migrate this install): it touches the real DB and `.env`, so it needs the user present and their explicit go-ahead before the import; start it in a fresh session. The Settings pop-over and the first-run Settings step still need a look in a browser (tasks 7–8 Handover); task 9's cold-start rehearsal is the place. The real `.env` still blocks startup of the server and scripts until it is imported with `python3 -m resumator --action settings-import --env-file .env --delete-after` (task 9 does this on the real install; don't before). Run Python tests with Python 3.11+ (`python3.13 -m unittest
+Tasks 1–8 are done (committed). Next is task 9 (migrate this install): it touches the real DB and `.env`, so it needs the user present and their explicit go-ahead before the import; start it in a fresh session. The Settings pop-over and the first-run Settings step still need a look in a browser (tasks 7–8 Handover); task 9's cold-start rehearsal is the place. Read task 9's note on moving the DB aside (stale `-shm` → `disk I/O error`). The real `.env` still blocks startup of the server and scripts until it is imported with `python3 -m resumator --action settings-import --env-file .env --delete-after` (task 9 does this on the real install; don't before). Run Python tests with Python 3.11+ (`python3.13 -m unittest
 discover -s tests`): system `python3` and `.venv` are 3.9.6 and fail 19 pre-existing tests (a `.venv` rebuild is
 being handled separately).
 
