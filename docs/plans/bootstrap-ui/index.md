@@ -5,7 +5,7 @@ professional look: flat buttons, 2–4px corners, Bootstrap's system font, a ver
 vanilla-JS behaviour (dialogs, tabs, splitters, sidebar) is unchanged. Ends with our custom CSS cut to what
 Bootstrap doesn't cover.
 
-**Status:** in progress (tasks 1–3 done). Decisions B1–B9 agreed. Branch `feature/20261022-bootstrap-ui` (from `develop`).
+**Status:** in progress (tasks 1–4 done). Decisions B1–B9 agreed. Branch `feature/20261022-bootstrap-ui` (from `develop`).
 
 **Files** (layout per [../README.md](../README.md)): this index (read every session), [design.md](design.md) (read
 only the sections your task links), one file per task under `tasks/`, and [log.md](log.md) (append one entry per
@@ -18,7 +18,7 @@ task; read only the last few).
 | 1 | [Baseline screenshots, vendor Bootstrap, theme tokens, layout fixes](tasks/01-foundation.md) | done |
 | 2 | [Buttons](tasks/02-buttons.md) | done |
 | 3 | [Form controls](tasks/03-forms.md) | done |
-| 4 | [Tabs and sub-tabs](tasks/04-tabs.md) | todo |
+| 4 | [Tabs and sub-tabs](tasks/04-tabs.md) | done |
 | 5 | [Surfaces: panes, sidebar, dialogs, Settings, status bar](tasks/05-surfaces.md) | todo |
 | 6 | [Dead CSS removal and docs](tasks/06-cleanup-docs.md) | todo |
 
@@ -38,11 +38,12 @@ screenshot tooling) and before 6.
 
 ## Handoff
 
-Tasks 1–3 done and committed on `feature/20261022-bootstrap-ui` (plus an unrelated draggable role-sidebar commit,
-`roleSplitter` in `ui-layout-feature.js`). Buttons are Bootstrap (`btn-outline-secondary` for secondary; see task 2
-Handover). Form controls are Bootstrap too (task 3 Handover). Next: task 4 (tabs). Gotchas: `theme.css` restates `.btn-sm` / `-sm` controls after the base rule because it loads after
-Bootstrap; the screenshot kit is in task 1's Handover (ports 8765/8799/8811 are taken by other servers, so pick a
-free port in `launch.py`).
+Tasks 1–4 done and committed on `feature/20261022-bootstrap-ui` (plus an unrelated draggable role-sidebar commit,
+`roleSplitter` in `ui-layout-feature.js`). Buttons, form controls and tabs are Bootstrap; see each task's Handover.
+Next: task 5 (surfaces), in a new session. Gotchas: `theme.css` restates `-sm` sizes after the base rules because it
+loads after Bootstrap; Bootstrap fills controls and active tabs with `--bs-body-bg` (our pale blue), so surfaces
+need `var(--panel)`. Screenshot kit: task 1's Handover, plus views 07–10 from task 4; ports 8765/8799/8811 are held
+by other servers, so pick a free port in `launch.py`.
 
 Paste this to start or continue:
 

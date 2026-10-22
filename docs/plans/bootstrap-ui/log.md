@@ -19,3 +19,6 @@ not instructions.
 - 2026-10-22 · Task 3 · Form controls on Bootstrap: `form-select`/`form-control` sized to match buttons (regular /
   `-sm`), white fill, `form-check` for Steer/Dry run and merge ticks; editors keep their own look plus the focus ring.
   Screenshots compared (CV, Research, new role, merge, Settings); tests pass (npm 116, unittest 370).
+- 2026-10-22 · Task 4 · Tabs on Bootstrap: top strip `nav-tabs`, every sub-tab strip one compact `nav-underline`
+  style; `--subtab-*` tokens and old tab rules deleted. Clicked through all strips via screenshots (views 01–10);
+  tests pass (npm 116, unittest 370).

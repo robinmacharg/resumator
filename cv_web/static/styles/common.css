@@ -1,13 +1,6 @@
 /* Declares app-only design tokens; shared colour tokens (--bg, --line, --brand, …) live in theme.css. */
 :root {
   --brand-strong: var(--brand);
-  --subtab-gap: 0.35rem;
-  --subtab-border-radius: 0.45rem 0.45rem 0 0;
-  --subtab-padding: 0.3rem 0.65rem;
-  --subtab-font-size: 0.8rem;
-  --subtab-bg: var(--surface-muted);
-  --subtab-active-bg: #fff;
-  --subtab-active-weight: 600;
 }
 
 /* Applies border-box sizing globally for predictable layout math. */
@@ -245,30 +238,17 @@ dialog h2 {
   text-overflow: ellipsis;
 }
 
-/* Styles the primary tab bar strip shared by top-level tabs. */
+/* Insets the top-level Bootstrap nav-tabs strip and sizes its links. */
 .tabbar {
-  display: flex;
-  gap: 0.35rem;
+  --bs-nav-link-font-size: 0.875rem;
+  --bs-nav-link-padding-y: 0.4rem;
+  --bs-nav-link-padding-x: 0.75rem;
+  gap: 0.25rem;
   padding: 0.6rem 0.75rem 0;
-  border-bottom: 1px solid var(--line);
 }
 
-/* Styles individual primary tab buttons. */
-.tab-btn {
-  border: 1px solid var(--line);
-  border-bottom: 0;
-  background: var(--surface-muted);
-  color: var(--muted);
-  border-radius: 0.5rem 0.5rem 0 0;
-  padding: 0.45rem 0.75rem;
-  font-size: 0.86rem;
-  cursor: pointer;
-}
-
-/* Highlights the active primary tab button. */
+/* Bolds the active top-level tab. */
 .tab-btn.active {
-  background: #fff;
-  color: var(--ink);
   font-weight: 600;
 }
 
@@ -310,31 +290,19 @@ dialog h2 {
   min-height: 0;
 }
 
-/* Styles shared secondary tab bars used by CV, logs, and research areas. */
+/* One compact Bootstrap nav-underline style for every sub-tab strip (CV, research, logs, Settings); the strip's
+   bottom line carries the active underline. */
 :is(.cv-subtabbar, .logs-tabbar, .research-input-tabbar, .research-output-tabbar) {
-  display: flex;
-  gap: var(--subtab-gap);
+  --bs-nav-link-font-size: 0.8125rem;
+  --bs-nav-link-padding-y: 0.3rem;
+  --bs-nav-underline-gap: 0.9rem;
+  flex-wrap: nowrap;
   border-bottom: 1px solid var(--line);
-  padding-bottom: 0;
 }
 
-/* Styles shared secondary tab buttons used by CV, logs, and research areas. */
-:is(.cv-subtab-btn, .log-tab-btn, .research-input-tab-btn, .research-output-tab-btn) {
-  border: 1px solid var(--line);
-  border-bottom: 0;
-  background: var(--subtab-bg);
-  color: var(--muted);
-  border-radius: var(--subtab-border-radius);
-  padding: var(--subtab-padding);
-  font-size: var(--subtab-font-size);
-  cursor: pointer;
-}
-
-/* Highlights active shared secondary tab buttons. */
-:is(.cv-subtab-btn, .log-tab-btn, .research-input-tab-btn, .research-output-tab-btn).active {
-  background: var(--subtab-active-bg);
-  color: var(--ink);
-  font-weight: var(--subtab-active-weight);
+/* Lays the active underline over the strip's bottom line. */
+:is(.cv-subtabbar, .logs-tabbar, .research-input-tabbar, .research-output-tabbar) .nav-link {
+  margin-bottom: -1px;
 }
 
 /* Hides inactive secondary panels across CV, logs, and research contexts. */

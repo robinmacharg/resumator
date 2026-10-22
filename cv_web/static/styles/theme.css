@@ -82,3 +82,15 @@
   padding-top: 0.1875rem;
   padding-bottom: 0.1875rem;
 }
+
+/* Navs: inactive links muted rather than link blue; the active nav-tabs tab is white like the panels (Bootstrap
+   uses --bs-body-bg, our pale blue page). */
+.nav {
+  --bs-nav-link-color: var(--muted);
+  --bs-nav-link-hover-color: var(--ink);
+}
+
+.nav-tabs {
+  --bs-nav-tabs-link-active-bg: var(--panel);
+  --bs-nav-tabs-link-active-border-color: var(--line) var(--line) var(--panel);
+}

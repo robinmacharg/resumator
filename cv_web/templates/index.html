@@ -99,14 +99,14 @@
                         <input id="roleNameInput" class="form-control role-name-input" type="text" aria-label="Role name" hidden />
                     </div>
 
-                    <div class="tabbar top-tabbar" role="tablist" aria-label="Top-level tabs">
-                        <button class="tab-btn active" data-tab="cv" role="tab" aria-selected="true">
+                    <div class="nav nav-tabs tabbar top-tabbar" role="tablist" aria-label="Top-level tabs">
+                        <button class="nav-link tab-btn active" data-tab="cv" role="tab" aria-selected="true">
                             CV
                         </button>
-                        <button class="tab-btn" data-tab="research" role="tab" aria-selected="false">
+                        <button class="nav-link tab-btn" data-tab="research" role="tab" aria-selected="false">
                             Research
                         </button>
-                        <button class="tab-btn" data-tab="logs" role="tab" aria-selected="false">
+                        <button class="nav-link tab-btn" data-tab="logs" role="tab" aria-selected="false">
                             Logs
                         </button>
                     </div>
@@ -138,9 +138,9 @@
                                 </label>
                             </div>
 
-                            <div class="cv-subtabbar" role="tablist" aria-label="CV tabs">
+                            <div class="nav nav-underline cv-subtabbar" role="tablist" aria-label="CV tabs">
                                 <button
-                                    class="cv-subtab-btn active"
+                                    class="nav-link cv-subtab-btn active"
                                     data-cv-tab="cv"
                                     role="tab"
                                     aria-selected="true"
@@ -148,7 +148,7 @@
                                     <span class="tab-label" data-label-for="cv">CV</span>
                                 </button>
                                 <button
-                                    class="cv-subtab-btn"
+                                    class="nav-link cv-subtab-btn"
                                     data-cv-tab="prompt"
                                     role="tab"
                                     aria-selected="false"
@@ -156,7 +156,7 @@
                                     <span class="tab-label" data-label-for="prompt">CV Prompt</span>
                                 </button>
                                 <button
-                                    class="cv-subtab-btn"
+                                    class="nav-link cv-subtab-btn"
                                     data-cv-tab="jobspec"
                                     role="tab"
                                     aria-selected="false"
@@ -164,7 +164,7 @@
                                     <span class="tab-label" data-label-for="jobspec">Job Spec</span>
                                 </button>
                                 <button
-                                    class="cv-subtab-btn"
+                                    class="nav-link cv-subtab-btn"
                                     data-cv-tab="steering"
                                     role="tab"
                                     aria-selected="false"
@@ -172,7 +172,7 @@
                                     Steering
                                 </button>
                                 <button
-                                    class="cv-subtab-btn"
+                                    class="nav-link cv-subtab-btn"
                                     data-cv-tab="tailored"
                                     role="tab"
                                     aria-selected="false"
@@ -371,12 +371,12 @@
 
                             <div id="research-section-input" class="research-input-wrap">
                                 <div
-                                    class="research-input-tabbar"
+                                    class="nav nav-underline research-input-tabbar"
                                     role="tablist"
                                     aria-label="Research input tabs"
                                 >
                                     <button
-                                        class="research-input-tab-btn active"
+                                        class="nav-link research-input-tab-btn active"
                                         data-research-input-tab="query"
                                         role="tab"
                                         aria-selected="true"
@@ -384,7 +384,7 @@
                                         Query
                                     </button>
                                     <button
-                                        class="research-input-tab-btn"
+                                        class="nav-link research-input-tab-btn"
                                         data-research-input-tab="jobspec"
                                         role="tab"
                                         aria-selected="false"
@@ -392,7 +392,7 @@
                                         Job Spec
                                     </button>
                                     <button
-                                        class="research-input-tab-btn"
+                                        class="nav-link research-input-tab-btn"
                                         data-research-input-tab="cv"
                                         role="tab"
                                         aria-selected="false"
@@ -514,12 +514,12 @@
                                     </button>
                                 </div>
                                 <div
-                                    class="research-output-tabbar"
+                                    class="nav nav-underline research-output-tabbar"
                                     role="tablist"
                                     aria-label="Research output tabs"
                                 >
                                     <button
-                                        class="research-output-tab-btn active"
+                                        class="nav-link research-output-tab-btn active"
                                         data-research-output-tab="console"
                                         role="tab"
                                         aria-selected="true"
@@ -527,7 +527,7 @@
                                         Console Log
                                     </button>
                                     <button
-                                        class="research-output-tab-btn"
+                                        class="nav-link research-output-tab-btn"
                                         data-research-output-tab="built_query"
                                         role="tab"
                                         aria-selected="false"
@@ -535,7 +535,7 @@
                                         Built Query
                                     </button>
                                     <button
-                                        class="research-output-tab-btn"
+                                        class="nav-link research-output-tab-btn"
                                         data-research-output-tab="command"
                                         role="tab"
                                         aria-selected="false"
@@ -585,9 +585,9 @@
                                 </button>
                             </div>
 
-                            <div class="logs-tabbar" role="tablist" aria-label="Log tabs">
+                            <div class="nav nav-underline logs-tabbar" role="tablist" aria-label="Log tabs">
                                 <button
-                                    class="log-tab-btn active"
+                                    class="nav-link log-tab-btn active"
                                     data-log-tab="run"
                                     role="tab"
                                     aria-selected="true"
@@ -595,7 +595,7 @@
                                     Run Log
                                 </button>
                                 <button
-                                    class="log-tab-btn"
+                                    class="nav-link log-tab-btn"
                                     data-log-tab="debug"
                                     role="tab"
                                     aria-selected="false"
@@ -732,10 +732,10 @@
                     </div>
                 </div>
                 <p id="settingsStatus" class="settings-status" role="status"></p>
-                <div class="cv-subtabbar" role="tablist" aria-label="Settings tabs">
-                    <button class="cv-subtab-btn settings-tab-btn active" data-settings-tab="global" role="tab" aria-selected="true">Global</button>
-                    <button class="cv-subtab-btn settings-tab-btn" data-settings-tab="providers" role="tab" aria-selected="false">Providers</button>
-                    <button class="cv-subtab-btn settings-tab-btn" data-settings-tab="other" role="tab" aria-selected="false">Other values</button>
+                <div class="nav nav-underline cv-subtabbar" role="tablist" aria-label="Settings tabs">
+                    <button class="nav-link cv-subtab-btn settings-tab-btn active" data-settings-tab="global" role="tab" aria-selected="true">Global</button>
+                    <button class="nav-link cv-subtab-btn settings-tab-btn" data-settings-tab="providers" role="tab" aria-selected="false">Providers</button>
+                    <button class="nav-link cv-subtab-btn settings-tab-btn" data-settings-tab="other" role="tab" aria-selected="false">Other values</button>
                 </div>
                 <div class="settings-scroll">
                     <div id="settingsImportPanel" class="settings-tool" hidden>

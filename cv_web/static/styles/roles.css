@@ -213,7 +213,7 @@ body:not(.cv-master) [data-master-only] {
   margin-left: auto;
   padding: 0 0.4rem;
   border-radius: 0.4rem;
-  background: var(--subtab-bg);
+  background: var(--surface-muted);
   color: var(--muted);
   font-size: 0.75rem;
   font-weight: 400;
@@ -231,7 +231,7 @@ body:not(.cv-master) [data-master-only] {
   padding: 0.4rem 0.5rem;
   border: 1px solid var(--line);
   border-radius: 0.4rem;
-  background: var(--subtab-bg);
+  background: var(--surface-muted);
   color: var(--ink);
   max-height: 16rem;
   overflow: auto;
