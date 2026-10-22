@@ -85,7 +85,7 @@ export function createCvHistoryFeature(ctx) {
                 const item = document.createElement("li");
                 const button = document.createElement("button");
                 button.type = "button";
-                button.className = "history-item";
+                button.className = "history-item list-group-item list-group-item-action";
                 button.dataset.versionId = String(version.id);
                 button.textContent = versionLabel(version, version.id === open.currentId);
                 button.addEventListener("click", () => showVersion(version.id));

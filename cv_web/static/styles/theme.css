@@ -94,3 +94,40 @@
   --bs-nav-tabs-link-active-bg: var(--panel);
   --bs-nav-tabs-link-active-border-color: var(--line) var(--line) var(--panel);
 }
+
+/* Dialogs: our <dialog>s hold Bootstrap's modal-header / -body / -footer, which read --bs-modal-* variables that
+   Bootstrap sets only on .modal (unused: no Bootstrap JS). The dialog itself is the white modal box. */
+dialog {
+  --bs-modal-padding: 1rem;
+  --bs-modal-header-padding-x: 1rem;
+  --bs-modal-header-padding-y: 0.75rem;
+  --bs-modal-header-padding: var(--bs-modal-header-padding-y) var(--bs-modal-header-padding-x);
+  --bs-modal-header-border-color: var(--line);
+  --bs-modal-header-border-width: var(--bs-border-width);
+  --bs-modal-inner-border-radius: calc(var(--bs-border-radius-lg) - var(--bs-border-width));
+  --bs-modal-title-line-height: 1.5;
+  --bs-modal-footer-gap: 0.5rem;
+  --bs-modal-footer-border-color: var(--line);
+  --bs-modal-footer-border-width: var(--bs-border-width);
+  padding: 0;
+  border: var(--bs-border-width) solid var(--line);
+  border-radius: var(--bs-border-radius-lg);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* List groups (role list, CV history): white items with dark text, the active one a pale primary tint rather than
+   solid blue (Bootstrap fills items with --bs-body-bg, our pale blue page). */
+.list-group {
+  --bs-list-group-bg: var(--panel);
+  --bs-list-group-action-color: var(--ink);
+  --bs-list-group-item-padding-x: 0.55rem;
+  --bs-list-group-item-padding-y: 0.4rem;
+  --bs-list-group-active-color: var(--bs-primary-text-emphasis);
+  --bs-list-group-active-bg: var(--bs-primary-bg-subtle);
+  --bs-list-group-active-border-color: var(--bs-primary-border-subtle);
+}

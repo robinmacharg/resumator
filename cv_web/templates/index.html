@@ -59,7 +59,7 @@
                             +
                         </button>
                     </div>
-                    <ul id="roleList" class="role-list"></ul>
+                    <ul id="roleList" class="role-list list-group"></ul>
                     <div class="role-sidebar-foot" data-role-only data-needs-role>
                         <label class="model-picker" for="roleStatusSelect">
                             <span>Status</span>
@@ -654,15 +654,19 @@
 
         <dialog id="newRoleDialog" class="role-dialog">
             <form id="newRoleForm" class="role-dialog-form">
-                <h2>New role</h2>
-                <p>Its CV starts as a copy of the master CV.</p>
-                <label for="newRoleNameInput">Name</label>
-                <input id="newRoleNameInput" class="form-control" type="text" required placeholder="e.g. Senior Engineer" />
-                <label for="newRoleCompanyInput">Company</label>
-                <input id="newRoleCompanyInput" class="form-control" type="text" placeholder="e.g. Checkout.com" />
-                <label for="newRoleJobspecInput">Job spec</label>
-                <textarea id="newRoleJobspecInput" spellcheck="false" placeholder="Paste the job spec"></textarea>
-                <div class="role-dialog-actions">
+                <div class="modal-header">
+                    <h2 class="modal-title">New role</h2>
+                </div>
+                <div class="modal-body">
+                    <p>Its CV starts as a copy of the master CV.</p>
+                    <label for="newRoleNameInput">Name</label>
+                    <input id="newRoleNameInput" class="form-control" type="text" required placeholder="e.g. Senior Engineer" />
+                    <label for="newRoleCompanyInput">Company</label>
+                    <input id="newRoleCompanyInput" class="form-control" type="text" placeholder="e.g. Checkout.com" />
+                    <label for="newRoleJobspecInput">Job spec</label>
+                    <textarea id="newRoleJobspecInput" spellcheck="false" placeholder="Paste the job spec"></textarea>
+                </div>
+                <div class="modal-footer role-dialog-actions">
                     <button id="newRoleCancelBtn" class="btn btn-outline-secondary" type="button">Cancel</button>
                     <button class="btn btn-primary" type="submit">Create role</button>
                 </div>
@@ -671,14 +675,18 @@
 
         <dialog id="firstRunDialog" class="role-dialog">
             <div class="role-dialog-form">
-                <h2>Welcome to Resumator</h2>
-                <p>
-                    Start with example data (a sample master CV, a role with a short job spec and a finished run, to
-                    look around without a model call), or with a blank master CV to fill in. You can delete the
-                    example role later.
-                </p>
-                <p id="firstRunError" class="merge-error" role="alert"></p>
-                <div class="role-dialog-actions">
+                <div class="modal-header">
+                    <h2 class="modal-title">Welcome to Resumator</h2>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        Start with example data (a sample master CV, a role with a short job spec and a finished run,
+                        to look around without a model call), or with a blank master CV to fill in. You can delete the
+                        example role later.
+                    </p>
+                    <p id="firstRunError" class="merge-error text-danger" role="alert"></p>
+                </div>
+                <div class="modal-footer role-dialog-actions">
                     <button id="firstRunBlankBtn" class="btn btn-outline-secondary" type="button">Blank master CV</button>
                     <button id="firstRunExampleBtn" class="btn btn-primary" type="button">Example data</button>
                 </div>
@@ -687,11 +695,15 @@
 
         <dialog id="mergeDialog" class="role-dialog merge-dialog">
             <div class="role-dialog-form">
-                <h2 id="mergeTitle">Merge</h2>
-                <p id="mergeHint"></p>
-                <ul id="mergeList" class="merge-list"></ul>
-                <p id="mergeError" class="merge-error" role="alert"></p>
-                <div class="role-dialog-actions">
+                <div class="modal-header">
+                    <h2 id="mergeTitle" class="modal-title">Merge</h2>
+                </div>
+                <div class="modal-body">
+                    <p id="mergeHint"></p>
+                    <ul id="mergeList" class="merge-list"></ul>
+                    <p id="mergeError" class="merge-error text-danger" role="alert"></p>
+                </div>
+                <div class="modal-footer role-dialog-actions">
                     <button id="mergeCancelBtn" class="btn btn-outline-secondary" type="button">Cancel</button>
                     <button id="mergeApplyBtn" class="btn btn-primary" type="button">Apply ticked changes</button>
                 </div>
@@ -700,13 +712,17 @@
 
         <dialog id="historyDialog" class="role-dialog merge-dialog">
             <div class="role-dialog-form">
-                <h2 id="historyTitle">CV history</h2>
-                <div class="history-body">
-                    <ul id="historyList" class="history-list"></ul>
-                    <pre id="historyContent" class="history-content"></pre>
+                <div class="modal-header">
+                    <h2 id="historyTitle" class="modal-title">CV history</h2>
                 </div>
-                <p id="historyError" class="merge-error" role="alert"></p>
-                <div class="role-dialog-actions">
+                <div class="modal-body">
+                    <div class="history-body">
+                        <ul id="historyList" class="history-list list-group"></ul>
+                        <pre id="historyContent" class="history-content"></pre>
+                    </div>
+                    <p id="historyError" class="merge-error text-danger" role="alert"></p>
+                </div>
+                <div class="modal-footer role-dialog-actions">
                     <button id="historyCloseBtn" class="btn btn-outline-secondary" type="button">Close</button>
                     <button id="historyRestoreBtn" class="btn btn-primary" type="button" disabled>
                         Restore as new version
@@ -717,55 +733,55 @@
 
         <dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsHeading">
             <div class="settings-dialog-inner">
-                <header class="settings-dialog-head">
-                    <h2 id="settingsHeading">Settings</h2>
-                    <button id="settingsCloseBtn" class="settings-close" type="button" aria-label="Close settings">
-                        &times;
-                    </button>
+                <header class="modal-header settings-dialog-head">
+                    <h2 id="settingsHeading" class="modal-title">Settings</h2>
+                    <button id="settingsCloseBtn" class="btn-close" type="button" aria-label="Close settings"></button>
                 </header>
-                <div class="settings-toolbar">
-                    <span class="settings-note">Stored in the database.</span>
-                    <div class="file-actions">
-                        <button id="settingsImportBtn" class="btn btn-outline-secondary" type="button">Import…</button>
-                        <button id="settingsSampleBtn" class="btn btn-outline-secondary" type="button">Load sample</button>
-                        <button id="settingsEnvBtn" class="btn btn-outline-secondary" type="button">View as .env</button>
-                    </div>
-                </div>
-                <p id="settingsStatus" class="settings-status" role="status"></p>
-                <div class="nav nav-underline cv-subtabbar" role="tablist" aria-label="Settings tabs">
-                    <button class="nav-link cv-subtab-btn settings-tab-btn active" data-settings-tab="global" role="tab" aria-selected="true">Global</button>
-                    <button class="nav-link cv-subtab-btn settings-tab-btn" data-settings-tab="providers" role="tab" aria-selected="false">Providers</button>
-                    <button class="nav-link cv-subtab-btn settings-tab-btn" data-settings-tab="other" role="tab" aria-selected="false">Other values</button>
-                </div>
-                <div class="settings-scroll">
-                    <div id="settingsImportPanel" class="settings-tool" hidden>
-                        <label for="settingsImportText">Paste .env text or choose a file</label>
-                        <textarea id="settingsImportText" spellcheck="false" rows="6"></textarea>
-                        <div class="settings-actions">
-                            <input id="settingsImportFile" class="form-control form-control-sm" type="file" accept=".env,.txt,text/plain" />
-                            <select class="form-select" id="settingsImportMode" aria-label="Import mode">
-                                <option value="merge">Merge (add and update)</option>
-                                <option value="replace">Replace (also remove others)</option>
-                            </select>
-                            <button id="settingsImportPreviewBtn" class="btn btn-outline-secondary" type="button">Preview</button>
-                            <button id="settingsImportApplyBtn" class="btn btn-primary" type="button">Apply</button>
-                            <button id="settingsImportCloseBtn" class="btn btn-outline-secondary" type="button">Close</button>
-                        </div>
-                        <p id="settingsImportResult" class="settings-status" role="status"></p>
-                    </div>
-                    <div id="settingsEnvPanel" class="settings-tool" hidden>
-                        <label for="settingsEnvText">Settings as .env (secrets masked)</label>
-                        <textarea id="settingsEnvText" spellcheck="false" rows="8" readonly></textarea>
-                        <div class="settings-actions">
-                            <button id="settingsEnvRevealBtn" class="btn btn-outline-secondary" type="button">Reveal secrets</button>
-                            <button id="settingsEnvCopyBtn" class="btn btn-outline-secondary" type="button">Copy</button>
-                            <button id="settingsEnvDownloadBtn" class="btn btn-outline-secondary" type="button">Download</button>
-                            <button id="settingsEnvCloseBtn" class="btn btn-outline-secondary" type="button">Close</button>
+                <div class="modal-body settings-body">
+                    <div class="settings-toolbar">
+                        <span class="settings-note">Stored in the database.</span>
+                        <div class="file-actions">
+                            <button id="settingsImportBtn" class="btn btn-outline-secondary" type="button">Import…</button>
+                            <button id="settingsSampleBtn" class="btn btn-outline-secondary" type="button">Load sample</button>
+                            <button id="settingsEnvBtn" class="btn btn-outline-secondary" type="button">View as .env</button>
                         </div>
                     </div>
-                    <div id="settingsPanelGlobal" class="settings-panel active" role="tabpanel"></div>
-                    <div id="settingsPanelProviders" class="settings-panel" role="tabpanel"></div>
-                    <div id="settingsPanelOther" class="settings-panel" role="tabpanel"></div>
+                    <p id="settingsStatus" class="settings-status" role="status"></p>
+                    <div class="nav nav-underline cv-subtabbar" role="tablist" aria-label="Settings tabs">
+                        <button class="nav-link cv-subtab-btn settings-tab-btn active" data-settings-tab="global" role="tab" aria-selected="true">Global</button>
+                        <button class="nav-link cv-subtab-btn settings-tab-btn" data-settings-tab="providers" role="tab" aria-selected="false">Providers</button>
+                        <button class="nav-link cv-subtab-btn settings-tab-btn" data-settings-tab="other" role="tab" aria-selected="false">Other values</button>
+                    </div>
+                    <div class="settings-scroll">
+                        <div id="settingsImportPanel" class="settings-tool" hidden>
+                            <label for="settingsImportText">Paste .env text or choose a file</label>
+                            <textarea id="settingsImportText" spellcheck="false" rows="6"></textarea>
+                            <div class="settings-actions">
+                                <input id="settingsImportFile" class="form-control form-control-sm" type="file" accept=".env,.txt,text/plain" />
+                                <select class="form-select" id="settingsImportMode" aria-label="Import mode">
+                                    <option value="merge">Merge (add and update)</option>
+                                    <option value="replace">Replace (also remove others)</option>
+                                </select>
+                                <button id="settingsImportPreviewBtn" class="btn btn-outline-secondary" type="button">Preview</button>
+                                <button id="settingsImportApplyBtn" class="btn btn-primary" type="button">Apply</button>
+                                <button id="settingsImportCloseBtn" class="btn btn-outline-secondary" type="button">Close</button>
+                            </div>
+                            <p id="settingsImportResult" class="settings-status" role="status"></p>
+                        </div>
+                        <div id="settingsEnvPanel" class="settings-tool" hidden>
+                            <label for="settingsEnvText">Settings as .env (secrets masked)</label>
+                            <textarea id="settingsEnvText" spellcheck="false" rows="8" readonly></textarea>
+                            <div class="settings-actions">
+                                <button id="settingsEnvRevealBtn" class="btn btn-outline-secondary" type="button">Reveal secrets</button>
+                                <button id="settingsEnvCopyBtn" class="btn btn-outline-secondary" type="button">Copy</button>
+                                <button id="settingsEnvDownloadBtn" class="btn btn-outline-secondary" type="button">Download</button>
+                                <button id="settingsEnvCloseBtn" class="btn btn-outline-secondary" type="button">Close</button>
+                            </div>
+                        </div>
+                        <div id="settingsPanelGlobal" class="settings-panel active" role="tabpanel"></div>
+                        <div id="settingsPanelProviders" class="settings-panel" role="tabpanel"></div>
+                        <div id="settingsPanelOther" class="settings-panel" role="tabpanel"></div>
+                    </div>
                 </div>
             </div>
         </dialog>

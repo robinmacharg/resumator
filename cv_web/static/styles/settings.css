@@ -6,54 +6,30 @@
   height: 92vh;
   max-width: none;
   max-height: none;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 0.8rem;
   background: var(--bg);
-  color: var(--ink);
 }
 
 .settings-dialog[open] {
   display: block;
 }
 
-.settings-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.45);
-}
-
-/* Stacks heading, toolbar and the scrolling body. */
+/* Stacks the modal header over the body; the body's last child (.settings-scroll) scrolls. */
 .settings-dialog-inner {
   height: 100%;
-  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  padding: 1rem 1.25rem;
 }
 
+/* White header above the pale body, so the provider cards stand out below it. */
 .settings-dialog-head {
+  background: var(--panel);
+}
+
+.settings-body {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.settings-dialog-head h2 {
-  margin: 0;
-  font-size: 1.2rem;
-}
-
-/* The X close icon. */
-.settings-close {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 1.8rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0 0.4rem;
-}
-
-.settings-close:hover {
-  color: var(--ink);
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 0;
 }
 
 /* Import / sample / view buttons under the heading. */
@@ -63,7 +39,7 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin: 0.5rem 0 0.25rem;
+  margin-bottom: 0.25rem;
 }
 
 .settings-note {
@@ -116,8 +92,8 @@
 
 /* Provider card: collapsible, with a status badge in its summary. */
 .settings-card {
-  border: 1px solid var(--line);
-  border-radius: 0.6rem;
+  border: var(--bs-border-width) solid var(--line);
+  border-radius: var(--bs-border-radius-lg);
   background: var(--panel);
   padding: 0.5rem 0.75rem;
   margin-top: 0.5rem;
@@ -145,23 +121,6 @@
   cursor: pointer;
 }
 
-/* Enabled / not configured pill. */
-.settings-badge {
-  font-size: 0.72rem;
-  padding: 0.05rem 0.5rem;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-}
-
-.settings-badge-on {
-  color: var(--brand);
-  border-color: var(--brand);
-}
-
-.settings-badge-off {
-  color: var(--muted);
-}
-
 /* Button row under a block or tool. */
 .settings-actions {
   display: flex;
@@ -173,8 +132,8 @@
 
 /* Import and .env view panels above the form. */
 .settings-tool {
-  border: 1px solid var(--line);
-  border-radius: 0.6rem;
+  border: var(--bs-border-width) solid var(--line);
+  border-radius: var(--bs-border-radius-lg);
   padding: 0.6rem;
   margin-bottom: 0.75rem;
   background: var(--panel);
@@ -193,6 +152,3 @@
   font-size: 0.85rem;
 }
 
-.settings-error {
-  color: var(--danger);
-}

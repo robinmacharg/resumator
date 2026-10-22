@@ -1,6 +1,5 @@
 /* Defines the logs tab shell with header, controls, and panel content regions. */
 .logs {
-  --section-surface-bg: var(--panel);
   padding: 0.75rem;
   display: grid;
   grid-template-rows: auto auto 1fr;

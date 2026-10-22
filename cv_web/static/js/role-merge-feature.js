@@ -43,6 +43,14 @@ const STATUS_TEXT = {
     conflict: "conflict",
 };
 
+/** Bootstrap badge colour per change status. */
+const STATUS_BADGE = {
+    added: "text-bg-success",
+    removed: "text-bg-secondary",
+    changed: "text-bg-secondary",
+    conflict: "text-bg-danger",
+};
+
 /**
  * Dependencies required by the role merge feature.
  *
@@ -171,7 +179,7 @@ export function createRoleMergeFeature(ctx) {
             title.className = "merge-item-title";
             title.textContent = unitTitle(change);
             const badge = document.createElement("span");
-            badge.className = "merge-badge";
+            badge.className = `merge-badge badge ${STATUS_BADGE[change.status] || "text-bg-secondary"}`;
             badge.textContent = STATUS_TEXT[change.status] || change.status;
             head.append(title, badge);
             item.append(head, renderDiff(change.diff));

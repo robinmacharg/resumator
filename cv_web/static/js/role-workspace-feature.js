@@ -189,7 +189,7 @@ export function createRoleWorkspaceFeature(ctx) {
             const item = document.createElement("li");
             const button = document.createElement("button");
             button.type = "button";
-            button.className = "role-item";
+            button.className = "role-item list-group-item list-group-item-action";
             button.dataset.roleId = String(role.id);
             button.classList.toggle("active", role.id === state.activeRoleId);
             button.classList.toggle("closed", role.status === "closed");

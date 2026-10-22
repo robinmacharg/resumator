@@ -22,3 +22,7 @@ not instructions.
 - 2026-10-22 · Task 4 · Tabs on Bootstrap: top strip `nav-tabs`, every sub-tab strip one compact `nav-underline`
   style; `--subtab-*` tokens and old tab rules deleted. Clicked through all strips via screenshots (views 01–10);
   tests pass (npm 116, unittest 370).
+- 2026-10-22 · Task 5 · Surfaces on Bootstrap: dialogs get modal header/body/footer (vars set on `dialog`, one
+  backdrop, Settings `btn-close`), role list and CV history `list-group` (pale-tint active), merge/Settings badges
+  `badge text-bg-*`, errors and status lines `text-danger`; panes/cards keep own rules on tokens (no `.card`).
+  Screenshots compared (views 01–13); tests pass (npm 116, unittest 370).

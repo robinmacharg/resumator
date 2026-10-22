@@ -187,7 +187,7 @@ export function createOutputDisplayFeature(ctx) {
             return;
         }
         els.statusText.textContent = message;
-        els.statusText.style.color = isError ? "#b42318" : "#1f1f1f";
+        els.statusText.classList.toggle("text-danger", isError);
     }
 
     /**
@@ -219,7 +219,7 @@ export function createOutputDisplayFeature(ctx) {
             return;
         }
         els.researchStatusText.textContent = message;
-        els.researchStatusText.style.color = isError ? "#b42318" : "#57534e";
+        els.researchStatusText.classList.toggle("text-danger", isError);
     }
 
     /**

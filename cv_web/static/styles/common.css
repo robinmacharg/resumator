@@ -24,15 +24,15 @@ body {
   flex-direction: column;
 }
 
-/* Undoes Bootstrap Reboot's lighter headings; dialog titles keep their old size. */
+/* Undoes Bootstrap Reboot's lighter headings; dialog titles are modal-title sized. */
 h1,
 h2,
 h3 {
   font-weight: 700;
 }
 
-dialog h2 {
-  font-size: 1.5rem;
+dialog .modal-title {
+  font-size: 1.25rem;
 }
 
 /* Styles the sticky-like top bar container with spacing and subtle backdrop treatment. */
@@ -115,8 +115,8 @@ dialog h2 {
 .editor-pane,
 .preview-pane {
   min-height: 0;
-  border: 1px solid var(--line);
-  border-radius: 0.8rem;
+  border: var(--bs-border-width) solid var(--line);
+  border-radius: var(--bs-border-radius-lg);
   background: var(--panel);
   overflow: hidden;
 }
@@ -283,10 +283,9 @@ dialog h2 {
 
 /* Provides shared bordered card shell for logs and research control surfaces. */
 :is(.logs, .research-controls) {
-  --section-surface-bg: #fff;
-  border: 1px solid var(--line);
-  border-radius: 0.6rem;
-  background: var(--section-surface-bg);
+  border: var(--bs-border-width) solid var(--line);
+  border-radius: var(--bs-border-radius-lg);
+  background: var(--panel);
   min-height: 0;
 }
 
@@ -358,7 +357,7 @@ textarea {
   border: var(--bs-border-width) solid var(--line);
   border-radius: var(--bs-border-radius);
   padding: 0.65rem;
-  background: #fff;
+  background: var(--panel);
   color: var(--ink);
   font-family: var(--bs-font-monospace);
   font-size: 0.84rem;
@@ -381,7 +380,7 @@ textarea[readonly] {
 pre {
   margin: 0;
   border: 1px solid var(--line);
-  border-radius: 0.5rem;
+  border-radius: var(--bs-border-radius);
   padding: 0.6rem;
   background: #1c1917;
   color: #fdf6e3;
@@ -394,9 +393,9 @@ pre {
 /* Styles the auto-scroll status pill shown near streaming output. */
 .autoscroll-indicator {
   display: none;
-  border: 1px solid #facc15;
-  background: #fffbeb;
-  color: #854d0e;
+  border: 1px solid var(--bs-warning-border-subtle);
+  background: var(--bs-warning-bg-subtle);
+  color: var(--bs-warning-text-emphasis);
   border-radius: 999px;
   padding: 0.15rem 0.5rem;
   font-size: 0.73rem;

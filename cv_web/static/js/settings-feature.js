@@ -51,7 +51,7 @@ export function createSettingsFeature(ctx) {
     function setStatus(message, isError = false) {
         if (els.settingsStatus) {
             els.settingsStatus.textContent = message;
-            els.settingsStatus.classList.toggle("settings-error", isError);
+            els.settingsStatus.classList.toggle("text-danger", isError);
         }
     }
 
@@ -209,17 +209,17 @@ export function createSettingsFeature(ctx) {
             try {
                 const outcome = await send("/api/settings/test", "POST", { provider: group.id, overrides });
                 result.textContent = describeTest(outcome);
-                result.classList.toggle("settings-error", !outcome.ok);
+                result.classList.toggle("text-danger", !outcome.ok);
             } catch (error) {
                 result.textContent = errorMessage(error);
-                result.classList.add("settings-error");
+                result.classList.add("text-danger");
             } finally {
                 test.disabled = false;
             }
         });
         saveBtn.addEventListener("click", () => save(fields.collect(), `${group.label} saved.`));
         const badge = h("span", {
-            className: `settings-badge ${enabled ? "settings-badge-on" : "settings-badge-off"}`,
+            className: `settings-badge badge ${enabled ? "text-bg-primary" : "text-bg-light border"}`,
             textContent: enabled ? "enabled" : "not configured",
             title: group.status ? group.status.reason : "",
         });
@@ -363,14 +363,14 @@ export function createSettingsFeature(ctx) {
             });
             els.settingsImportResult.textContent =
                 (dryRun ? "Preview: " : "Imported: ") + describeImportDiff(result.diff);
-            els.settingsImportResult.classList.remove("settings-error");
+            els.settingsImportResult.classList.remove("text-danger");
             if (!dryRun) {
                 await load();
                 onSettingsChanged();
             }
         } catch (error) {
             els.settingsImportResult.textContent = errorMessage(error);
-            els.settingsImportResult.classList.add("settings-error");
+            els.settingsImportResult.classList.add("text-danger");
         }
     }
 
