@@ -710,6 +710,11 @@
                     </div>
                 </div>
                 <p id="settingsStatus" class="settings-status" role="status"></p>
+                <div class="cv-subtabbar" role="tablist" aria-label="Settings tabs">
+                    <button class="cv-subtab-btn settings-tab-btn active" data-settings-tab="global" role="tab" aria-selected="true">Global</button>
+                    <button class="cv-subtab-btn settings-tab-btn" data-settings-tab="providers" role="tab" aria-selected="false">Providers</button>
+                    <button class="cv-subtab-btn settings-tab-btn" data-settings-tab="other" role="tab" aria-selected="false">Other values</button>
+                </div>
                 <div class="settings-scroll">
                     <div id="settingsImportPanel" class="settings-tool" hidden>
                         <label for="settingsImportText">Paste .env text or choose a file</label>
@@ -735,11 +740,6 @@
                             <button id="settingsEnvDownloadBtn" class="btn btn-secondary" type="button">Download</button>
                             <button id="settingsEnvCloseBtn" class="btn btn-secondary" type="button">Close</button>
                         </div>
-                    </div>
-                    <div class="cv-subtabbar" role="tablist" aria-label="Settings tabs">
-                        <button class="cv-subtab-btn settings-tab-btn active" data-settings-tab="global" role="tab" aria-selected="true">Global</button>
-                        <button class="cv-subtab-btn settings-tab-btn" data-settings-tab="providers" role="tab" aria-selected="false">Providers</button>
-                        <button class="cv-subtab-btn settings-tab-btn" data-settings-tab="other" role="tab" aria-selected="false">Other values</button>
                     </div>
                     <div id="settingsPanelGlobal" class="settings-panel active" role="tabpanel"></div>
                     <div id="settingsPanelProviders" class="settings-panel" role="tabpanel"></div>
