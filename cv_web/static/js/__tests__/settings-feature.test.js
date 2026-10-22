@@ -260,3 +260,15 @@ test("cog opens the modal and loads; X, backdrop click and tab buttons work", as
     els.settingsCloseBtn.click();
     assert.equal(els.settingsDialog.open, false);
 });
+
+test("the first-run step opens on the import panel of the Providers tab with a hint", async () => {
+    const { els, feature } = harness();
+    await feature.openFirstRun();
+    assert.equal(els.settingsDialog.open, true);
+    assert.equal(els.settingsImportPanel.hidden, false);
+    assert.equal(els.settingsPanels.providers.classes.has("active"), true);
+    assert.match(els.settingsStatus.textContent, /Last setup step/);
+    els.settingsCloseBtn.click(); // skip
+    assert.equal(els.settingsDialog.open, false);
+    assert.equal(els.settingsImportPanel.hidden, true);
+});

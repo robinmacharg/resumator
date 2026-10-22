@@ -357,6 +357,8 @@ const roleWorkspaceFeature = createRoleWorkspaceFeature({
     applySteering: (steering) => steeringFeature.applySteering(steering),
     applyTheme: (theme) => themeFeature.applyTheme(theme),
     roleRunsFeature,
+    // settingsFeature is created further down; this only runs after a first-run choice.
+    openSettingsStep: () => settingsFeature.openFirstRun(),
 });
 
 // Promote to / pull from master: the merge view over the role API, then the open CV is reloaded.

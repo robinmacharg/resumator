@@ -130,6 +130,8 @@ flowchart TD
     for unconfigured providers start closed, which is how a provider is added); Other values (key/value rows).
   - Import (paste or file, merge or replace, Preview = dry run, Apply), Load sample, and View as `.env` (masked,
     Reveal, Copy, Download).
+  - `openFirstRun` (task 8): the first-run Settings step, the pop-over opened on its import panel (Providers tab)
+    with a hint; closing it skips the step.
   - `settings-model.js` is pure: `diffFields`/`diffOtherRows` build the `{set, delete}` body (a blank secret field
     means unchanged), plus summaries of import diffs and test results. Secrets reach the page only through Reveal.
 
@@ -139,7 +141,8 @@ flowchart TD
     (`body.role-mode`; `[data-role-only]`/`[data-file-only]` elements show and hide). File mode is only a fallback
     when the role API can't be reached.
   - First run (step 12): `GET /api/setup` says when the choice is due; `#firstRunDialog` offers example data or a
-    blank master CV (`chooseFirstRun`) and can't be dismissed (Escape is cancelled, or it reopens on close).
+    blank master CV (`chooseFirstRun`) and can't be dismissed (Escape is cancelled, or it reopens on close). When
+    `hasSettings` was false, the choice is followed by the Settings step (`ctx.openSettingsStep`).
   - No roles yet (`isMasterOnly`, `body.no-role`): the master CV is open, `[data-needs-role]` controls (CV picker,
     promote/pull, run picker, status/delete) hide, the job spec is read-only, CV and research runs are refused
     (`isRoleRequired` in the run features), theme changes are only kept, and the preview says "No role yet".
@@ -204,7 +207,7 @@ This map identifies which frontend feature owns each backend/static endpoint int
 | `/api/research/format` | `research-feature.js` | Format research PDF output. |
 | `/api/research/reset-prompt` | `research-feature.js` | Restore default research prompt file. |
 | `/api/settings`, `/api/settings/{reveal,env,sample,import,test}` | `settings-feature.js` | Settings pop-over: catalog and saves, reveal, `.env` view, import, sample, provider test. |
-| `/api/setup` (status, choice) | `role-workspace-feature.js` | First-run choice: example data or a blank master CV. |
+| `/api/setup` (status, choice) | `role-workspace-feature.js` | First-run choice: example data or a blank master CV; `hasSettings` decides the Settings step. |
 | `/api/roles`, `/api/roles/<id>` (read, update, `/delete`), `/api/roles/<id>/cv`, `/api/master/cv` | `role-workspace-feature.js` | Role list, create/update/archive/delete, role and master CV read/save. Routes in [docs/architecture.md](../../docs/architecture.md) "Role API". |
 | `/api/roles/<id>/merge`, `/api/master/import` (view, save) | `role-merge-feature.js` | Promote/pull/import merge view and saving it. |
 | `…/cv/versions/<v>`, `…/cv/versions/<v>/restore` (role or master) | `cv-history-feature.js` | Version history and restore. |

@@ -14,7 +14,8 @@ import {
  * Architecture role:
  * - Layer: domain feature for the Settings pop-over (cog button in the header).
  * - Responsibility: render the settings catalog (Global, provider cards, Other), save changes, reveal secrets,
- *   test providers, import `.env` text with a diff preview, and view the settings as `.env` text.
+ *   test providers, import `.env` text with a diff preview, and view the settings as `.env` text. Also the
+ *   first-run Settings step (`openFirstRun`): the pop-over opened on its import panel.
  *
  * Plain-language purpose:
  * - This is where keys and options live now that `.env` is gone. Everything goes through `/api/settings…`;
@@ -36,7 +37,7 @@ import {
 
 /**
  * @param {SettingsFeatureContext} ctx
- * @returns {{bind: () => void, load: () => Promise<void>, open: () => Promise<void>, close: () => void, setTab: (name: string) => void}}
+ * @returns {{bind: () => void, load: () => Promise<void>, open: () => Promise<void>, openFirstRun: () => Promise<void>, close: () => void, setTab: (name: string) => void}}
  */
 export function createSettingsFeature(ctx) {
     const { els } = ctx;
@@ -314,6 +315,21 @@ export function createSettingsFeature(ctx) {
         await load();
     }
 
+    /**
+     * First-run Settings step: the import panel on the Providers tab. Import, Load sample, or close to skip and
+     * fill in a provider by hand later.
+     */
+    async function openFirstRun() {
+        await open();
+        setTab("providers");
+        showImport();
+        els.settingsImportResult.textContent = "";
+        setStatus(
+            "Last setup step: add your settings. Paste a .env or choose a file (or press Load sample), then " +
+                "Preview and Apply. To skip, close this and add a provider here later (cog button).",
+        );
+    }
+
     function close() {
         els.settingsImportPanel.hidden = true;
         els.settingsEnvPanel.hidden = true;
@@ -444,5 +460,5 @@ export function createSettingsFeature(ctx) {
         els.settingsEnvDownloadBtn.addEventListener("click", download);
     }
 
-    return { bind, load, open, close, setTab };
+    return { bind, load, open, openFirstRun, close, setTab };
 }
