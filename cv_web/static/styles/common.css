@@ -475,3 +475,20 @@ pre {
     min-height: 50vh;
   }
 }
+
+/* Stops scroll chaining: reaching the end of an inner scroll area (settings, role/merge/history lists, editors,
+   outputs) no longer scrolls the page behind it. */
+textarea,
+pre,
+.settings-scroll,
+.role-list,
+.merge-list,
+.history-list,
+.history-content {
+  overscroll-behavior: contain;
+}
+
+/* Freezes the page behind any open modal dialog, so wheel and touch scrolling can't move it. */
+body:has(dialog[open]) {
+  overflow: hidden;
+}
