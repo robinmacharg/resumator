@@ -184,7 +184,7 @@ const els = {
         logs: document.getElementById("tab-logs"),
     },
     researchSplitters: Array.from(document.querySelectorAll(".research-section-splitter")),
-    cvTabButtons: Array.from(document.querySelectorAll(".cv-subtab-btn")),
+    cvTabButtons: Array.from(document.querySelectorAll(".cv-subtab-btn[data-cv-tab]")),
     researchInputTabButtons: Array.from(document.querySelectorAll(".research-input-tab-btn")),
     cvTabPanels: {
         cv: document.getElementById("tab-cv"),

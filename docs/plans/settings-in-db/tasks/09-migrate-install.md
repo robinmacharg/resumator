@@ -1,6 +1,6 @@
 # Task 9: migrate this install and cold-start test
 
-**Status:** todo. **Read:** D2, D7; AGENTS.md invariants on the real DB and `.env`.
+**Status:** done. **Read:** D2, D7; AGENTS.md invariants on the real DB and `.env`.
 
 ## Do
 
@@ -19,4 +19,14 @@ No `.env` in the repo; the startup audit is clean; the user has confirmed the pr
 
 ## Handover
 
-(fill in at the end of the task)
+- Found state: `.env` moved by the user to `~/dev/.env` (outside the repo); live `resumator.db` was the task 8
+  cold-start scratch DB, the real one sat beside it as `resumator.db.bak_tmp` (schema v1). Restored it (scratch DB
+  backed up to the session scratchpad first, stale `-shm` dropped); migration 2 applied on first CLI open.
+- `--action backup`, then `settings-import --env-file ~/dev/.env` (merge, 22 keys added; not `--delete-after`, so
+  the file stays outside the repo for the user to delete). Startup audit clean.
+- Provider tests: Gemini OK. Hugging Face and OpenAI fail on account credit, Swiftlet's server isn't running; the
+  user accepts these. Gotcha: with another app on port 8080 (VLC), Swiftlet's 404 reads as "Check SWIFTLET_API_URL
+  path".
+- Cold-start rehearsal on a scratch DB: `setup --choice example`, `settings-export --reveal > file` (export writes
+  to stdout; `--out` is a cv/render flag), `settings-import --delete-after`, Gemini test OK.
+- Not done: the browser look at the Settings pop-over and first-run step (tasks 7–8 Handover) — still for the user.

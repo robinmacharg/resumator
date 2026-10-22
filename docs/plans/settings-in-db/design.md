@@ -30,7 +30,7 @@ numbered D1–D11 and cited by number in tasks and the log.
 | `store.setting` | `key TEXT PK, value TEXT`. Internal state: `first_run_done`, `role_merge` import base |
 
 The keys the code reads are listed per backend in [docs/backends.md](../backends.md), plus these globals: `MODEL_PROVIDER`,
-`CV_FAST_MODE`, `CV_THEME`, `CV_FONT_PRIORITY`, `RESEARCH_GEMINI_*`, `GEMINI_CLI_TRUST_WORKSPACE`. Some keys are only passed
+`CV_FAST_MODE`, `CV_THEME`, `CV_FONT_PRIORITY`, `RESEARCH_GEMINI_HEARTBEAT_SECONDS`. Some keys are only passed
 through to a CLI (for example `GEMINI_API_KEY` for `gemini`).
 
 ## Design
@@ -54,7 +54,9 @@ Built `store` functions: `list_env_settings`, `env_settings`, `get_env_setting`,
   `SettingSpec(key, label, secret=False, default=None, kind="text"|"bool"|"int"|"csv"|"choice", choices=None, help="")`.
   Backends without it still work, and their keys appear under "Other".
 - **Globals:** `settings_catalog.py` declares `MODEL_PROVIDER` (choice over the registered ids), `CV_FAST_MODE`,
-  `CV_THEME` (choice over `themes/`), `CV_FONT_PRIORITY`, and `RESEARCH_GEMINI_*` (Advanced).
+  `CV_THEME` (choice over `themes/`), `CV_FONT_PRIORITY`, and `RESEARCH_GEMINI_HEARTBEAT_SECONDS` (Advanced; used for
+  every provider). The Gemini backend declares `GEMINI_CLI_TRUST_WORKSPACE` and the other `RESEARCH_GEMINI_*` keys as
+  Advanced; `RESEARCH_GEMINI_TIMEOUT_SECONDS` was dropped (the backend's `timeout_seconds` always won).
   `catalog_keys()` returns every declared key (used by D8).
 - **Unknown keys** stored in the DB (for example `GEMINI_API_KEY`) are kept, shown under "Other", and passed through.
 

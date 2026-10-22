@@ -35,23 +35,6 @@ class SettingGroup:
     specs: list[SettingSpec]
 
 
-def _research_gemini_specs() -> list[SettingSpec]:
-    """Advanced research-pipeline tuning keys (all positive integers; blank uses the built-in default)."""
-    names = [
-        ("RESEARCH_GEMINI_TIMEOUT_SECONDS", "Research timeout (s)", "300"),
-        ("RESEARCH_GEMINI_HEARTBEAT_SECONDS", "Research heartbeat (s)", "15"),
-        ("RESEARCH_GEMINI_MAX_429_LINES_BEFORE_FALLBACK", "Research 429 lines before fallback", "3"),
-        ("RESEARCH_GEMINI_429_GRACE_SECONDS", "Research 429 grace (s)", "20"),
-        (
-            "RESEARCH_GEMINI_MAX_RETRY_AFTER_SECONDS_BEFORE_FALLBACK",
-            "Research max retry-after before fallback (s)",
-            "10",
-        ),
-        ("RESEARCH_GEMINI_MAX_CONSECUTIVE_HARD_QUOTA_MODELS", "Research hard-quota models before stopping", "3"),
-    ]
-    return [SettingSpec(key, label, kind="int", default=default, advanced=True) for key, label, default in names]
-
-
 def global_specs() -> list[SettingSpec]:
     """Settings that belong to no single backend."""
     import cv_convert
@@ -81,13 +64,13 @@ def global_specs() -> list[SettingSpec]:
             help="Comma-separated, first available font wins.",
         ),
         SettingSpec(
-            "GEMINI_CLI_TRUST_WORKSPACE",
-            "Trust workspace (gemini CLI)",
-            kind="bool",
-            default="true",
+            "RESEARCH_GEMINI_HEARTBEAT_SECONDS",
+            "Research heartbeat (s)",
+            kind="int",
+            default="15",
             advanced=True,
+            help="Progress check interval during research, for every provider.",
         ),
-        *_research_gemini_specs(),
     ]
 
 

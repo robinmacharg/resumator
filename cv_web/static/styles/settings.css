@@ -130,10 +130,25 @@
   margin-top: 0.5rem;
 }
 
-.settings-card summary {
+/* Own summary only: a nested Advanced summary keeps its native marker. Flex drops the marker, so draw one. */
+.settings-card > summary {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  cursor: pointer;
+}
+
+.settings-card > summary::before {
+  content: "▸";
+  display: inline-block;
+  transition: transform 0.15s;
+}
+
+.settings-card[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.settings-advanced > summary {
   cursor: pointer;
 }
 

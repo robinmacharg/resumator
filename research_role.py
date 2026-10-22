@@ -771,11 +771,7 @@ def run_research(request: dict, *, files: bool, env: dict | None = None) -> Rese
         print(f"Provider '{selected_provider}' is disabled: {reason}", file=sys.stderr)
         return ResearchOutcome(None, None, 1, f"provider '{selected_provider}' is disabled: {reason}")
 
-    timeout_seconds = parse_positive_int(
-        process_env,
-        "RESEARCH_GEMINI_TIMEOUT_SECONDS",
-        RESEARCH_GEMINI_TIMEOUT_SECONDS,
-    )
+    timeout_seconds = int(getattr(selected_backend.backend, "timeout_seconds", RESEARCH_GEMINI_TIMEOUT_SECONDS))
     heartbeat_seconds = parse_positive_int(
         process_env,
         "RESEARCH_GEMINI_HEARTBEAT_SECONDS",
@@ -827,7 +823,7 @@ def run_research(request: dict, *, files: bool, env: dict | None = None) -> Rese
         )
     print(f"Selected provider: {selected_provider}", flush=True)
     print(
-        f"Research Gemini timeout: {timeout_seconds}s (heartbeat every {heartbeat_seconds}s)",
+        f"Research timeout: {timeout_seconds}s (heartbeat every {heartbeat_seconds}s)",
         flush=True,
     )
     print(
@@ -863,7 +859,7 @@ def run_research(request: dict, *, files: bool, env: dict | None = None) -> Rese
                 model_name=model_name,
                 prompt_text=prompt_text,
                 env=process_env,
-                timeout_seconds=int(getattr(selected_backend.backend, "timeout_seconds", timeout_seconds)),
+                timeout_seconds=timeout_seconds,
                 heartbeat_seconds=heartbeat_seconds,
                 attempt_index=idx,
                 debug_log_dir=debug_log_dir,

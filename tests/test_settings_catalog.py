@@ -60,7 +60,7 @@ class CatalogKeyTests(unittest.TestCase):
                     if key not in declared and key not in NOT_CONFIG:
                         missing.setdefault(key, path.name)
         self.assertEqual(missing, {})
-        self.assertTrue({"OPENAI_API_KEY", "RESEARCH_GEMINI_TIMEOUT_SECONDS", "CV_THEME"} <= seen)
+        self.assertTrue({"OPENAI_API_KEY", "RESEARCH_GEMINI_HEARTBEAT_SECONDS", "CV_THEME"} <= seen)
 
     def test_secrets_are_flagged(self) -> None:
         secrets = {
@@ -82,6 +82,14 @@ class CatalogKeyTests(unittest.TestCase):
         self.assertEqual(ids[0], "global")
         self.assertTrue({"openai", "gemini", "swiftlet", "claudecode"} <= set(ids))
         self.assertNotIn("other", ids)
+
+    def test_gemini_only_tuning_is_advanced_under_gemini(self) -> None:
+        groups = {group.id: group for group in settings_catalog.catalog()}
+        gemini_advanced = {spec.key for spec in groups["gemini"].specs if spec.advanced}
+        self.assertIn("GEMINI_CLI_TRUST_WORKSPACE", gemini_advanced)
+        self.assertIn("RESEARCH_GEMINI_429_GRACE_SECONDS", gemini_advanced)
+        global_keys = {spec.key for spec in groups["global"].specs}
+        self.assertEqual({key for key in global_keys if "GEMINI" in key}, {"RESEARCH_GEMINI_HEARTBEAT_SECONDS"})
 
     def test_unknown_stored_keys_land_in_other(self) -> None:
         groups = settings_catalog.catalog({"OPENAI_API_KEY": "x", "SOMETHING_ELSE": "y", "A_KEY": "z"})
