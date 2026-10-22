@@ -18,7 +18,7 @@ import { parseResearchUrlsInput } from "./app-utils.js";
  * @property {{isResearchRunning: boolean, selectedProvider: string, selectedModel: string, activeResearchOutputTab: string}} state Shared app state subset.
  * @property {any} els DOM element registry.
  * @property {(path: string, options?: RequestInit) => Promise<any>} api JSON API request helper.
- * @property {() => {cv: string, prompt: string, research_prompt: string, jobspec: string, env: string}} currentFiles Current editor payload.
+ * @property {() => {cv: string, prompt: string, research_prompt: string, jobspec: string}} currentFiles Current editor payload.
  * @property {() => void} writeDraftToLocalStorage Persist draft before operations.
  * @property {(message: string, isError?: boolean) => void} setStatus Global status renderer.
  * @property {(running: boolean) => void} setResearchRunning Toggle research-running UI state.

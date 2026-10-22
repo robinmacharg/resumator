@@ -5,7 +5,7 @@ import { getStorageString, setStorageString } from "./storage-utils.js";
  * - Layer: domain workflow feature used by app bootstrap (multi-role plan step 9).
  * - Responsibility: the role sidebar (list, create, status, delete), role selection, the role-owned editors (the
  *   role or master CV and the job spec, saved through the Role API instead of `input/` files), and the first-run
- *   choice (step 12).
+ *   choice (step 12), followed by the Settings step when no settings are stored (settings-in-db task 8).
  *
  * Plain-language purpose:
  * - Once the DB is set up the app is in "role mode" (`state.workspace`): the CV and Job Spec tabs edit the selected
@@ -35,9 +35,11 @@ const CV_LABELS = { role: "Role CV", master: "Master CV" };
  * @property {() => any} currentFileValues Editor values for every key, role-owned ones included.
  * @property {(steering: {text: string, enabled: boolean}) => void} applySteering Show a role's steering.
  * @property {(theme: string) => void} applyTheme Show a role's theme.
- * @property {any} roleRunsFeature Run-history API: loadRuns, clear.
+ * @property {any} roleRunsFeature Run-history API: loadRuns, showSelectedRun, refreshTailoredOutput, showFirstRun.
  * @property {(message: string) => boolean} [confirm] Confirmation prompt (window.confirm).
  * @property {() => void} [reloadPage] Full page reload (after the last role is deleted).
+ * @property {() => void} [openSettingsStep] First-run Settings step (import, sample or skip), shown after the
+ *   example/blank choice when no settings are stored.
  */
 
 /**
@@ -62,10 +64,12 @@ export function createRoleWorkspaceFeature(ctx) {
     } = ctx;
     const confirmAction = ctx.confirm || ((message) => window.confirm(message));
     const reloadPage = ctx.reloadPage || (() => window.location.reload());
+    const openSettingsStep = ctx.openSettingsStep || (() => {});
 
     let steeringTimer = null;
     let pendingSteering = null;
     let firstRunPending = false;
+    let settingsStepDue = false;
 
     /** @returns {boolean} A role is open. */
     function isActive() {
@@ -351,6 +355,10 @@ export function createRoleWorkspaceFeature(ctx) {
             return;
         }
         if (setup.needed) {
+            settingsStepDue = !setup.hasSettings;
+            // The file-mode startup filled these from input/ (or a browser draft); nothing is chosen yet.
+            applyRoleFiles({ cv: "", jobspec: "" });
+            roleRunsFeature.showFirstRun();
             syncModeUi();
             openFirstRunDialog();
             return;
@@ -385,7 +393,8 @@ export function createRoleWorkspaceFeature(ctx) {
     }
 
     /**
-     * Carry out the first-run choice, then enter role mode (the example role, or the blank master).
+     * Carry out the first-run choice, then enter role mode (the example role, or the blank master) and offer the
+     * Settings step when nothing is stored yet.
      * @param {"example" | "blank"} choice
      * @returns {Promise<boolean>} False when the server refused.
      */
@@ -407,6 +416,10 @@ export function createRoleWorkspaceFeature(ctx) {
         await enterWorkspace();
         if (choice === "example") {
             setStatus("Example data loaded: a sample master CV, a role and a finished run.");
+        }
+        if (settingsStepDue) {
+            settingsStepDue = false;
+            openSettingsStep();
         }
         return true;
     }

@@ -24,6 +24,7 @@ import { createRoleMergeFeature } from "./js/role-merge-feature.js";
 import { createRoleRunsFeature } from "./js/role-runs-feature.js";
 import { createRoleWorkspaceFeature } from "./js/role-workspace-feature.js";
 import { createRunStateFeature } from "./js/run-state-feature.js";
+import { createSettingsFeature } from "./js/settings-feature.js";
 import { createSteeringFeature } from "./js/steering-feature.js";
 import { createThemeFeature } from "./js/theme-feature.js";
 import { createUiLayoutFeature } from "./js/ui-layout-feature.js";
@@ -129,7 +130,33 @@ const els = {
     researchCommandOutput: document.getElementById("researchCommandOutput"),
     researchAutoscrollIndicator: document.getElementById("researchAutoscrollIndicator"),
     jobspecEditor: document.getElementById("jobspecEditor"),
-    envEditor: document.getElementById("envEditor"),
+    settingsDialog: document.getElementById("settingsDialog"),
+    settingsOpenBtn: document.getElementById("settingsOpenBtn"),
+    settingsCloseBtn: document.getElementById("settingsCloseBtn"),
+    settingsTabButtons: Array.from(document.querySelectorAll(".settings-tab-btn")),
+    settingsPanels: {
+        global: document.getElementById("settingsPanelGlobal"),
+        providers: document.getElementById("settingsPanelProviders"),
+        other: document.getElementById("settingsPanelOther"),
+    },
+    settingsStatus: document.getElementById("settingsStatus"),
+    settingsImportBtn: document.getElementById("settingsImportBtn"),
+    settingsSampleBtn: document.getElementById("settingsSampleBtn"),
+    settingsEnvBtn: document.getElementById("settingsEnvBtn"),
+    settingsImportPanel: document.getElementById("settingsImportPanel"),
+    settingsImportText: document.getElementById("settingsImportText"),
+    settingsImportFile: document.getElementById("settingsImportFile"),
+    settingsImportMode: document.getElementById("settingsImportMode"),
+    settingsImportPreviewBtn: document.getElementById("settingsImportPreviewBtn"),
+    settingsImportApplyBtn: document.getElementById("settingsImportApplyBtn"),
+    settingsImportCloseBtn: document.getElementById("settingsImportCloseBtn"),
+    settingsImportResult: document.getElementById("settingsImportResult"),
+    settingsEnvPanel: document.getElementById("settingsEnvPanel"),
+    settingsEnvText: document.getElementById("settingsEnvText"),
+    settingsEnvRevealBtn: document.getElementById("settingsEnvRevealBtn"),
+    settingsEnvCopyBtn: document.getElementById("settingsEnvCopyBtn"),
+    settingsEnvDownloadBtn: document.getElementById("settingsEnvDownloadBtn"),
+    settingsEnvCloseBtn: document.getElementById("settingsEnvCloseBtn"),
     tailoredViewer: document.getElementById("tailoredViewer"),
     tailoredTitle: document.getElementById("tailoredTitle"),
     runFormatBtn: document.getElementById("runFormatBtn"),
@@ -157,14 +184,13 @@ const els = {
         logs: document.getElementById("tab-logs"),
     },
     researchSplitters: Array.from(document.querySelectorAll(".research-section-splitter")),
-    cvTabButtons: Array.from(document.querySelectorAll(".cv-subtab-btn")),
+    cvTabButtons: Array.from(document.querySelectorAll(".cv-subtab-btn[data-cv-tab]")),
     researchInputTabButtons: Array.from(document.querySelectorAll(".research-input-tab-btn")),
     cvTabPanels: {
         cv: document.getElementById("tab-cv"),
         prompt: document.getElementById("tab-prompt"),
         jobspec: document.getElementById("tab-jobspec"),
         steering: document.getElementById("tab-steering"),
-        env: document.getElementById("tab-env"),
         tailored: document.getElementById("tab-tailored"),
     },
     researchInputPanels: {
@@ -208,11 +234,6 @@ const EDITABLE_FILES = {
         title: document.getElementById("jobspecTitle"),
         editor: () => els.jobspecEditor,
     },
-    env: {
-        tabLabel: "Env",
-        title: document.getElementById("envTitle"),
-        editor: () => els.envEditor,
-    },
 };
 
 // Local storage key registry for persisted UI/editor state.
@@ -223,7 +244,6 @@ const LS_KEYS = {
     research_company: "cvweb.research.company",
     research_urls: "cvweb.research.urls",
     jobspec: "cvweb.jobspec",
-    env: "cvweb.env",
     active_tab: "cvweb.active_tab",
     active_cv_tab: "cvweb.active_cv_tab",
     active_research_input_tab: "cvweb.active_research_input_tab",
@@ -337,6 +357,8 @@ const roleWorkspaceFeature = createRoleWorkspaceFeature({
     applySteering: (steering) => steeringFeature.applySteering(steering),
     applyTheme: (theme) => themeFeature.applyTheme(theme),
     roleRunsFeature,
+    // settingsFeature is created further down; this only runs after a first-run choice.
+    openSettingsStep: () => settingsFeature.openFirstRun(),
 });
 
 // Promote to / pull from master: the merge view over the role API, then the open CV is reloaded.
@@ -427,6 +449,9 @@ const logsFeature = createLogsFeature({
 });
 
 // Phase 5: compose layout/config/workflow orchestration features.
+// Settings sub-tab: provider keys, models and global options stored in the DB.
+const settingsFeature = createSettingsFeature({ els });
+
 // Layout and tab interaction manager.
 const uiLayoutFeature = createUiLayoutFeature({
     state,
@@ -539,5 +564,6 @@ const appStartupFeature = createAppStartupFeature({
     initialize,
 });
 
+settingsFeature.bind();
 appEventBindingsFeature.bindEventHandlers();
 appStartupFeature.runStartupSequence();

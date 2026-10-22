@@ -29,6 +29,10 @@
 export function createRoleRunsFeature(ctx) {
     const { state, els, api, setStatus, setCvRunSource, updatePreview, formatDateTime } = ctx;
 
+    // The first-run choice is due: show placeholders, not the file-mode output/ files.
+    let firstRunDue = false;
+    const FIRST_RUN_TEXT = "Choose example data or a blank master CV to start.";
+
     /** @returns {any | null} */
     function selectedRun() {
         return state.cvRuns.find((run) => run.id === state.selectedCvRunId) || null;
@@ -88,6 +92,7 @@ export function createRoleRunsFeature(ctx) {
         if (noRole && !state.workspace) {
             return;
         }
+        firstRunDue = false;
         const run = noRole ? null : selectedRun();
         if (!run) {
             const source = { url: null, docxUrl: null, label: "no runs yet", steering: "", generatedAt: null };
@@ -144,6 +149,12 @@ export function createRoleRunsFeature(ctx) {
      * @returns {Promise<boolean>} False in file mode, so the caller shows output/tailored.md.
      */
     async function refreshTailoredOutput() {
+        if (firstRunDue) {
+            if (els.tailoredViewer) {
+                els.tailoredViewer.value = FIRST_RUN_TEXT;
+            }
+            return true;
+        }
         const noRole = state.activeRoleId === null;
         if (noRole && !state.workspace) {
             return false;
@@ -180,6 +191,29 @@ export function createRoleRunsFeature(ctx) {
     }
 
     /**
+     * While the first-run choice is due: placeholder preview and Tailored text until the workspace opens.
+     * @returns {void}
+     */
+    function showFirstRun() {
+        firstRunDue = true;
+        setCvRunSource({
+            url: null,
+            docxUrl: null,
+            label: "first run",
+            steering: "",
+            generatedAt: null,
+            placeholder: FIRST_RUN_TEXT,
+        });
+        updatePreview();
+        if (els.tailoredTitle) {
+            els.tailoredTitle.textContent = "Model output";
+        }
+        if (els.tailoredViewer) {
+            els.tailoredViewer.value = FIRST_RUN_TEXT;
+        }
+    }
+
+    /**
      * After a role CV run: reload the history and show the new run when it succeeded.
      * @param {number} roleId Role the run was started for.
      * @param {any} run Final run status (`runId` once saved).
@@ -202,5 +236,6 @@ export function createRoleRunsFeature(ctx) {
         handleRunSelectChanged,
         refreshTailoredOutput,
         afterCvRun,
+        showFirstRun,
     };
 }

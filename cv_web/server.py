@@ -28,6 +28,7 @@ ROOT_DIR = APP_DIR.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+import startup_audit
 from cv_convert import available_themes
 from cv_web.server_run_helpers import (
     _build_research_command,
@@ -54,6 +55,7 @@ from cv_web import server_process_runners as process_runners
 from cv_web.server_http_handlers import (
     dispatch_get,
     dispatch_post,
+    dispatch_put,
     handle_api_research_status_get,
     handle_api_run_status_get,
     handle_cv_run,
@@ -109,7 +111,6 @@ EDITOR_FILES = {
     "prompt": INPUT_DIR / "prompt.md",
     "research_prompt": INPUT_DIR / "research_prompt.md",
     "jobspec": INPUT_DIR / "jobspec.txt",
-    "env": ROOT_DIR / ".env",
 }
 
 ALLOWED_OUTPUT_FILES = {
@@ -746,6 +747,10 @@ class CVWebHandler(BaseHTTPRequestHandler):
         """
         dispatch_post(self, self.path, _http_handler_deps())
 
+    def do_PUT(self) -> None:
+        """Purpose: Route PUT requests (the settings save) to the shared dispatcher."""
+        dispatch_put(self, self.path, _http_handler_deps())
+
 
 def run_server() -> None:
     """Purpose: Run server and return its outcome.
@@ -756,6 +761,7 @@ def run_server() -> None:
     Returns:
     - None. This function performs side effects only.
     """
+    startup_audit.audit_or_exit(ROOT_DIR)
     INPUT_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     LOG_DIR.mkdir(parents=True, exist_ok=True)

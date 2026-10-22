@@ -28,6 +28,18 @@
                 <button id="restartServerBtn" class="btn btn-secondary" type="button">
                     Restart Server
                 </button>
+                <button
+                    id="settingsOpenBtn"
+                    class="btn btn-secondary settings-cog"
+                    type="button"
+                    aria-label="Settings"
+                    title="Settings"
+                >
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+                    </svg>
+                </button>
             </div>
         </header>
 
@@ -141,14 +153,6 @@
                                     aria-selected="false"
                                 >
                                     Steering
-                                </button>
-                                <button
-                                    class="cv-subtab-btn"
-                                    data-cv-tab="env"
-                                    role="tab"
-                                    aria-selected="false"
-                                >
-                                    <span class="tab-label" data-label-for="env">Env</span>
                                 </button>
                                 <button
                                     class="cv-subtab-btn"
@@ -288,26 +292,7 @@
                                     ></textarea>
                                 </section>
 
-                                <section id="tab-env" class="cv-subpanel" role="tabpanel">
-                                    <div class="editor-head">
-                                        <label id="envTitle" for="envEditor">Env</label>
-                                        <div class="file-actions">
-                                            <button
-                                                class="btn btn-secondary file-load-btn"
-                                                data-file="env"
-                                            >
-                                                Load from Disk
-                                            </button>
-                                            <button
-                                                class="btn btn-secondary file-save-btn"
-                                                data-file="env"
-                                            >
-                                                Save
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <textarea id="envEditor" spellcheck="false"></textarea>
-                                </section>
+                                
 
                                 <section id="tab-tailored" class="cv-subpanel" role="tabpanel">
                                     <label id="tailoredTitle" for="tailoredViewer">tailored.md (read-only)</label>
@@ -704,6 +689,61 @@
                     <button id="historyRestoreBtn" class="btn btn-primary" type="button" disabled>
                         Restore as new version
                     </button>
+                </div>
+            </div>
+        </dialog>
+
+        <dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsHeading">
+            <div class="settings-dialog-inner">
+                <header class="settings-dialog-head">
+                    <h2 id="settingsHeading">Settings</h2>
+                    <button id="settingsCloseBtn" class="settings-close" type="button" aria-label="Close settings">
+                        &times;
+                    </button>
+                </header>
+                <div class="settings-toolbar">
+                    <span class="settings-note">Stored in the database.</span>
+                    <div class="file-actions">
+                        <button id="settingsImportBtn" class="btn btn-secondary" type="button">Import…</button>
+                        <button id="settingsSampleBtn" class="btn btn-secondary" type="button">Load sample</button>
+                        <button id="settingsEnvBtn" class="btn btn-secondary" type="button">View as .env</button>
+                    </div>
+                </div>
+                <p id="settingsStatus" class="settings-status" role="status"></p>
+                <div class="cv-subtabbar" role="tablist" aria-label="Settings tabs">
+                    <button class="cv-subtab-btn settings-tab-btn active" data-settings-tab="global" role="tab" aria-selected="true">Global</button>
+                    <button class="cv-subtab-btn settings-tab-btn" data-settings-tab="providers" role="tab" aria-selected="false">Providers</button>
+                    <button class="cv-subtab-btn settings-tab-btn" data-settings-tab="other" role="tab" aria-selected="false">Other values</button>
+                </div>
+                <div class="settings-scroll">
+                    <div id="settingsImportPanel" class="settings-tool" hidden>
+                        <label for="settingsImportText">Paste .env text or choose a file</label>
+                        <textarea id="settingsImportText" spellcheck="false" rows="6"></textarea>
+                        <div class="settings-actions">
+                            <input id="settingsImportFile" type="file" accept=".env,.txt,text/plain" />
+                            <select id="settingsImportMode" aria-label="Import mode">
+                                <option value="merge">Merge (add and update)</option>
+                                <option value="replace">Replace (also remove others)</option>
+                            </select>
+                            <button id="settingsImportPreviewBtn" class="btn btn-secondary" type="button">Preview</button>
+                            <button id="settingsImportApplyBtn" class="btn btn-primary" type="button">Apply</button>
+                            <button id="settingsImportCloseBtn" class="btn btn-secondary" type="button">Close</button>
+                        </div>
+                        <p id="settingsImportResult" class="settings-status" role="status"></p>
+                    </div>
+                    <div id="settingsEnvPanel" class="settings-tool" hidden>
+                        <label for="settingsEnvText">Settings as .env (secrets masked)</label>
+                        <textarea id="settingsEnvText" spellcheck="false" rows="8" readonly></textarea>
+                        <div class="settings-actions">
+                            <button id="settingsEnvRevealBtn" class="btn btn-secondary" type="button">Reveal secrets</button>
+                            <button id="settingsEnvCopyBtn" class="btn btn-secondary" type="button">Copy</button>
+                            <button id="settingsEnvDownloadBtn" class="btn btn-secondary" type="button">Download</button>
+                            <button id="settingsEnvCloseBtn" class="btn btn-secondary" type="button">Close</button>
+                        </div>
+                    </div>
+                    <div id="settingsPanelGlobal" class="settings-panel active" role="tabpanel"></div>
+                    <div id="settingsPanelProviders" class="settings-panel" role="tabpanel"></div>
+                    <div id="settingsPanelOther" class="settings-panel" role="tabpanel"></div>
                 </div>
             </div>
         </dialog>

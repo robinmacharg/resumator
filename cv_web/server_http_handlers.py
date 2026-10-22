@@ -526,3 +526,16 @@ def dispatch_post(handler, request_path: str, deps: dict[str, Any]) -> None:
         return
 
     handler.send_error(HTTPStatus.NOT_FOUND, "Unknown route")
+
+
+def dispatch_put(handler, request_path: str, deps: dict[str, Any]) -> None:
+    """Route and handle incoming PUT requests (only the settings save uses PUT)."""
+    parsed = urlparse(request_path)
+    try:
+        payload = handler._parse_json_body()
+    except ValueError as exc:
+        handler._json_response({"error": str(exc)}, status=400)
+        return
+    if server_roles.dispatch(handler, "PUT", parsed, payload, deps):
+        return
+    handler.send_error(HTTPStatus.NOT_FOUND, "Unknown route")

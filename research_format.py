@@ -6,8 +6,11 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Mapping
 
+import startup_audit
 from cv_convert import choose_font
+from settings_env import one_shot_env
 
 
 def normalize_markdown(text: str) -> str:
@@ -57,16 +60,16 @@ def ensure_heading(text: str, heading: str) -> str:
     return f"# {heading}\n\n{text}" if text else f"# {heading}\n"
 
 
-def resolve_research_pdf_font() -> str:
+def resolve_research_pdf_font(env: Mapping[str, str] | None = None) -> str:
     """Purpose: Execute resolve research pdf font for this module's workflow.
     
     Inputs:
-    - None.
+    - env: Settings environment holding CV_FONT_PRIORITY (default `os.environ`).
     
     Returns:
     - `str` value representing the operation result.
     """
-    preferred_font_raw = os.environ.get("CV_FONT_PRIORITY", "Calibri,Arial,Helvetica")
+    preferred_font_raw = (os.environ if env is None else env).get("CV_FONT_PRIORITY", "Calibri,Arial,Helvetica")
     preferred_fonts = [item.strip() for item in preferred_font_raw.split(",") if item.strip()]
     if not preferred_fonts:
         preferred_fonts = ["Calibri", "Arial", "Helvetica"]
@@ -107,7 +110,9 @@ def compile_pdf(markdown_file: Path, output_pdf: Path, font_name: str) -> None:
         raise RuntimeError(f"PDF generation failed: {message}")
 
 
-def run(input_md: Path, output_md: Path, output_pdf: Path, heading: str) -> int:
+def run(
+    input_md: Path, output_md: Path, output_pdf: Path, heading: str, env: Mapping[str, str] | None = None
+) -> int:
     """Purpose: Run the operation and return its outcome.
     
     Inputs:
@@ -140,7 +145,7 @@ def run(input_md: Path, output_md: Path, output_pdf: Path, heading: str) -> int:
     output_md.write_text(processed + "\n", encoding="utf-8")
     print(f"Wrote formatted markdown: {output_md}")
 
-    font_name = resolve_research_pdf_font()
+    font_name = resolve_research_pdf_font(env)
     print(f"Using research PDF font: {font_name}")
 
     try:
@@ -197,11 +202,13 @@ def main() -> int:
     - `int` value representing the operation result.
     """
     args = parse_args()
+    startup_audit.audit_or_exit()
     return run(
         input_md=Path(args.input_md),
         output_md=Path(args.output_md),
         output_pdf=Path(args.pdf),
         heading=args.title,
+        env=one_shot_env(),
     )
 
 

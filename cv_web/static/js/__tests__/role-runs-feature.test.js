@@ -139,3 +139,21 @@ test("afterCvRun reloads the history and shows the new run", async () => {
     await feature.afterCvRun(8, { runId: 3 });
     assert.equal(state.selectedCvRunId, null);
 });
+
+test("showFirstRun shows placeholders instead of output/ files until a run is shown", async () => {
+    const { feature, state, els, calls } = createHarness({ activeRoleId: null });
+
+    feature.showFirstRun();
+
+    assert.equal(calls.sources.at(-1).url, null);
+    assert.match(calls.sources.at(-1).placeholder, /example data or a blank master CV/);
+    assert.equal(calls.updatePreview, 1);
+    assert.equal(await feature.refreshTailoredOutput(), true);
+    assert.match(els.tailoredViewer.value, /example data or a blank master CV/);
+
+    state.workspace = true;
+    state.activeRoleId = 7;
+    await feature.loadRuns(7);
+    assert.equal(calls.sources.at(-1).url, "/api/roles/7/runs/cv/3/cv.pdf?theme=");
+    assert.equal(els.tailoredViewer.value, JSON.stringify({ name: "Robin" }, null, 2));
+});

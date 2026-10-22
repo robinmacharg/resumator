@@ -1,7 +1,7 @@
 # Multi-role workspace: design
 
 Design record for [multi-role.md](multi-role.md) (status, steps and Handoff live there; the Log in
-[multi-role-log.md](multi-role-log.md)). Keep the schema SQL and the ER diagram in step with `store.MIGRATIONS`.
+[multi-role-log.md](multi-role-log.md)). The ER diagram lives in [../db-schema.md](../db-schema.md); the SQL sketch below is as built in step 2 and is not kept current.
 
 ## Decisions
 
@@ -11,7 +11,7 @@ Design record for [multi-role.md](multi-role.md) (status, steps and Handoff live
 | R2 | **No cross-role copying** for now; copy and paste covers it | Your call. Keeps the model simple |
 | R3 | **First run** for a new user: example data or blank. No general "import existing" option | Your call. Most users have no single-role history to bring over |
 | R4 | **One-time migration for the current install** (a CLI command, not a UI path): today's files become the first role, including the current research output | Your call. It's a one-off move from single-role to multi-role |
-| R5 | **CLI keeps today's one-shot, file-based generation** and adds role mode: `--role "Name" --action cv|research|…` | Your call. Scripting and quick runs stay possible without the DB |
+| R5 | **CLI keeps today's one-shot, file-based generation** and adds role mode: `--role "Name" --action cv|research|…` | Your call. Scripting and quick runs stay possible without the DB. **Superseded for config** by settings-in-db D6: the one-shot scripts read their settings from the DB; CV and job spec input stays file-based |
 | R6 | **Only agent-returned text is stored**; PDFs are rendered on demand | Your call (original brief) |
 | R7 | **Changes between master and role CVs are diffed and merged, never overwritten.** Information removed from a role stays in the master | Your call. A role's deliberate removals must not delete facts from the master |
 | R8 | **The master CV is versioned in the DB**, alongside the role CVs: every save, promotion or merge adds a version with its date and source | Your call. Gives history, undo, and the common ancestor that merges need |
@@ -104,7 +104,7 @@ Master and role CVs are the same kind of thing (CV source text with history), so
   (Candidate, Skills, Directives) count as single units. `difflib` is used only to show what changed inside an
   entry. A renamed heading looks like a removal plus an addition; that's acceptable for now.
 
-### Schema (as built in step 2, `cv_web/store.py` migration 1)
+### Schema (as built in step 2, `cv_web/store.py` migration 1; current schema: [../db-schema.md](../db-schema.md))
 
 ```sql
 schema_version(version PK, applied_at)  -- one row per applied migration (store.MIGRATIONS, append-only)
@@ -134,94 +134,7 @@ version needs one (later versions inherit it from the parent); a CV run's `cv_ve
 Role CV changes and new runs bump `role.updated_at`. Connections: autocommit, `foreign_keys = ON`, WAL,
 `busy_timeout` 5 s, one connection per thread.
 
-```mermaid
-erDiagram
-    role ||--o{ cv_version : "owns (role_id)"
-    cv_version |o--o{ cv_version : "parent_id"
-    cv_version |o--o{ cv_version : "base_master_id (master row)"
-    role ||--o{ cv_run : has
-    role ||--o{ research_run : has
-    cv_version ||--o{ cv_run : "input to"
-    prompt_version ||--o{ cv_run : "prompt_hash"
-    prompt_version ||--o{ research_run : "prompt_hash"
-    schema_version {
-        int version PK
-        text applied_at
-    }
-
-    role {
-        int id PK
-        text slug UK
-        text name
-        text company
-        text status "draft | applied | closed"
-        text jobspec
-        text steering_text
-        int steering_enabled
-        text theme
-        text created_at
-        text updated_at
-    }
-    cv_version {
-        int id PK
-        int role_id FK "NULL = master"
-        int parent_id FK
-        int base_master_id FK
-        text source "seed | edit | promote | pull | import | example"
-        text note
-        text content
-        text created_at
-    }
-    prompt_version {
-        text hash PK
-        text kind "cv | research"
-        text content
-        text created_at
-    }
-    cv_run {
-        int id PK
-        int role_id FK
-        int cv_version_id FK
-        text prompt_hash FK
-        text provider
-        text model
-        text theme
-        text steering_text
-        text raw_output
-        text model_json
-        text warnings_json
-        int page_count
-        text log
-        int success
-        int is_current
-        text started_at
-        text finished_at
-    }
-    research_run {
-        int id PK
-        int role_id FK
-        text prompt_hash FK
-        text provider
-        text model
-        text company
-        text urls_json
-        int dry_run
-        text output_json
-        text output_md
-        text log
-        int success
-        int is_current
-        text started_at
-        text finished_at
-    }
-    setting {
-        text key PK
-        text value
-    }
-```
-
-Keep this diagram in step with the SQL as the schema is refined. DB steps show the current diagram inline when
-proposing or reporting schema changes.
+The ER diagram moved to [../db-schema.md](../db-schema.md), the maintained schema reference.
 
 The streamed run log (what the UI shows live) is saved in the run's `log` column. Failed runs are kept too
 (`success = 0`), so a failure can be inspected later; they are never "current".

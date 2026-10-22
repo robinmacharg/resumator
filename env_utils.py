@@ -13,24 +13,15 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def parse_dotenv_file(path: Path) -> dict[str, str]:
-    """Parse dotenv-style key/value pairs from a file.
-
-    Inputs:
-    - path: Location of the `.env`-style file.
-
-    Returns:
-    - Dictionary of parsed environment values.
+def parse_dotenv_text(text: str) -> dict[str, str]:
+    """Parse dotenv-style key/value pairs from text.
 
     Boundaries:
     - Ignores blank/comment lines, optional `export` prefix, malformed rows,
-      and strips matching quote wrappers around values.
+      and strips matching quote wrappers around values. Later duplicates win.
     """
     env_vars: dict[str, str] = {}
-    if not path.exists():
-        return env_vars
-
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
+    for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
@@ -53,3 +44,10 @@ def parse_dotenv_file(path: Path) -> dict[str, str]:
         env_vars[key] = value
 
     return env_vars
+
+
+def parse_dotenv_file(path: Path) -> dict[str, str]:
+    """Parse a dotenv-style file; a missing file gives an empty mapping."""
+    if not path.exists():
+        return {}
+    return parse_dotenv_text(path.read_text(encoding="utf-8"))

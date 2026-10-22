@@ -1,0 +1,37 @@
+# Settings in the DB: log
+
+Agent log for [index.md](index.md), newest entry last. Append one entry per task; earlier entries are history,
+not instructions.
+
+## Log
+
+- 2026-10-22 · Design · Sketched the move from `.env` to the DB. User decisions D1–D11: new `env_setting` table;
+  plain-text secrets for now with a Security TODO for backups; real-call provider test; `.env` never read and the
+  startup audit refuses to run while one exists (import excepted); fast mode stays global; one-shot scripts read the
+  DB; shell env can't override catalogued keys, one rule for all keys, with CLI flags for one-off overrides; no
+  secrets on the command line (`getpass` instead); `model_providers.json` removed; `~/.gemini/.env` is a warning only.
+- 2026-10-22 · Task 1 · Migration 2 adds `env_setting(key, value, updated_at)` with a key-format CHECK. Store gains
+  `list_env_settings`, `env_settings`, `get_env_setting`, `set_env_setting` (`updated_at` moves only on change),
+  `delete_env_setting`, `replace_env_settings`. Six tests in `EnvSettingTests`; 294 tests pass on 3.13. Migration
+  checked on a backup-API copy of the real DB (v1 → v2, roles intact).
+- 2026-10-22 · Process · Plan split into index, design, per-task files and log; layout and session policy recorded
+  in `docs/plans/README.md` and `AGENTS.md`.
+- 2026-10-22 · Task 2 · `SettingSpec`/`TestResult` in `backends/base.py`; `settings()` on all six backends;
+  `settings_catalog.py` (globals, `catalog`, `catalog_keys`, default and dispatching provider test);
+  `backend_registry.load_backend_objects` (no interrogation). 12 new tests incl. a source grep that every key read
+  is declared; 306 pass on 3.13.
+- 2026-10-22 · Task 3 · `settings_env.py` (effective env, one-shot env with `getpass` prompt per D9). All `.env` and
+  `model_providers.json` reads removed from the server, runner, scripts, `cv_convert`, `research_format` and
+  `provider_catalog`; `env` threaded through rendering. Env tab left for task 7. 319 tests pass on 3.13.
+- 2026-10-22 · Task 4 · `startup_audit.py` (dotenv error; model_providers.json, ~/.gemini/.env, shell-shadow warnings) wired into the server, role CLI and one-shot scripts; `--io json` skipped. 13 new tests; 332 pass on 3.13. The repo's real `.env` now blocks startup until imported (task 5).
+- 2026-10-22 · Task 5 · `env_utils.parse_dotenv_text`; `settings_io.py` (import merge/replace/dry-run diffs of key lists, `env_from_environment`, masked or revealed `env_export`); `examples/settings.example.env`; role CLI actions `settings-import`/`-export`/`-set`/`-test`. 20 new tests; 352 pass on 3.13.
+- 2026-10-22 · Task 6 · `cv_web/server_settings.py` (GET/PUT `/api/settings`, reveal, env text, import, test), routed via `server_roles.dispatch` with a new PUT route table and `do_PUT`. Fixed `is_secret` ignoring the name heuristic for "Other" keys. 12 new tests; 364 pass on 3.13.
+- 2026-10-22 · Process · ER diagram moved from `multi-role-design.md` to `docs/db-schema.md` (now includes `env_setting`, schema version 2), linked from AGENTS.md and architecture.md; AGENTS.md says schema changes update it.
+- 2026-10-22 · Task 7 · Settings pop-over, opened from a header cog (first built as a sub-tab, then moved on request) (`settings-feature.js`, pure `settings-model.js`, `styles/settings.css`) replaces the Env tab; `EDITOR_FILES["env"]` and the frontend env draft code removed. API gained backend `status` and `GET /api/settings/sample`. 14 new frontend tests (108 pass), 366 Python tests pass on 3.13. Smoke-tested over HTTP on a DB copy; visual layout not checked in a browser.
+- 2026-10-22 · Task 8 · First-run Settings step: `first_run.status` reports `hasSettings`; after the example/blank choice the UI opens the Settings pop-over on its import panel (`settingsFeature.openFirstRun`, via `ctx.openSettingsStep`) unless settings exist; closing skips. Cold-start API tests in `test_first_run`; 3 frontend tests. 369 Python / 111 frontend pass; cold start checked over HTTP on a scratch DB.
+- 2026-10-22 · Task 8 follow-up · User's manual cold start: a stale `-shm` (held open by a SQLite viewer) next to the new DB gave `disk I/O error`; safe-move note added to task 9. The first-run dialog showed `input/CV.md` (file-mode startup load); the CV and job spec editors are now cleared while the choice is due. Full file-mode removal stays a TODO item.
+- 2026-10-22 · Task 9 · Real DB restored from the task 8 `.bak_tmp` aside (migration 2 applied), backed up, and `.env` (moved by the user to `~/dev/.env`) imported: 22 keys, audit clean. Gemini test OK; HF/OpenAI out of credit and Swiftlet down, accepted. Cold-start rehearsal on a scratch DB (setup, revealed export → import `--delete-after`, Gemini test) passed. Browser check of tasks 7–8 still outstanding.
+- 2026-10-22 · Task 9 follow-up · Settings tabs: `cvTabButtons` selected the Settings tab buttons too (shared `.cv-subtab-btn`), so Global lost its selected state; selector narrowed to `[data-cv-tab]`. Gemini-only keys (`GEMINI_CLI_TRUST_WORKSPACE`, 429 and hard-quota `RESEARCH_GEMINI_*`) moved to the Gemini backend's Advanced; heartbeat stays global (all providers); unused `RESEARCH_GEMINI_TIMEOUT_SECONDS` dropped. 370 Python / 111 frontend pass.
+- 2026-10-22 · Task 9 follow-up · Disclosure arrows: `.settings-card summary` (flex) also hit the nested Advanced summaries and hid their markers; scoped to `> summary`, and provider card headers get a drawn ▸ that turns when open.
+- 2026-10-22 · Task 10 · Docs: AGENTS.md config invariant (DB holds keys, audit, declare new keys), README (Settings, first-run import, audit fix), backends.md precedence (D8/D9/D11) and CLI actions, architecture.md `EDITOR_FILES`/pop-over, multi-role R5 superseded by D6, two stale gaps removed. `.env` grep clean apart from history and import. Plan done; browser check of tasks 7–8 still outstanding.
+- 2026-10-22 · Task 10 follow-up · User's cold start showed the old `output/tailored_dev.pdf` in the preview while the first-run choice was due (file-mode fallback). `roleRunsFeature.showFirstRun` sets a placeholder preview source and Tailored text until the workspace opens. 112 frontend tests pass. Research preview and Run Log can still show `output/` / last file-mode run (role research display is a known gap).

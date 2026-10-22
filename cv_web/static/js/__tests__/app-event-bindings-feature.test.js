@@ -66,7 +66,7 @@ function createHarness(overrides = {}) {
             createElement({ researchOutputTab: "command" }),
         ],
         fileSaveButtons: [createElement({ file: "cv" }), createElement({ file: "prompt" })],
-        fileLoadButtons: [createElement({ file: "env" }), createElement({ file: "jobspec" })],
+        fileLoadButtons: [createElement({ file: "research_prompt" }), createElement({ file: "jobspec" })],
         paneSplitter: createElement(),
         researchSplitters: [createElement({ researchSplitter: "top" })],
         modelSelect: createElement(),

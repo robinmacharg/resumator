@@ -19,11 +19,9 @@ from types import ModuleType
 from typing import Any
 
 from backends.base import Backend, BackendStatus
-from env_utils import parse_dotenv_file
 
 ROOT_DIR = Path(__file__).resolve().parent
 BACKENDS_DIR = ROOT_DIR / "backends"
-ENV_FILE_PATH = ROOT_DIR / ".env"
 
 
 @dataclass
@@ -43,18 +41,18 @@ class BackendCatalog:
     providers: list[dict[str, Any]]
 
 
-def runtime_env() -> dict[str, str]:
+def runtime_env(stored: dict[str, str] | None = None) -> dict[str, str]:
     """Build process environment values used by backend discovery and calls.
 
     Inputs:
-    - None.
+    - stored: Settings from the DB (`cv_web.store.env_settings`), or None for none.
 
     Returns:
-    - A merged environment dictionary where `.env` values override OS values.
+    - `os.environ` without catalogued keys, plus `stored` (see `settings_env.resolve_env`).
     """
-    merged = os.environ.copy()
-    merged.update(parse_dotenv_file(ENV_FILE_PATH))
-    return merged
+    from settings_env import resolve_env
+
+    return resolve_env(stored or {})
 
 
 def _iter_backend_module_paths(backends_dir: Path = BACKENDS_DIR) -> list[Path]:
@@ -127,6 +125,26 @@ def _safe_status(backend: Backend, env: dict[str, str]) -> BackendStatus:
     )
 
 
+def load_backend_objects() -> list[Backend]:
+    """Instantiate every loadable backend without interrogating it (no network, no autostart).
+
+    Returns:
+    - Backends in module order; modules that fail to load, or repeat an id, are skipped.
+    """
+    backends: list[Backend] = []
+    seen_ids: set[str] = set()
+    for module_path in _iter_backend_module_paths():
+        try:
+            backend_obj = _import_backend_module(module_path).get_backend()
+        except Exception:
+            continue
+        backend_id = str(getattr(backend_obj, "id", "")).strip()
+        if backend_id and backend_id not in seen_ids:
+            seen_ids.add(backend_id)
+            backends.append(backend_obj)
+    return backends
+
+
 def discover_backends(env: dict[str, str] | None = None) -> list[RegisteredBackend]:
     """Discover and interrogate all backend modules in the backends directory.
 
@@ -140,7 +158,7 @@ def discover_backends(env: dict[str, str] | None = None) -> list[RegisteredBacke
     - Duplicate backend ids are ignored after first occurrence.
     - Module load failures are represented as disabled fallback backends.
     """
-    process_env = env or runtime_env()
+    process_env = runtime_env() if env is None else env
     registered: list[RegisteredBackend] = []
     seen_ids: set[str] = set()
 

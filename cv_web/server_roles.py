@@ -13,6 +13,7 @@ Design notes (docs/plans/multi-role-design.md R6, R16, R21):
   `/api/run/status` and `/api/research/status` show their progress (with `roleId`, and `runId` once saved).
 - PDFs and DOCX are rendered from the run's raw output on demand, never stored (R6). `RENDER_CACHE` keeps them in
   memory by (run, theme, format); a finished run warms it with its own PDF (R16).
+- The `/api/settings…` routes live in `cv_web/server_settings.py` and are routed here (GET, PUT, POST).
 - Archiving is `status = closed` through the update route (R21).
 """
 
@@ -29,10 +30,11 @@ from typing import Any
 from urllib.parse import parse_qs
 
 from cv_convert import available_themes, render_cv
-from cv_web import first_run, role_merge, role_runner, store
+from cv_web import first_run, role_merge, role_runner, server_settings, store
 from cv_web import server_runtime_state as runtime
 from cv_web.server_request_parsing import parse_selected_model, parse_selected_provider, parse_url_list
 from cv_web.server_run_helpers import _build_research_run_state, _build_run_state
+from settings_env import effective_env
 
 DB_PATH = store.DB_PATH
 EXAMPLES_DIR = first_run.EXAMPLES_DIR
@@ -117,7 +119,7 @@ def render_run(conn: sqlite3.Connection, run: dict[str, Any], theme: str, output
     key = cache_key(run["id"], theme, output_format)
     data = RENDER_CACHE.get(key)
     if data is None:
-        data = render_cv(run_markdown(conn, run), output_format, key[1] or None)
+        data = render_cv(run_markdown(conn, run), output_format, key[1] or None, env=effective_env(conn))
         if data is None:
             raise ApiError(f"Rendering CV run {run['id']} as {output_format} failed (see the server log)", 500)
         RENDER_CACHE.put(key, data)
@@ -138,6 +140,12 @@ def camel(row: dict[str, Any] | None) -> dict[str, Any] | None:
 
 def connect() -> sqlite3.Connection:
     return store.connect(DB_PATH)
+
+
+def settings_env() -> dict[str, str]:
+    """The environment runs and provider checks see: process env minus catalogued keys, plus the DB's settings."""
+    with closing(connect()) as conn:
+        return effective_env(conn)
 
 
 def _require_role(conn: sqlite3.Connection, role_id: int) -> dict[str, Any]:
@@ -351,6 +359,12 @@ _GET_ROUTES = [
     (re.compile(r"/api/master/cv/versions/(?P<version>\d+)"), "get_master_cv_version"),
     (re.compile(r"/api/master/import"), "get_import"),
     (re.compile(r"/api/setup"), "get_setup"),
+    (re.compile(r"/api/settings"), "get_settings"),
+    (re.compile(r"/api/settings/env"), "get_env_text"),
+    (re.compile(r"/api/settings/sample"), "get_sample"),
+]
+_PUT_ROUTES = [
+    (re.compile(r"/api/settings"), "put_settings"),
 ]
 _POST_ROUTES = [
     (re.compile(r"/api/roles"), "create_role"),
@@ -365,6 +379,9 @@ _POST_ROUTES = [
     (re.compile(r"/api/master/cv/versions/(?P<version>\d+)/restore"), "restore_master_cv"),
     (re.compile(r"/api/master/import"), "save_import"),
     (re.compile(r"/api/setup"), "save_setup"),
+    (re.compile(r"/api/settings/reveal"), "reveal_setting"),
+    (re.compile(r"/api/settings/import"), "import_settings"),
+    (re.compile(r"/api/settings/test"), "test_provider"),
 ]
 
 
@@ -378,7 +395,7 @@ def _match(routes: list, route: str) -> tuple[str, dict[str, str]] | None:
 
 def dispatch(handler, method: str, parsed: Any, payload: dict[str, Any] | None, deps: dict[str, Any]) -> bool:
     """Handle a role API request. Returns False when the route isn't one of ours."""
-    matched = _match(_GET_ROUTES if method == "GET" else _POST_ROUTES, parsed.path)
+    matched = _match({"GET": _GET_ROUTES, "PUT": _PUT_ROUTES}.get(method, _POST_ROUTES), parsed.path)
     if matched is None:
         return False
     name, params = matched
@@ -569,4 +586,11 @@ _HANDLERS = {
     "select_run": _select_run,
     "start_run": _start_run_handler,
     "get_run_document": _get_run_document,
+    "get_settings": server_settings.get_settings,
+    "put_settings": server_settings.put_settings,
+    "reveal_setting": server_settings.reveal_setting,
+    "get_env_text": server_settings.get_env_text,
+    "get_sample": server_settings.get_sample,
+    "import_settings": server_settings.import_settings,
+    "test_provider": server_settings.test_provider,
 }

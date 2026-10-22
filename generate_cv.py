@@ -11,9 +11,11 @@ from datetime import date, datetime
 from pathlib import Path
 
 import cv_source
+import startup_audit
 from cv_convert import convert_markdown_outputs, count_pdf_pages, render_cv
 from backend_registry import get_backend_or_raise
 from provider_catalog import load_provider_catalog, provider_map
+from settings_env import SettingsError, one_shot_env
 from pipe_io import optional_text, require_text, run_json_io
 from provider_clients import AttemptResult
 
@@ -24,7 +26,6 @@ CV_FILE = INPUT_DIR / "CV.md"
 JOBSPEC_FILE = INPUT_DIR / "jobspec.txt"
 PROMPT_FILE = INPUT_DIR / "prompt.md"
 STEERING_FILE = INPUT_DIR / "steering.md"
-ENV_FILE = Path(".env")
 TAILORED_MD = OUTPUT_DIR / "tailored.md"
 RAW_MODEL_OUTPUT_FILE = OUTPUT_DIR / "tailored.model-output.txt"
 RAW_MODEL_JSON_FILE = OUTPUT_DIR / "tailored.model.json"
@@ -112,7 +113,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--model", default="", help="Explicit model override")
     parser.add_argument("--cv", default=str(CV_FILE), help=f"Master CV source file (default: {CV_FILE})")
-    parser.add_argument("--theme", default=None, help="PDF theme preset in themes/ (default: $CV_THEME)")
+    parser.add_argument("--theme", default=None, help="PDF theme preset in themes/ (default: the CV_THEME setting)")
+    parser.add_argument("--db", default=None, help="Settings DB (default: cv_web/resumator.db)")
+    parser.add_argument("--fast", action="store_true", help="Fast mode for this run (overrides CV_FAST_MODE)")
+    parser.add_argument("--font-priority", default=None, help="Comma-separated fonts for this run (overrides CV_FONT_PRIORITY)")
     parser.add_argument(
         "--steering-file",
         default=str(STEERING_FILE),
@@ -230,37 +234,6 @@ def run_gemini_with_diagnostics(
         stderr=stderr_text,
     )
     return completed, end_elapsed, log_path
-
-def load_dotenv_file(path: Path) -> dict:
-    """Load key/value pairs from a simple .env file without extra dependencies."""
-    env_vars: dict[str, str] = {}
-    if not path.exists():
-        return env_vars
-
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-
-        if line.startswith("export "):
-            line = line[len("export "):].strip()
-
-        if "=" not in line:
-            continue
-
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip()
-
-        if not key:
-            continue
-
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
-            value = value[1:-1]
-
-        env_vars[key] = value
-
-    return env_vars
 
 
 def build_prompt(
@@ -1049,6 +1022,7 @@ def run_cv(
     request: dict,
     *,
     files: bool,
+    env: dict | None = None,
     cv_label: str = "the request's CV",
     steering_label: str = "the request",
 ) -> dict:
@@ -1057,16 +1031,19 @@ def run_cv(
     files=True is the one-shot mode: it writes output/ (raw output, model JSON, tailored.md, PDF, DOCX, attempt
     logs) as before. files=False (`--io json`) writes nothing: attempt logs go to stderr and the PDF is rendered in
     memory into the result's `pdf_base64`.
+
+    env is the process environment for the run (default `os.environ`): `--io json` runs get the DB's settings from
+    their parent, and the one-shot mode resolves them from the DB first. No `.env` file is read.
     """
     result = new_cv_result()
     try:
-        _run_cv(request, result, files=files, cv_label=cv_label, steering_label=steering_label)
+        _run_cv(request, result, files=files, env=env, cv_label=cv_label, steering_label=steering_label)
     except RunFailed as exc:
         result["error"] = str(exc)
     return result
 
 
-def _run_cv(request: dict, result: dict, *, files: bool, cv_label: str, steering_label: str) -> None:
+def _run_cv(request: dict, result: dict, *, files: bool, env: dict | None, cv_label: str, steering_label: str) -> None:
     """The steps of run_cv, filling `result` as they go; raises RunFailed when the run stops."""
     print("Reading inputs...")
     cv_doc = cv_source.parse_cv_source(request["cv"])
@@ -1088,13 +1065,12 @@ def _run_cv(request: dict, result: dict, *, files: bool, cv_label: str, steering
     today = date.today()
     role_cutoff = selected_roles_cutoff(today)
 
-    # 3. Build process environment from current env + .env file
-    process_env = os.environ.copy()
-    process_env.update(load_dotenv_file(ENV_FILE))
+    # 3. Process environment: the one the caller resolved from the DB settings
+    process_env = dict(os.environ if env is None else env)
     # Headless automation: allow Gemini CLI to run in this workspace without
     # interactive trust prompts.
     process_env.setdefault("GEMINI_CLI_TRUST_WORKSPACE", "true")
-    catalog = load_provider_catalog(Path("model_providers.json"))
+    catalog = load_provider_catalog(process_env)
     providers = provider_map(catalog)
     default_provider = str(catalog.get("defaultProvider") or "gemini").strip() or "gemini"
 
@@ -1192,7 +1168,7 @@ def _run_cv(request: dict, result: dict, *, files: bool, cv_label: str, steering
             print("Last error details:", file=sys.stderr)
             print(last_error, file=sys.stderr)
         print(
-            "Set GEMINI_MODEL and GEMINI_MODEL_FALLBACKS in .env to customize retries.",
+            "Set GEMINI_MODEL and GEMINI_MODEL_FALLBACKS in Settings to customize retries.",
             file=sys.stderr,
         )
         raise RunFailed("provider call failed across all configured models")
@@ -1248,6 +1224,7 @@ def _run_cv(request: dict, result: dict, *, files: bool, cv_label: str, steering
             output_docx=OUTPUT_DOCX,
             sanitized_markdown_path=OUTPUT_DIR / "tailored.export.md",
             theme=theme,
+            env=process_env,
         )
         if conversion_result.used_sanitized_markdown:
             print(
@@ -1260,7 +1237,7 @@ def _run_cv(request: dict, result: dict, *, files: bool, cv_label: str, steering
         pdf_name = str(OUTPUT_PDF)
     else:
         print("Rendering the PDF in memory...")
-        pdf_bytes = render_cv(tailored_markdown, "pdf", theme=theme)
+        pdf_bytes = render_cv(tailored_markdown, "pdf", theme=theme, env=process_env)
         pdf_ok = pdf_bytes is not None
         docx_ok = False
         page_count = count_pdf_pages(pdf_bytes) if pdf_bytes else None
@@ -1325,6 +1302,7 @@ def main() -> None:
     if args.io == "json":
         sys.exit(run_json_io(handle_json_request))
 
+    startup_audit.audit_or_exit()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     DEBUG_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -1348,7 +1326,17 @@ def main() -> None:
         "provider": args.provider,
         "model": args.model,
     }
-    result = run_cv(request, files=True, cv_label=str(cv_file), steering_label=args.steering_file)
+    overrides = {}
+    if args.fast:
+        overrides["CV_FAST_MODE"] = "true"
+    if args.font_priority:
+        overrides["CV_FONT_PRIORITY"] = args.font_priority
+    try:
+        env = one_shot_env(args.db, args.provider, overrides)
+    except SettingsError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+    result = run_cv(request, files=True, env=env, cv_label=str(cv_file), steering_label=args.steering_file)
     if not result["success"]:
         sys.exit(1)
 

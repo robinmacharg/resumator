@@ -35,7 +35,7 @@ export function createDraftFilesFeature(ctx) {
 
     /**
      * Current values of every editor, role-owned ones included.
-     * @returns {{cv: string, prompt: string, research_prompt: string, jobspec: string, env: string}}
+     * @returns {{cv: string, prompt: string, research_prompt: string, jobspec: string}}
      */
     function currentFileValues() {
         return {
@@ -43,14 +43,13 @@ export function createDraftFilesFeature(ctx) {
             prompt: els.promptEditor.value,
             research_prompt: els.researchPromptEditor.value,
             jobspec: els.jobspecEditor.value,
-            env: els.envEditor.value,
         };
     }
 
     /**
      * Editor values that belong to `input/` files: in role mode the CV and job spec are left out, so file
      * endpoints never write a role's content to disk.
-     * @returns {{cv?: string, prompt: string, research_prompt: string, jobspec?: string, env: string}}
+     * @returns {{cv?: string, prompt: string, research_prompt: string, jobspec?: string}}
      */
     function currentFiles() {
         const files = currentFileValues();
@@ -131,7 +130,7 @@ export function createDraftFilesFeature(ctx) {
      */
     function writeDraftToLocalStorage() {
         const files = currentFiles();
-        ["cv", "prompt", "research_prompt", "jobspec", "env"].forEach((key) => {
+        ["cv", "prompt", "research_prompt", "jobspec"].forEach((key) => {
             if (key in files) {
                 setStorageString(localStorageKeys[key], files[key]);
             }
@@ -152,13 +151,12 @@ export function createDraftFilesFeature(ctx) {
             localStorageKeys.research_company,
             localStorageKeys.research_urls,
             localStorageKeys.jobspec,
-            localStorageKeys.env,
         ]);
     }
 
     /**
      * Load persisted draft values into editors/inputs.
-     * @param {any} [diskFiles={}] Current disk values used for env fallback behavior.
+     * @param {any} [diskFiles={}] Current disk values (unused; kept for the caller's signature).
      * @returns {void}
      */
     function loadLocalDraft(diskFiles = {}) {
@@ -169,7 +167,6 @@ export function createDraftFilesFeature(ctx) {
         const researchCompany = getStorageString(localStorageKeys.research_company);
         const researchUrls = getStorageString(localStorageKeys.research_urls);
         const jobspec = roleOwned.includes("jobspec") ? null : getStorageString(localStorageKeys.jobspec);
-        const env = getStorageString(localStorageKeys.env);
 
         if (cv !== null) {
             els.cvEditor.value = cv;
@@ -188,14 +185,6 @@ export function createDraftFilesFeature(ctx) {
         }
         if (jobspec !== null) {
             els.jobspecEditor.value = jobspec;
-        }
-        if (env !== null) {
-            const diskEnv = diskFiles.env || "";
-            if (env === "" && diskEnv.trim() !== "") {
-                els.envEditor.value = diskEnv;
-            } else {
-                els.envEditor.value = env;
-            }
         }
 
         syncResearchMirrorEditorsFromPrimary();
@@ -216,7 +205,6 @@ export function createDraftFilesFeature(ctx) {
         if (!roleOwned.includes("jobspec")) {
             els.jobspecEditor.value = files.jobspec || "";
         }
-        els.envEditor.value = files.env || "";
         syncResearchMirrorEditorsFromPrimary();
     }
 
@@ -232,7 +220,6 @@ export function createDraftFilesFeature(ctx) {
             prompt: files.prompt || "",
             research_prompt: files.research_prompt || "",
             jobspec: files.jobspec || "",
-            env: files.env || "",
         };
         getRoleOwnedKeys().forEach((key) => {
             state.diskFiles[key] = previous[key] || "";
@@ -285,7 +272,6 @@ export function createDraftFilesFeature(ctx) {
             els.jobspecEditor,
             els.researchJobspecEditor,
             els.researchCvEditor,
-            els.envEditor,
         ].forEach((editor) => {
             if (!editor) {
                 return;

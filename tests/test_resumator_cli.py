@@ -29,6 +29,8 @@ class CliTestCase(unittest.TestCase):
         self.db = self.tmp / "test.db"
         self.conn = store.connect(self.db)
         self.addCleanup(self.conn.close)
+        # The audit scans the real repo (which may hold a .env); its own tests cover it.
+        self.enterContext(mock.patch.object(resumator.startup_audit, "run_audit", return_value=[]))
 
     def cli(self, *args: str) -> tuple[int, str, str]:
         out, err = io.StringIO(), io.StringIO()

@@ -11,7 +11,7 @@ function createLocalStorageMock() {
     };
 }
 
-const KEYS = ["cv", "prompt", "research_prompt", "jobspec", "env"];
+const KEYS = ["cv", "prompt", "research_prompt", "jobspec"];
 const localStorageKeys = {
     ...Object.fromEntries(KEYS.map((key) => [key, `cvweb.${key}`])),
     research_company: "cvweb.research.company",
@@ -25,7 +25,6 @@ function createHarness(roleOwned) {
         promptEditor: { value: "prompt" },
         researchPromptEditor: { value: "rp" },
         jobspecEditor: { value: "role job" },
-        envEditor: { value: "" },
         researchJobspecEditor: { value: "" },
         researchCvEditor: { value: "" },
         researchCompanyInput: { value: "" },
@@ -56,7 +55,7 @@ test("role mode keeps the role's CV and job spec out of files, drafts and snapsh
     const { feature, state, els } = createHarness(["cv", "jobspec"]);
     feature.applyRoleFiles({ cv: "role cv", jobspec: "role job" });
 
-    assert.deepEqual(Object.keys(feature.currentFiles()), ["prompt", "research_prompt", "env"]);
+    assert.deepEqual(Object.keys(feature.currentFiles()), ["prompt", "research_prompt"]);
     assert.equal(feature.currentFileValues().cv, "role cv");
 
     feature.writeDraftToLocalStorage();

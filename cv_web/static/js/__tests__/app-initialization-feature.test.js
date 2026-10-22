@@ -62,7 +62,7 @@ function createHarness(options = {}) {
     };
 
     const statePayload = options.statePayload || {
-        files: { cv: "cv", prompt: "prompt", research_prompt: "rp", jobspec: "job", env: "env" },
+        files: { cv: "cv", prompt: "prompt", research_prompt: "rp", jobspec: "job" },
         providers: {
             defaultProvider: "gemini",
             options: [{ value: "gemini", label: "Gemini", enabled: true }],

@@ -81,10 +81,12 @@ function createHarness({
         reload: 0,
         dialog: [],
         tailored: 0,
+        firstRunPreview: 0,
+        settingsStep: 0,
         onCreate: () => {},
     };
     const state = { workspace: false, activeRoleId: null, roles: [], cvSource: "role", diskFiles: {} };
-    const editors = { cv: "", jobspec: "", prompt: "p", research_prompt: "rp", env: "" };
+    const editors = { cv: "", jobspec: "", prompt: "p", research_prompt: "rp" };
     const els = {
         body: fakeElement("body"),
         roleList: fakeElement("ul"),
@@ -150,6 +152,9 @@ function createHarness({
         currentFileValues: () => ({ ...editors }),
         applySteering: (steering) => calls.steering.push(steering),
         applyTheme: (theme) => calls.theme.push(theme),
+        openSettingsStep: () => {
+            calls.settingsStep += 1;
+        },
         roleRunsFeature: {
             loadRuns: async (roleId) => calls.loadRuns.push(roleId),
             showSelectedRun: () => {
@@ -157,6 +162,9 @@ function createHarness({
             },
             refreshTailoredOutput: async () => {
                 calls.tailored += 1;
+            },
+            showFirstRun: () => {
+                calls.firstRunPreview += 1;
             },
         },
         confirm,
@@ -168,11 +176,15 @@ function createHarness({
 }
 
 test("initialize on a new install offers the first-run choice and stays out of role mode", async () => {
-    const { feature, state, els, calls } = createHarness({ roles: [], setup: { needed: true } });
+    const { feature, state, els, calls, editors } = createHarness({ roles: [], setup: { needed: true } });
+    editors.cv = "cv from input/";
+    editors.jobspec = "job from input/";
 
     await feature.initialize();
 
     assert.deepEqual(calls.dialog, ["open"]);
+    assert.deepEqual([editors.cv, editors.jobspec], ["", ""]);
+    assert.equal(calls.firstRunPreview, 1);
     assert.equal(state.workspace, false);
     assert.deepEqual(feature.getRoleOwnedKeys(), []);
     assert.equal(els.body.classList.contains("role-mode"), false);
@@ -255,6 +267,7 @@ test("choosing example data loads the example role", async () => {
     assert.equal(state.activeRoleId, 1);
     assert.equal(els.body.classList.contains("no-role"), false);
     assert.match(calls.status.at(-1).message, /Example data loaded/);
+    assert.equal(calls.settingsStep, 1);
 });
 
 test("choosing blank opens the master alone; a refusal keeps the dialog open", async () => {
@@ -268,10 +281,20 @@ test("choosing blank opens the master alone; a refusal keeps the dialog open", a
     assert.deepEqual(calls.dialog, ["open"]);
     assert.equal(els.firstRunError.textContent, "First-run setup is already done");
 
+    assert.equal(calls.settingsStep, 0);
+
     assert.equal(await feature.chooseFirstRun("blank"), true);
     assert.equal(state.workspace, true);
     assert.equal(state.activeRoleId, null);
     assert.equal(state.cvSource, "master");
+    assert.equal(calls.settingsStep, 1);
+});
+
+test("the Settings step is skipped when settings are already stored", async () => {
+    const { feature, calls } = createHarness({ roles: [], setup: { needed: true, hasSettings: true } });
+    await feature.initialize();
+    assert.equal(await feature.chooseFirstRun("blank"), true);
+    assert.equal(calls.settingsStep, 0);
 });
 
 test("initialize opens the remembered role and fills the role-owned editors", async () => {

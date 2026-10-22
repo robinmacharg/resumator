@@ -1,0 +1,205 @@
+/* Settings pop-over (cog in the header): almost full screen, dismissed by the X, Escape or a click outside. */
+
+/* Sizes the modal dialog to most of the viewport; the inner wrapper fills it so only the backdrop hits the dialog. */
+.settings-dialog {
+  width: min(70rem, 94vw);
+  height: 92vh;
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.settings-dialog[open] {
+  display: block;
+}
+
+.settings-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+/* Stacks heading, toolbar and the scrolling body. */
+.settings-dialog-inner {
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.25rem;
+}
+
+.settings-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-dialog-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+/* The X close icon. */
+.settings-close {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.4rem;
+}
+
+.settings-close:hover {
+  color: var(--ink);
+}
+
+/* Import / sample / view buttons under the heading. */
+.settings-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.settings-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Scrolls everything below the toolbar. */
+.settings-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 1rem;
+}
+
+/* Tab panels: only the active one shows. */
+.settings-panel {
+  display: none;
+  padding-top: 0.75rem;
+}
+
+.settings-panel.active {
+  display: block;
+}
+
+/* Cog button at the far right of the header. */
+.settings-cog {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+}
+
+/* Lays labels, inputs and per-field buttons on one row. */
+.settings-field {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) 1fr auto;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  margin-bottom: 0.4rem;
+}
+
+/* Puts a field's help text under its input. */
+.settings-help {
+  grid-column: 2 / -1;
+  display: block;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+/* Rows of the Other editor: name, value, remove. */
+.settings-other-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+/* Provider card: collapsible, with a status badge in its summary. */
+.settings-card {
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: var(--panel);
+  padding: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* Own summary only: a nested Advanced summary keeps its native marker. Flex drops the marker, so draw one. */
+.settings-card > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+
+.settings-card > summary::before {
+  content: "▸";
+  display: inline-block;
+  transition: transform 0.15s;
+}
+
+.settings-card[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.settings-advanced > summary {
+  cursor: pointer;
+}
+
+/* Enabled / not configured pill. */
+.settings-badge {
+  font-size: 0.72rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+
+.settings-badge-on {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+
+.settings-badge-off {
+  color: var(--muted);
+}
+
+/* Button row under a block or tool. */
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* Import and .env view panels above the form. */
+.settings-tool {
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  padding: 0.6rem;
+  margin-bottom: 0.75rem;
+  background: var(--panel);
+}
+
+.settings-tool textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, monospace;
+}
+
+.settings-status,
+.settings-test-result {
+  margin: 0.25rem 0;
+  min-height: 1.1em;
+  font-size: 0.85rem;
+}
+
+.settings-error {
+  color: var(--danger);
+}

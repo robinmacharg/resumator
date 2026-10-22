@@ -11,6 +11,8 @@ Design notes (docs/plans/multi-role-design.md "First-run behaviour"):
   successful CV run, so the run picker and preview work without a model call. Files in `examples/`.
 - **Blank:** a master CV template full of TODOs (`examples/blank-cv.md`) and no roles.
 - Both master versions use source `example` (shipped content), with a note saying which.
+- `hasSettings` (settings-in-db task 8): after the choice the UI offers a Settings step (import, the sample, or
+  skip) when no `env_setting` rows are stored yet. Stored settings don't count as data for `needed`.
 """
 
 from __future__ import annotations
@@ -39,7 +41,8 @@ class FirstRunError(Exception):
 
 
 def status(conn: sqlite3.Connection) -> dict[str, Any]:
-    """`{needed, done, hasMaster, roleCount}`: needed = the first-run choice is still due."""
+    """`{needed, done, hasMaster, roleCount, hasSettings}`: needed = the first-run choice is still due;
+    hasSettings = any provider/global settings are stored (else the UI offers its Settings step)."""
     done = store.get_setting(conn, SETTING_KEY)
     has_master = store.current_cv_version(conn, None) is not None
     role_count = len(store.list_roles(conn))
@@ -48,6 +51,7 @@ def status(conn: sqlite3.Connection) -> dict[str, Any]:
         "done": done,
         "hasMaster": has_master,
         "roleCount": role_count,
+        "hasSettings": bool(store.env_settings(conn)),
     }
 
 

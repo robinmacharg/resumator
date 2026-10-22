@@ -11,6 +11,9 @@ import tempfile
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Mapping
+
+import startup_audit
 
 THEMES_DIR = Path(__file__).resolve().parent / "themes"
 STYLES_FILTER = THEMES_DIR / "styles.lua"
@@ -438,9 +441,9 @@ def compile_docx(markdown_file: Path, output_docx: Path, font_name: str) -> bool
         return False
 
 
-def preferred_font() -> str:
-    """The first installed font from CV_FONT_PRIORITY (default Calibri, Arial, Helvetica)."""
-    preferred_font_raw = os.environ.get("CV_FONT_PRIORITY", "Calibri,Arial,Helvetica")
+def preferred_font(env: Mapping[str, str] | None = None) -> str:
+    """The first installed font from CV_FONT_PRIORITY in env (default Calibri, Arial, Helvetica)."""
+    preferred_font_raw = (os.environ if env is None else env).get("CV_FONT_PRIORITY", "Calibri,Arial,Helvetica")
     preferred_fonts = [item.strip() for item in preferred_font_raw.split(",") if item.strip()]
     if not preferred_fonts:
         preferred_fonts = ["Calibri", "Arial", "Helvetica"]
@@ -513,20 +516,22 @@ def render_docx_bytes(export_text: str, font_name: str) -> bytes | None:
     return run_pandoc_to_bytes(args, export_text, "Pandoc DOCX")
 
 
-def render_cv(markdown_text: str, output_format: str = "pdf", theme: str | None = None) -> bytes | None:
+def render_cv(
+    markdown_text: str, output_format: str = "pdf", theme: str | None = None, env: Mapping[str, str] | None = None
+) -> bytes | None:
     """Render tagged markdown to PDF or DOCX bytes in memory: no input or output files.
 
-    `theme` names a PDF preset in themes/ (default: the CV_THEME env var, else the default theme); DOCX ignores
-    it. Returns None when the render fails (the reason goes to stderr).
+    `theme` names a PDF preset in themes/ (default: CV_THEME in env, else the default theme); DOCX ignores
+    it. `env` supplies CV_THEME and CV_FONT_PRIORITY (default `os.environ`). Returns None when the render fails (the reason goes to stderr).
     """
     if output_format not in ("pdf", "docx"):
         raise ValueError(f"Unknown output format: {output_format!r}")
     export_text, _ = export_markdown(markdown_text)
-    font_name = preferred_font()
+    font_name = preferred_font(env)
     if output_format == "docx":
         return render_docx_bytes(export_text, font_name)
     if theme is None:
-        theme = os.environ.get("CV_THEME")
+        theme = (os.environ if env is None else env).get("CV_THEME")
     return render_pdf_bytes(export_text, font_name, theme)
 
 
@@ -552,19 +557,21 @@ def convert_markdown_outputs(
     sanitized_markdown_path: Path | None = None,
     pdf_only: bool = False,
     theme: str | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> ConversionResult:
     """Convert a markdown CV to PDF and DOCX outputs.
 
     The tagged markdown becomes one semantic export file (front matter stripped)
     that both outputs compile from; the looks come from themes/. `theme` names a
-    PDF preset in themes/ (default: the CV_THEME env var, else the default theme).
+    PDF preset in themes/ (default: CV_THEME in env, else the default theme); `env` also
+    supplies CV_FONT_PRIORITY (default `os.environ`).
     """
     if not markdown_path.exists():
         raise FileNotFoundError(f"Markdown file not found: {markdown_path}")
 
-    chosen_font = preferred_font()
+    chosen_font = preferred_font(env)
     if theme is None:
-        theme = os.environ.get("CV_THEME")
+        theme = (os.environ if env is None else env).get("CV_THEME")
 
     export_text, stripped_frontmatter = export_markdown(markdown_path.read_text(encoding="utf-8"))
     export_path = sanitized_markdown_path or markdown_path.with_suffix(".export.md")
@@ -629,9 +636,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--theme",
         default=None,
-        help="PDF theme preset in themes/ layered on default.typ, e.g. compact (default: $CV_THEME)",
+        help="PDF theme preset in themes/ layered on default.typ, e.g. compact (default: the CV_THEME setting)",
     )
     return parser.parse_args()
+
+
+def db_env() -> dict[str, str]:
+    """The settings DB's environment, for the standalone command (theme and font priority live there)."""
+    from settings_env import one_shot_env
+
+    return one_shot_env()
 
 
 def main() -> None:
@@ -644,6 +658,7 @@ def main() -> None:
     - None. This function performs side effects only.
     """
     args = parse_args()
+    startup_audit.audit_or_exit()
     markdown_path = Path(args.markdown)
     output_pdf = Path(args.pdf)
     output_docx = Path(args.docx)
@@ -657,6 +672,7 @@ def main() -> None:
             sanitized_markdown_path=sanitized_markdown,
             pdf_only=args.pdf_only,
             theme=args.theme,
+            env=db_env(),
         )
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)

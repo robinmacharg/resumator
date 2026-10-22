@@ -175,6 +175,6 @@ Baseline test material (user's suggestion): `input/CV.md` and the current output
 `tailored.model.json`, `tailored_dev.pdf` and `tailored_dev.docx` (21 Oct; `tailored.pdf`/`.docx` from July are stale).
 Use them read-only for local checks, and in tests only with a skip when they're absent (`output/` is gitignored and the
 CV is real), without copying their content into committed fixtures.
-Schema changes go in a new `store.MIGRATIONS` entry; never edit migration 1. Keep the diagram and SQL in step. Each
+Schema changes go in a new `store.MIGRATIONS` entry; never edit migration 1. Keep the ER diagram in [docs/db-schema.md](../db-schema.md) in step. Each
 stage should leave the app working. S5 (steps 15–18, token efficiency) is a follow-up after S4. The related work is in
 [cv-format-revamp.md](cv-format-revamp.md) (steering D11/D23, theme picker, run metadata).
